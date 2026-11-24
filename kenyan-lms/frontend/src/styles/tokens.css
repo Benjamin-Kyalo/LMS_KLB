@@ -1,0 +1,45 @@
+/* Design tokens: one place for the visual identity.
+ *
+ * Hierarchy: green is primary, blue is secondary, warm paper is the
+ * background and white is reserved for surfaces (cards, tables, modals).
+ * Contrast ratios were checked with WCAG maths; see docs/DESIGN_SYSTEM.md.
+ */
+:root {
+  /* Neutrals — warm, not stark, to reduce glare in bright classrooms. */
+  --paper: #f7f4ed;
+  --paper-2: #efe9dc;
+  --surface: #fffdf8;
+  --white: #ffffff;
+  --ink: #16211d;
+  --ink-soft: #4a5550;
+  /* Muted text: 5.56:1 on white, 4.60:1 on the darkest tint. */
+  --ink-faint: #5f6b65;
+  --line: #d9d2c2;
+  --line-strong: #b9b09c;
+
+  /* Primary: deep forest green. 12.2:1 on white. */
+  --forest: #0b3d2e;
+  --forest-2: #14563f;
+  --green-tint: #e3efe9;
+
+  /* Secondary: slate blue for links, info and digital/learning cues. 7.2:1. */
+  --blue: #1c5d7e;
+  --blue-2: #165e83;
+  --blue-tint: #e8f0f6;
+
+  /* Accent: ochre is decorative only (2.9:1, fails as text).
+     Use amber when the accent must be read as words (5.9:1). */
+  --ochre: #c98a2b;
+  --amber-text: #8a5a15;
+  --clay: #b4552d;
+
+  /* Semantic states. */
+  --good: #2e6b4f;
+  --warn: #8a5a15;
+  --bad: #a13b2e;
+
+  --radius: 6px;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-body: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Code", "Consolas", "Courier New", monospace;
+}

@@ -1,0 +1,27 @@
+# =================================================================
+# Backend dependencies - pinned versions for repeatable installs.
+# Install with:  python -m pip install -r requirements.txt
+# =================================================================
+
+# Web framework and API layer
+Django==6.1.3
+djangorestframework==3.18.3
+
+# PostgreSQL driver. The [binary] extra gives a prebuilt Windows wheel.
+psycopg[binary]==3.3.9
+
+# Reads settings from the .env file (no secrets in source code)
+django-environ==0.14.0
+
+# Allows the React development server to call the Django API
+django-cors-headers==4.9.0
+
+# Image validation for textbook cover images
+Pillow==11.3.0
+
+# Filtering and querying support for REST API list endpoints
+django-filter==26.2
+
+# Automated testing
+pytest==9.2.0
+pytest-django==4.14.0
