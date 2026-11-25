@@ -1,10 +1,11 @@
-"""Structured conflict responses for offline mutation replay.
+"""Structured conflict responses for concurrent web writes.
 
 Two layers:
 
 * ``conflict_exception_handler`` is installed globally. It turns a database
   uniqueness/foreign-key failure into a structured HTTP 409 instead of a 500,
-  so a queued offline mutation receives a conflict it can surface to the user.
+  so the web client receives a conflict it can surface to the user and retry
+  deliberately.
 * ``ConflictAwareMixin`` is opt-in. When a client sends ``If-Match`` with the
   ``updated_at`` value it originally loaded, a stale PATCH/PUT/DELETE returns
   409 with the current server representation. Clients that do not send

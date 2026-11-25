@@ -11,7 +11,7 @@ export default function Lessons() {
         { key: "module", label: "Module ID" },
         { key: "content_type", label: "Type", render: (r) => <span className="tag info">{r.content_type}</span> },
         { key: "estimated_minutes", label: "Minutes" },
-        { key: "is_downloadable", label: "Offline", render: (r) => (r.is_downloadable ? "Yes" : "No") },
+        { key: "is_downloadable", label: "Downloadable", render: (r) => (r.is_downloadable ? "Yes" : "No") },
       ]}
       fields={[
         { name: "module", label: "Module ID", required: true },
@@ -24,9 +24,9 @@ export default function Lessons() {
         { name: "content", label: "Lesson content", type: "textarea", full: true },
         { name: "media_url", label: "Media URL (optional)", full: true },
         { name: "sequence", label: "Order", type: "number", default: 1 },
-        { name: "is_downloadable", label: "Available offline", type: "checkbox" },
+        { name: "is_downloadable", label: "Downloadable", type: "checkbox" },
       ]}
-      emptyHint="Lessons belong to a module. Tick 'Available offline' to allow caching."
+      emptyHint="Lessons belong to a module. Tick 'Downloadable' when the lesson may be downloaded for later reading."
     />
   );
 }

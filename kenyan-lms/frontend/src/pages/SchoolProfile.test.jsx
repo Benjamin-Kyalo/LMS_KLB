@@ -19,7 +19,7 @@ const school = {
 const mocks = vi.hoisted(() => ({
   patch: vi.fn(async () => ({})),
   upload: vi.fn(async () => ({})),
-  get: vi.fn(async () => ({ id: 1, role: "SCHOOL_ADMIN" })),
+  get: vi.fn(async () => ({ id: 1, role: "ADMIN" })),
   reload: vi.fn(),
   push: vi.fn(),
 }));
@@ -28,7 +28,7 @@ vi.mock("../services/api", () => ({
   api: { patch: mocks.patch, upload: mocks.upload, get: mocks.get },
 }));
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ user: { id: 1, role: "SCHOOL_ADMIN" }, setUser: vi.fn() }),
+  useAuth: () => ({ user: { id: 1, role: "ADMIN" }, setUser: vi.fn() }),
 }));
 vi.mock("../context/ToastContext", () => ({
   useToast: () => ({ push: mocks.push }),

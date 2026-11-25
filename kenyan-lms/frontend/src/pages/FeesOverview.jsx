@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useResource } from "../hooks/useApi";
 import StatCard from "../components/StatCard";
 import Loading from "../components/Loading";
+import RollingLabel from "../components/RollingLabel";
 
 const money = (value) => (value === null || value === undefined
   ? "—"
@@ -20,10 +21,14 @@ export default function FeesOverview() {
           <div className="overline">School office</div>
           <h1>Fees</h1>
         </div>
-        <div className="actions"><button className="secondary" onClick={summary.reload}>Refresh</button></div>
+        <div className="actions">
+          <button className="secondary" onClick={summary.reload}>
+            <RollingLabel>Refresh</RollingLabel>
+          </button>
+        </div>
       </div>
 
-      {summary.error && <div className="notice error" style={{ marginBottom: "1rem" }}>{summary.error}</div>}
+      {summary.error && <div className="notice error" role="alert" style={{ marginBottom: "1rem" }}>{summary.error}</div>}
 
       <div className="stat-grid">
         <StatCard label="Invoices" value={data.invoices ?? "—"} to="/admin/fees/invoices" />
@@ -35,9 +40,9 @@ export default function FeesOverview() {
       <div className="panel panel-pad" style={{ marginTop: "1.2rem" }}>
         <h2 style={{ marginTop: 0 }}>Manage the ledger</h2>
         <div className="row-actions">
-          <Link className="button" to="/admin/fees/structures">Fee structures</Link>
-          <Link className="button secondary" to="/admin/fees/invoices">Invoices</Link>
-          <Link className="button secondary" to="/admin/fees/payments">Payments</Link>
+          <Link className="button-link" to="/admin/fees/structures"><RollingLabel>Fee structures</RollingLabel></Link>
+          <Link className="button-link secondary" to="/admin/fees/invoices"><RollingLabel>Invoices</RollingLabel></Link>
+          <Link className="button-link secondary" to="/admin/fees/payments"><RollingLabel>Payments</RollingLabel></Link>
         </div>
         <p className="muted" style={{ marginBottom: 0 }}>
           This is a local record of what the school has billed and received. No card details,

@@ -12,9 +12,9 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.constants import Roles
+from apps.core.constants import Capabilities, Roles
 from apps.core.concurrency import ConflictAwareMixin
-from apps.core.permissions import same_institution
+from apps.core.permissions import has_capability, is_staff_user, same_institution
 from apps.core.viewsets import (
     AdminWriteMixin, InstitutionScopedQuerysetMixin, StaffWriteMixin,
 )
@@ -22,13 +22,14 @@ from apps.fees.models import FeeInvoice, FeeStructure, Payment
 from apps.fees.serializers import (
     FeeInvoiceSerializer, FeeStructureSerializer, PaymentSerializer,
 )
-from apps.learners.models import LearnerGuardian
+from apps.learners.scoping import FamilyScopedReadMixin, visible_learner_ids
 from apps.reports.scoping import scoped_institution_id
 
 
 class FeeStructureViewSet(
     ConflictAwareMixin, AdminWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet
 ):
+    capability = Capabilities.FEES_MANAGE
     queryset = FeeStructure.objects.select_related("term", "school_class")
     serializer_class = FeeStructureSerializer
     filterset_fields = ["term", "school_class", "is_active"]
@@ -37,11 +38,17 @@ class FeeStructureViewSet(
 
 
 class FeeInvoiceViewSet(
-    ConflictAwareMixin, StaffWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet
+    FamilyScopedReadMixin, ConflictAwareMixin, StaffWriteMixin,
+    InstitutionScopedQuerysetMixin, viewsets.ModelViewSet
 ):
+    capability = Capabilities.FEES_MANAGE
     queryset = FeeInvoice.objects.select_related("learner__user", "fee_structure")
     serializer_class = FeeInvoiceSerializer
     filterset_fields = ["learner", "status", "fee_structure"]
+    # Same family rule as the my-invoices portal endpoint: a verified link
+    # must explicitly grant can_view_fees.
+    learner_path = "learner"
+    guardian_permission = "can_view_fees"
     search_fields = ["reference", "learner__user__first_name", "learner__user__last_name"]
     ordering_fields = ["issue_date", "due_date", "amount_due", "status"]
 
@@ -71,6 +78,7 @@ class FeeInvoiceViewSet(
 class PaymentViewSet(
     ConflictAwareMixin, StaffWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet
 ):
+    capability = Capabilities.FEES_MANAGE
     queryset = Payment.objects.select_related("invoice", "recorded_by")
     serializer_class = PaymentSerializer
     filterset_fields = ["invoice", "method", "recorded_by"]
@@ -92,18 +100,18 @@ class PaymentViewSet(
 def my_invoices(request):
     """Invoices for the signed-in learner, or for a guardian's linked learners.
 
-    A guardian link must explicitly grant ``can_view_fees``. This endpoint does
-    not expose school-wide invoices to families.
+    A verified guardian link must explicitly grant ``can_view_fees``. This
+    endpoint shares its family scoping helper with the invoice ViewSet and
+    never exposes school-wide invoices to families.
     """
     user = request.user
     if user.role == Roles.LEARNER:
         invoices = FeeInvoice.objects.filter(learner__user=user)
     elif user.role == Roles.GUARDIAN:
-        learner_ids = LearnerGuardian.objects.filter(
-            guardian__user=user, can_view_fees=True
-        ).values_list("learner_id", flat=True)
-        invoices = FeeInvoice.objects.filter(learner_id__in=learner_ids)
-    elif user.role in Roles.STAFF_ROLES:
+        invoices = FeeInvoice.objects.filter(
+            learner_id__in=visible_learner_ids(user, "can_view_fees")
+        )
+    elif is_staff_user(user) or has_capability(user, Capabilities.FEES_MANAGE):
         learner_id = request.query_params.get("learner")
         if not learner_id:
             raise ValidationError({"learner": "A learner id is required for staff views."})

@@ -13,16 +13,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useTheme } from "../context/ThemeContext";
 
-const CHART_COLOURS = ["#0B3D2E", "#1C5D7E", "#8A5A15", "#4E8A6D", "#A9BBAF"];
-
-function ChartBody({ type, data, xKey, series }) {
+function ChartBody({ type, data, xKey, series, colors }) {
   if (type === "pie") {
     return (
       <PieChart>
         <Pie data={data} dataKey="value" nameKey="label" innerRadius="35%" outerRadius="70%" paddingAngle={2}>
           {data.map((entry, index) => (
-            <Cell key={entry.label || entry.status || index} fill={CHART_COLOURS[index % CHART_COLOURS.length]} />
+            <Cell key={entry.label || entry.status || index} fill={colors.chart[index % colors.chart.length]} />
           ))}
         </Pie>
         <Tooltip />
@@ -34,7 +33,7 @@ function ChartBody({ type, data, xKey, series }) {
   const Chart = type === "line" ? LineChart : BarChart;
   return (
     <Chart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-      <CartesianGrid strokeDasharray="3 3" stroke="#DDE3DC" vertical={false} />
+      <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} vertical={false} />
       <XAxis dataKey={xKey} tick={{ fontSize: 11 }} interval="preserveStartEnd" />
       <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
       <Tooltip />
@@ -46,7 +45,7 @@ function ChartBody({ type, data, xKey, series }) {
             type="monotone"
             dataKey={item.key}
             name={item.label || item.key}
-            stroke={item.colour || CHART_COLOURS[index % CHART_COLOURS.length]}
+            stroke={item.colour || colors.chart[index % colors.chart.length]}
             strokeWidth={2}
             dot={{ r: 2 }}
             connectNulls
@@ -56,7 +55,7 @@ function ChartBody({ type, data, xKey, series }) {
             key={item.key}
             dataKey={item.key}
             name={item.label || item.key}
-            fill={item.colour || CHART_COLOURS[index % CHART_COLOURS.length]}
+            fill={item.colour || colors.chart[index % colors.chart.length]}
             radius={[3, 3, 0, 0]}
           />
         )
@@ -74,6 +73,7 @@ export default function ChartCard({
   series = [],
   emptyText = "No records to chart yet.",
 }) {
+  const { colors } = useTheme();
   const hasData = data.length > 0;
   return (
     <section className="panel panel-pad chart-card" aria-label={title}>
@@ -82,7 +82,7 @@ export default function ChartCard({
       <div className="chart-wrap">
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <ChartBody type={type} data={data} xKey={xKey} series={series} />
+            <ChartBody type={type} data={data} xKey={xKey} series={series} colors={colors} />
           </ResponsiveContainer>
         ) : (
           <div className="chart-empty">{emptyText}</div>

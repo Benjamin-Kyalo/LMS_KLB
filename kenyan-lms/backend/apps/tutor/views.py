@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.throttling import TutorThrottle
 from apps.core.viewsets import InstitutionScopedQuerysetMixin
 from apps.tutor.models import TutorConversation, TutorMessage
 from apps.tutor.scoping import (
@@ -43,6 +44,7 @@ class TutorConversationViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelVie
 
     queryset = TutorConversation.objects.select_related("learner", "started_by")
     serializer_class = TutorConversationSerializer
+    throttle_classes = [TutorThrottle]
     filterset_fields = ["status", "learner"]
     search_fields = ["reference", "title"]
     write_object_actions = {"update", "partial_update", "destroy", "ask"}

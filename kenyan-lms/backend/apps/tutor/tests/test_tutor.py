@@ -1,6 +1,7 @@
 """Curriculum-grounded learning assistant. By default it is fully local and deterministic; an optional HTTP provider can be configured with environment variables, but no credentials are bundled and no external service is contacted unless explicitly configured."""
 import os
 from unittest.mock import patch
+from urllib.error import URLError
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -33,7 +34,7 @@ class TutorTests(APITestCase):
         )
         # Reuse the seeded demo accounts; create them only if the test database
         # has no demo data. No password is supplied or printed either way.
-        self.admin = self._user("demo_admin", Roles.SCHOOL_ADMIN, spare_school)
+        self.admin = self._user("demo_admin", Roles.ADMIN, spare_school)
         self.school = self.admin.institution or spare_school
         if self.admin.institution_id is None:
             self.admin.institution = self.school
@@ -121,7 +122,7 @@ class TutorTests(APITestCase):
 
     def test_ask_persists_messages_and_answers_from_stored_text(self):
         self.client.force_authenticate(user=self.admin)
-        with patch("apps.tutor.service.urlopen", side_effect=AssertionError("network")) as remote:
+        with patch("apps.tutor.service._open_url", side_effect=AssertionError("network")) as remote:
             response = self.client.post(
                 reverse("tutorconversation-ask", args=[self.conversation.pk]),
                 {"question": "Explain whole numbers up to 10,000"},
@@ -144,7 +145,7 @@ class TutorTests(APITestCase):
 
     def test_unrelated_question_returns_fallback_without_network(self):
         self.client.force_authenticate(user=self.admin)
-        with patch("apps.tutor.service.urlopen", side_effect=AssertionError("network")) as remote:
+        with patch("apps.tutor.service._open_url", side_effect=AssertionError("network")) as remote:
             response = self.client.post(
                 reverse("tutorconversation-ask", args=[self.conversation.pk]),
                 {"question": "Hello there, how are you?"},
@@ -164,14 +165,52 @@ class TutorTests(APITestCase):
             os.environ.pop("KLB_TUTOR_API_KEY", None)
             provider = get_provider()
             self.assertEqual(provider.name, "http")
-            with patch("apps.tutor.service.urlopen", side_effect=AssertionError("network")) as remote:
+            with patch("apps.tutor.service._open_url", side_effect=AssertionError("network")) as remote:
                 result = provider.answer("Explain whole numbers up to 10,000", self.school)
             remote.assert_not_called()
             self.assertTrue(result["grounded"])
 
+    def test_http_provider_refuses_non_https_and_unlisted_hosts(self):
+        with patch.dict(os.environ, {
+            "KLB_TUTOR_PROVIDER": "http",
+            "KLB_TUTOR_API_URL": "http://tutor.example.invalid/answer",
+            "KLB_TUTOR_API_KEY": "never-a-real-key",
+            "KLB_TUTOR_ALLOWED_HOSTS": "tutor.example.invalid",
+        }, clear=False), patch(
+            "apps.tutor.service._open_url", side_effect=AssertionError("network")
+        ) as remote:
+            result = get_provider().answer("Explain whole numbers up to 10,000", self.school)
+        remote.assert_not_called()
+        self.assertTrue(result["grounded"])
+
+        with patch.dict(os.environ, {
+            "KLB_TUTOR_PROVIDER": "http",
+            "KLB_TUTOR_API_URL": "https://other.example.invalid/answer",
+            "KLB_TUTOR_API_KEY": "never-a-real-key",
+            "KLB_TUTOR_ALLOWED_HOSTS": "tutor.example.invalid",
+        }, clear=False), patch(
+            "apps.tutor.service._open_url", side_effect=AssertionError("network")
+        ) as remote:
+            result = get_provider().answer("Explain whole numbers up to 10,000", self.school)
+        remote.assert_not_called()
+        self.assertTrue(result["grounded"])
+
+    def test_http_provider_fails_closed_on_redirect(self):
+        with patch.dict(os.environ, {
+            "KLB_TUTOR_PROVIDER": "http",
+            "KLB_TUTOR_API_URL": "https://tutor.example.invalid/answer",
+            "KLB_TUTOR_API_KEY": "never-a-real-key",
+            "KLB_TUTOR_ALLOWED_HOSTS": "tutor.example.invalid",
+        }, clear=False), patch(
+            "apps.tutor.service._open_url", side_effect=URLError("redirect refused")
+        ) as remote:
+            result = get_provider().answer("Explain whole numbers up to 10,000", self.school)
+        remote.assert_called_once()
+        self.assertTrue(result["grounded"])
+
     def test_question_is_sanitised_before_it_is_stored(self):
         self.client.force_authenticate(user=self.admin)
-        with patch("apps.tutor.service.urlopen", side_effect=AssertionError("network")):
+        with patch("apps.tutor.service._open_url", side_effect=AssertionError("network")):
             response = self.client.post(
                 reverse("tutorconversation-ask", args=[self.conversation.pk]),
                 {"question": "\x00Explain whole\x01 numbers up to 10,000   "},
@@ -238,7 +277,7 @@ class TutorTests(APITestCase):
         self.assertEqual(created.learner_id, self.learner.pk)
         self.assertEqual(created.institution_id, self.school.pk)
 
-        with patch("apps.tutor.service.urlopen", side_effect=AssertionError("network")):
+        with patch("apps.tutor.service._open_url", side_effect=AssertionError("network")):
             answer = self.client.post(
                 reverse("tutorconversation-ask", args=[created.pk]),
                 {"question": OUTCOME_TEXT},

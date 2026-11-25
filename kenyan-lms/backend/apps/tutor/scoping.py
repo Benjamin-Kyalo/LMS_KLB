@@ -9,6 +9,7 @@ the two cannot disagree.
 from django.db.models import Q
 
 from apps.core.constants import Roles
+from apps.core.permissions import is_staff_user
 from apps.guardians.models import Guardian
 from apps.learners.models import Learner, LearnerGuardian
 from apps.tutor.models import TutorConversation
@@ -17,7 +18,7 @@ from apps.tutor.models import TutorConversation
 def is_tutor_staff(user):
     return bool(
         user.is_authenticated
-        and user.role in Roles.STAFF_ROLES
+        and is_staff_user(user)
     )
 
 

@@ -7,7 +7,7 @@ import Register from "./Register";
 const mocks = vi.hoisted(() => ({
   api: { post: vi.fn(async () => ({ id: 9 })) },
   listAll: vi.fn(async () => [{ id: 3, name: "Mwangaza Demo School", code: "DEMO01" }]),
-  signIn: vi.fn(async () => ({ user: { id: 9, role: "LEARNER" } })),
+  signIn: vi.fn(async () => ({ user: { id: 9, role: "LEARNER", onboarding: { is_complete: true } } })),
 }));
 
 vi.mock("../services/api", () => ({ api: mocks.api, listAll: mocks.listAll }));
@@ -18,6 +18,7 @@ function renderPage() {
     <MemoryRouter initialEntries={["/register"]}>
       <Routes>
         <Route path="/register" element={<Register />} />
+        <Route path="/onboarding" element={<div>First-time setup</div>} />
         <Route path="/portal" element={<div>Portal after sign-in</div>} />
       </Routes>
     </MemoryRouter>
@@ -37,7 +38,7 @@ describe("public registration", () => {
 
     expect(screen.queryByRole("radio", { name: /administrator/i })).toBeNull();
     expect([...container.querySelectorAll("a")].some((link) => (link.getAttribute("href") || "").includes("/admin"))).toBe(false);
-    expect(screen.getByText(/secure, single-use invitation token/)).toBeTruthy();
+    expect(screen.getByText(/Administrator accounts need a secure invitation/)).toBeTruthy();
     expect(screen.getByLabelText("Date of birth")).toBeTruthy();
 
     await user.click(screen.getByRole("radio", { name: /Teacher/ }));
@@ -55,7 +56,7 @@ describe("public registration", () => {
 
     await user.type(screen.getByLabelText("First name"), "Test");
     await user.type(screen.getByLabelText("Last name"), "Learner");
-    await user.type(screen.getByLabelText("Username"), "test_learner");
+    await user.type(screen.getByLabelText(/^Username/), "test_learner");
     await user.type(screen.getByLabelText("Email"), "test.learner@example.invalid");
     await user.type(screen.getByLabelText(/^Password/), "TestPass123");
     await user.type(screen.getByLabelText("Confirm password"), "TestPass123");
@@ -64,11 +65,56 @@ describe("public registration", () => {
     await user.selectOptions(screen.getByLabelText("School / institution"), "3");
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
-    await waitFor(() => expect(screen.getByText("Portal after sign-in")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Portal after sign-in")).toBeTruthy(), { timeout: 10000 });
     expect(mocks.api.post).toHaveBeenCalledWith(
       "/auth/register/",
       expect.objectContaining({ role: "LEARNER", username: "test_learner" })
     );
     expect(mocks.signIn).toHaveBeenCalledWith("test_learner", "TestPass123");
+  });
+
+  it("asks guardians for a learner identifier and sends it in the registration payload", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("radio", { name: /Parent \/ Guardian/ }));
+    expect(screen.getByText(/Your school verifies this link before any learner data is shown/)).toBeTruthy();
+
+    await user.type(screen.getByLabelText("First name"), "Mary");
+    await user.type(screen.getByLabelText("Last name"), "Otieno");
+    await user.type(screen.getByLabelText(/^Username/), "test_guardian");
+    await user.type(screen.getByLabelText("Email"), "test.guardian@example.invalid");
+    await user.type(screen.getByLabelText(/^Password/), "TestPass123");
+    await user.type(screen.getByLabelText("Confirm password"), "TestPass123");
+    await user.selectOptions(screen.getByLabelText("School / institution"), "3");
+    await user.type(screen.getByLabelText("Relationship to learner"), "Parent");
+    await user.type(screen.getByLabelText(/Learner admission or assessment number/), "ADM-100");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() => expect(mocks.api.post).toHaveBeenCalledWith(
+      "/auth/register/",
+      expect.objectContaining({ role: "GUARDIAN", learner_identifier: "ADM-100" }),
+    ));
+  });
+
+  it("sends incomplete accounts to first-time setup after registration", async () => {
+    const user = userEvent.setup();
+    mocks.signIn.mockResolvedValueOnce({
+      user: { id: 10, role: "LEARNER", onboarding: { is_complete: false } },
+    });
+    renderPage();
+
+    await user.type(screen.getByLabelText("First name"), "New");
+    await user.type(screen.getByLabelText("Last name"), "Learner");
+    await user.type(screen.getByLabelText(/^Username/), "setup_learner");
+    await user.type(screen.getByLabelText("Email"), "setup@example.invalid");
+    await user.type(screen.getByLabelText(/^Password/), "TestPass123");
+    await user.type(screen.getByLabelText("Confirm password"), "TestPass123");
+    await user.type(screen.getByLabelText("Date of birth"), "2012-05-04");
+    await user.selectOptions(screen.getByLabelText("Gender"), "F");
+    await user.selectOptions(screen.getByLabelText("School / institution"), "3");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() => expect(screen.getByText("First-time setup")).toBeTruthy());
   });
 });

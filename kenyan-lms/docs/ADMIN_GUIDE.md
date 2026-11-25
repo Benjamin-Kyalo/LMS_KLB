@@ -5,18 +5,34 @@ portal at `/portal/...`. See `docs/ADMIN_ACCESS.md` for safe sign-in, password
 reset commands and what to do if you are locked out. No passwords are recorded
 in these documents.
 
+**Current direction:** normal web app only. The offline mutation queue,
+sync/conflict UI, service worker, PWA manifest and native wrapper were removed.
+Failed saves show an error and remain unsaved; uploads require a live
+connection. Authentication uses HttpOnly session cookies with `X-CSRFToken`,
+and identity/roles are re-read from `/api/auth/me/`. Content, assessment,
+course, learner, fee and attendance reads are scoped server-side; see
+`SECURITY_AUDIT.md`.
+
 ## Roles and what they can do
 
 | Role | Scope | Key permissions |
 |---|---|---|
-| `SUPER_ADMIN` | All institutions | Create institutions, all data |
-| `PLATFORM_ADMIN` | All institutions | Create institutions, all data |
-| `INSTITUTION_ADMIN` | Own institution | Manage people, structure, reports |
-| `SCHOOL_ADMIN` | Own institution | Same as above |
+| `SUPER_ADMIN` | Global | Unrestricted access, including institution management and granting any role |
+| `ADMIN` | Own institution | Unrestricted CRUD, including creating/assigning custom roles; cannot grant `SUPER_ADMIN` or create global institutions |
+| `CUSTOM` | Own institution, picked capabilities | Named reusable role with a `custom_role` id; enters `/admin` only with `admin.access`, and the backend enforces the other capabilities |
 | `TEACHER` | Own institution | Classes, courses, assessment, attendance |
 | `LEARNER` | Own records | Courses, textbooks, own progress |
 | `GUARDIAN` | Linked learners only | Reports and messages |
-| `CONTENT_MANAGER` | Catalogue | Publish textbooks (platform-level) |
+
+`PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `SCHOOL_ADMIN` and `CONTENT_MANAGER` are
+retired names; existing accounts are migrated to `ADMIN` without changing or
+printing passwords. `SUPER_ADMIN` is unchanged. Custom roles pick from
+`admin.access`, `users.manage`, `roles.manage`, `academics.manage`,
+`learners.manage`, `teachers.manage`, `guardians.manage`, `courses.manage`,
+`assessments.manage`, `content.manage`, `attendance.manage`, `fees.manage`,
+`communications.manage`, `reports.view`, `appearance.manage`,
+`institutions.manage` and `tutor.use`. They are managed at `/api/auth/roles/`;
+`/api/auth/users/roles/` lists built-ins plus custom options.
 
 Learners and guardians only see the portal side; `LEARNER` records are their
 own, and `GUARDIAN` records are limited to linked learners. They may read the
@@ -34,29 +50,31 @@ school identity but may not edit the school profile.
 
 ## The isolation rule
 
-A non-platform user is restricted to `user.institution_id` on every
-institution-scoped list. Detail access returns 404 rather than 403 where the
+Every user other than `SUPER_ADMIN` is restricted to `user.institution_id` on
+institution-scoped lists. Detail access returns 404 rather than 403 where the
 object is filtered out of the queryset — this avoids revealing that another
 school's record exists. A user with no institution gets an empty queryset.
 
 ## Creating a school
 
-1. Sign in as `platform_admin`.
+1. Sign in as `SUPER_ADMIN`.
 2. Go to `/admin/institutions` (**Institutions → New**).
 3. Fill name, code, type ID, county. Create the institution type first via
    `POST /api/institutions/types/` if needed.
-4. Create a school administrator account for that institution.
-5. The school administrator can then complete contact details and the logo at
+4. Create an `ADMIN` account for that institution (`ADMIN` cannot create global
+   institutions).
+5. That administrator can then complete contact details and the logo at
    `/admin/school` (**School profile**).
 
 ## Editing your own school profile
 
-School and institution admins open `/admin/school`. The page reads and writes
+`ADMIN` and `SUPER_ADMIN` open `/admin/school`. The page reads and writes
 `GET/PATCH /api/institutions/mine/`, so it can only ever affect the caller's
 own institution. Editable details include name, phone, email, website, motto
-and physical address. The logo must be JPG, PNG or WebP and at most 2 MB.
-Upload it while online — it is not added to the offline queue. Learners and
-guardians may read the school details but get HTTP 403 if they try to PATCH.
+and physical address. The logo must be JPG, PNG or WebP and at most 2 MB, with
+server-side magic-byte validation. Upload it with a live connection: a failed
+upload shows an error and is not saved, so retry it. Learners and guardians may
+read the school details but get HTTP 403 if they try to PATCH.
 
 The profile API returns the logo URL as `logo`. The user profile API
 `GET /api/auth/me/` returns `institution_logo` (an absolute URL), which both
@@ -94,7 +112,8 @@ structure. Set `is_current` on the active year and term.
 
 `content_contentaccess` grants an institution access to a title. Only titles
 with status `PUBLISHED` and an active grant appear in
-`GET /api/content/available/`. Content managers publish via
+`GET /api/content/available/`. Staff with `content.manage` (an `ADMIN` or a
+custom role with that capability) publish via
 `POST /api/content/textbooks/{id}/publish/`.
 
 ## Audit trail

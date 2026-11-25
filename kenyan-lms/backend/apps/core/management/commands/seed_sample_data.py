@@ -25,8 +25,13 @@ from apps.academics.models import SchoolEvent, TimetableEntry
 from apps.assessments.models import Answer, Exam, ExamResult, Question, Quiz, QuizAttempt, QuizQuestion
 from apps.attendance.models import AttendanceRecord
 from apps.communications.models import Announcement, Message, Notification, NotificationPreference
-from apps.content.models import Chapter, ContentAccess, ContentResource, DigitalTextbook, Exercise, ExerciseAttempt, Publisher
-from apps.core.constants import ContentStatus, Roles
+from apps.content.models import (
+    Chapter, ContentAccess, ContentResource, DigitalTextbook, EmbedProvider,
+    Exercise, ExerciseAttempt, Publisher, ResourceCollection,
+)
+from apps.core.constants import (
+    ContentStatus, EmbedProviderKind, ResourceAccessScope, ResourceDelivery, Roles,
+)
 from apps.core.models import AuditLog
 from apps.curriculum.models import (
     Competency, CompetencyEvidence, CurriculumFramework, EducationLevel,
@@ -126,7 +131,8 @@ TRACKED_MODELS = [
     "assessments.Answer", "assessments.Exam", "assessments.ExamResult",
     "content.Publisher", "content.DigitalTextbook", "content.Chapter",
     "content.ContentResource", "content.Exercise", "content.ExerciseAttempt",
-    "content.ContentAccess", "communications.Announcement",
+    "content.ResourceCollection", "content.EmbedProvider", "content.ContentAccess",
+    "communications.Announcement",
     "communications.Notification", "communications.Message",
     "communications.NotificationPreference", "reports.ReportSnapshot", "core.AuditLog",
     "fees.FeeStructure", "fees.FeeInvoice", "fees.Payment",
@@ -620,7 +626,7 @@ class Command(BaseCommand):
                     institution=self.school,
                     module=module,
                     title=f"Sample Lesson {module_index:02d}",
-                    content="Sample lesson content for offline and online testing.",
+                    content="Sample lesson content for web delivery testing.",
                     content_type="TEXT",
                     learning_outcome=outcomes[(index - 1) % len(outcomes)],
                     estimated_minutes=15 + module_index * 5,
@@ -802,6 +808,22 @@ class Command(BaseCommand):
 
     def seed_content(self, subjects, framework, outcomes):
         publishers, textbooks, chapters, exercises = [], [], [], []
+        levels = list(framework.levels.order_by("sequence", "name"))
+        collection = self.ensure(
+            ResourceCollection, "content.ResourceCollection",
+            {"name": "Sample revision collection"},
+            name="Sample revision collection",
+            slug="sample-revision",
+            description="Clearly fictional resources for catalogue testing.",
+        )
+        self.ensure(
+            EmbedProvider, "content.EmbedProvider",
+            {"host": "www.youtube.com"},
+            name="Sample YouTube",
+            host="www.youtube.com",
+            kind=EmbedProviderKind.YOUTUBE,
+            is_active=True,
+        )
         for index in range(1, 13):
             publisher = self.ensure(
                 Publisher, "content.Publisher",
@@ -837,6 +859,9 @@ class Command(BaseCommand):
                     sequence=chapter_index,
                 )
                 chapters.append(chapter)
+                level = levels[(index - 1) % len(levels)] if levels else None
+                areas = list(level.learning_areas.order_by("sequence", "name")) if level else []
+                area = areas[(chapter_index - 1) % len(areas)] if areas else None
                 resource = self.ensure_by(
                     ContentResource, "content.ContentResource",
                     {"chapter": chapter, "title": f"Sample Resource {chapter_index:02d}"},
@@ -844,11 +869,27 @@ class Command(BaseCommand):
                     textbook=book,
                     title=f"Sample Resource {chapter_index:02d}",
                     resource_type=["PDF", "VIDEO", "AUDIO", "LINK"][chapter_index % 4],
+                    delivery=ResourceDelivery.LINK,
                     external_url=f"https://sample.invalid/resource/{index:02d}-{chapter_index}",
                     description="Sample resource for testing catalogue views.",
                     offline_available=chapter_index == 1,
                     size_kb=120 + index * 10,
+                    education_level=level,
+                    learning_area=area,
+                    collection=collection,
+                    keywords=["sample", "revision"],
+                    status=ContentStatus.PUBLISHED,
+                    published_at=timezone.now(),
+                    access_scope=ResourceAccessScope.PUBLIC,
                 )
+                if resource.status != ContentStatus.PUBLISHED:
+                    resource.status = ContentStatus.PUBLISHED
+                    resource.published_at = timezone.now()
+                    resource.delivery = ResourceDelivery.LINK
+                    resource.access_scope = ResourceAccessScope.PUBLIC
+                    resource.save(update_fields=[
+                        "status", "published_at", "delivery", "access_scope",
+                    ])
                 exercise = self.ensure_by(
                     Exercise, "content.Exercise",
                     {"chapter": chapter, "title": f"Sample Exercise {chapter_index:02d}"},
@@ -926,7 +967,7 @@ class Command(BaseCommand):
                 {"institution": self.school, "title": f"Sample Announcement {index:02d}"},
                 institution=self.school,
                 title=f"Sample Announcement {index:02d}",
-                body="This is a sample announcement used to test messaging and offline sync.",
+                body="This is a sample announcement used to test school messaging.",
                 audience_roles=[Roles.LEARNER, Roles.GUARDIAN] if index % 2 else [],
                 published_by=publisher,
                 published_at=timezone.now(),
@@ -1005,7 +1046,7 @@ class Command(BaseCommand):
                 transfer_date=date(2026, 5, index),
                 reason=f"Sample transfer enquiry {index:02d} - not applied to learner status.",
                 status="CANCELLED" if index % 4 else "PENDING",
-                recorded_by=User.objects.filter(role=Roles.SCHOOL_ADMIN, institution=self.school).first(),
+                recorded_by=User.objects.filter(role=Roles.ADMIN, institution=self.school).first(),
             )
 
     def seed_snapshots(self, teachers):
@@ -1080,7 +1121,7 @@ class Command(BaseCommand):
 
     def seed_approval(self, textbooks, teachers):
         admin = User.objects.filter(
-            role=Roles.SCHOOL_ADMIN, institution=self.school
+            role=Roles.ADMIN, institution=self.school
         ).first() or teachers[0].user
         statuses = [
             "DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED",
@@ -1187,7 +1228,7 @@ class Command(BaseCommand):
 
     def seed_tutor(self, learners, teachers):
         admin = User.objects.filter(
-            role=Roles.SCHOOL_ADMIN, institution=self.school
+            role=Roles.ADMIN, institution=self.school
         ).first() or teachers[0].user
         conversations = []
         for index in range(1, 13):

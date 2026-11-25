@@ -1,15 +1,26 @@
 """Learner serializers."""
 import csv
 from io import StringIO
+from itertools import islice
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers
 
 from apps.core.constants import Roles
-from apps.learners.models import Learner, LearnerGuardian, TransferRecord
+from apps.learners.models import GuardianLinkRequest, Learner, LearnerGuardian, TransferRecord
 
 User = get_user_model()
+
+
+def _csv_limit(names, default):
+    """Read a configurable cap from settings, with a safe built-in default."""
+    for name in names:
+        value = getattr(settings, name, None)
+        if value is not None:
+            return value
+    return default
 
 
 class LearnerSerializer(serializers.ModelSerializer):
@@ -93,16 +104,32 @@ class LearnerCreateSerializer(serializers.Serializer):
 
 
 class BulkImportSerializer(serializers.Serializer):
-    """Accepts CSV text with a header row."""
+    """Accepts bounded CSV text with a header row."""
 
     csv_text = serializers.CharField()
 
     def validate_csv_text(self, value):
+        max_bytes = _csv_limit(
+            ("LEARNER_CSV_MAX_BYTES", "BULK_IMPORT_MAX_BYTES"), 1024 * 1024
+        )
+        max_rows = _csv_limit(
+            ("LEARNER_CSV_MAX_ROWS", "BULK_IMPORT_MAX_ROWS"), 500
+        )
+        if len(value.encode("utf-8")) > max_bytes:
+            raise serializers.ValidationError(
+                f"CSV text is too large; the limit is {max_bytes} bytes."
+            )
         reader = csv.DictReader(StringIO(value))
         required = {"username", "first_name", "last_name", "admission_number"}
         if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
             raise serializers.ValidationError(
                 "CSV must contain columns: username, first_name, last_name, admission_number"
+            )
+        # Stop as soon as we know the cap is exceeded; the header is not a row.
+        if sum(1 for _ in islice(reader, max_rows + 1)) > max_rows:
+            raise serializers.ValidationError(
+                f"CSV has too many rows; the limit is {max_rows} rows "
+                "(excluding the header)."
             )
         return value
 
@@ -127,3 +154,34 @@ class TransferRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = TransferRecord
         fields = "__all__"
+
+
+class GuardianLinkRequestSerializer(serializers.ModelSerializer):
+    guardian_name = serializers.CharField(source="guardian.user.full_name", read_only=True)
+    learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
+    admission_number = serializers.CharField(source="learner.admission_number", read_only=True)
+    decided_by_name = serializers.CharField(source="decided_by.full_name", read_only=True)
+
+    class Meta:
+        model = GuardianLinkRequest
+        fields = [
+            "id", "reference", "guardian", "guardian_name", "learner", "learner_name",
+            "learner_identifier", "admission_number", "relationship", "status",
+            "notes", "verified_link", "decided_by", "decided_by_name", "decided_at",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id", "reference", "guardian_name", "learner_name", "admission_number",
+            "decided_by", "decided_by_name", "decided_at", "created_at",
+        ]
+
+
+class GuardianLinkRequestCreateSerializer(serializers.Serializer):
+    learner_identifier = serializers.CharField(max_length=50)
+    relationship = serializers.CharField(max_length=50, required=False, allow_blank=True)
+
+
+class GuardianLinkDecisionSerializer(serializers.Serializer):
+    notes = serializers.CharField(required=False, allow_blank=True)
+    relationship = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    is_primary = serializers.BooleanField(required=False, default=False)

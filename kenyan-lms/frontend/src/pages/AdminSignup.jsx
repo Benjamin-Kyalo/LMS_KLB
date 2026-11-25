@@ -2,11 +2,19 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { useSiteContent } from "../context/SiteContentContext";
+import PublicHeader from "../components/PublicHeader";
+import PublicFooter from "../components/PublicFooter";
+import AnimatedSubmitButton from "../components/AnimatedSubmitButton";
+import { useSectionStyle } from "../styles/sectionStyles";
 
 export default function AdminSignup() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { signInWithData } = useAuth();
+  const { content } = useSiteContent();
+  const sectionStyle = useSectionStyle("invite");
+  const adminCopy = content.auth.admin;
   const [form, setForm] = useState({
     token: params.get("token") || "", username: "", email: "",
     first_name: "", last_name: "", password: "", confirm: "",
@@ -41,35 +49,25 @@ export default function AdminSignup() {
 
   return (
     <div className="public-auth-page">
-      <header className="public-topbar">
-        <Link to="/" className="public-brand">
-          <span className="public-mark">KLB</span>
-          <span><strong>Digital Learning Ecosystem</strong><small>Kenya Literature Bureau</small></span>
-        </Link>
-        <nav aria-label="Admin authentication navigation">
-          <Link to="/admin/login">Admin sign in</Link>
-          <Link to="/register">User registration</Link>
-        </nav>
-      </header>
+      <PublicHeader
+        links={content.header.adminLinks}
+        ariaLabel="Admin authentication navigation"
+        showSignIn={false}
+      />
 
-      <main className="public-auth-main">
+      <main className="public-auth-main view-enter section-styled" style={sectionStyle}>
         <div className="public-auth-copy">
-          <div className="overline">Administration portal</div>
-          <h1>Administrator accounts are invitation-only.</h1>
-          <p>
-            A platform or school administrator must issue a secure, single-use invitation token.
-            The invitation fixes the role and institution; this form cannot grant administrator
-            privileges by itself. Each invitation works once and expires after seven days.
-          </p>
-          <div className="notice warn" style={{ marginTop: "1rem" }}>
-            Do not share invitation tokens or passwords over unsecured channels. If you do not
-            have a token, contact your platform administrator.
+          <div className="overline">{adminCopy.overline}</div>
+          <h1>{adminCopy.heading}</h1>
+          <p>{adminCopy.copy}</p>
+          <div className="notice warn" role="status" style={{ marginTop: "1rem" }}>
+            {adminCopy.warning}
           </div>
         </div>
 
-        <form className="public-auth-card" onSubmit={submit}>
+        <form className="public-auth-card auth-card-enter" onSubmit={submit}>
           <h2>Redeem an invitation</h2>
-          {error && <div className="notice error">{error}</div>}
+          {error && <div className="notice error" role="alert">{error}</div>}
           <div className="form-grid">
             <label className="full">
               Invitation token
@@ -87,13 +85,16 @@ export default function AdminSignup() {
             <FormInput label="Confirm password" type="password" value={form.confirm} onChange={(v) => update("confirm", v)} required />
           </div>
           <div className="form-actions">
-            <button type="submit" disabled={saving}>{saving ? "Creating account…" : "Create administrator account"}</button>
+            <AnimatedSubmitButton disabled={saving}>
+              {saving ? "Creating account…" : "Create administrator account"}
+            </AnimatedSubmitButton>
           </div>
           <p className="muted" style={{ fontSize: "0.82rem" }}>
             Already have an account? <Link to="/admin/login">Sign in to the admin portal</Link>
           </p>
         </form>
       </main>
+      <PublicFooter />
     </div>
   );
 }

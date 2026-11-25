@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AdminSignup from "./AdminSignup";
 
 const mocks = vi.hoisted(() => ({
-  api: { post: vi.fn(async () => ({ token: "session-token", user: { id: 5, role: "SCHOOL_ADMIN" } })) },
+  api: { post: vi.fn(async () => ({ csrfToken: "csrf-token", user: { id: 5, role: "ADMIN" } })) },
   signInWithData: vi.fn(),
 }));
 
@@ -31,20 +30,19 @@ describe("administrator invitation redemption", () => {
   });
 
   it("redeems the token and opens the admin side", async () => {
-    const user = userEvent.setup();
     renderPage();
 
-    expect(screen.getByText(/secure, single-use invitation token/)).toBeTruthy();
+    expect(screen.getByText(/secure, single use invitation token/)).toBeTruthy();
     expect(screen.queryByText(/signed invitation/)).toBeNull();
     expect(screen.getByLabelText(/^Invitation token/).value).toBe("invite-token");
 
-    await user.type(screen.getByLabelText("Username"), "new_admin");
-    await user.type(screen.getByLabelText("Email (must match invitation)"), "admin@example.invalid");
-    await user.type(screen.getByLabelText("First name"), "New");
-    await user.type(screen.getByLabelText("Last name"), "Admin");
-    await user.type(screen.getByLabelText("Password"), "AdminPass123");
-    await user.type(screen.getByLabelText("Confirm password"), "AdminPass123");
-    await user.click(screen.getByRole("button", { name: "Create administrator account" }));
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "new_admin" } });
+    fireEvent.change(screen.getByLabelText("Email (must match invitation)"), { target: { value: "admin@example.invalid" } });
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "New" } });
+    fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Admin" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "AdminPass123" } });
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "AdminPass123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create administrator account" }));
 
     await waitFor(() => expect(screen.getByText("Admin home after redemption")).toBeTruthy());
     expect(mocks.api.post).toHaveBeenCalledWith(
@@ -55,20 +53,19 @@ describe("administrator invitation redemption", () => {
         email: "admin@example.invalid",
       })
     );
-    expect(mocks.signInWithData).toHaveBeenCalledWith({ token: "session-token", user: { id: 5, role: "SCHOOL_ADMIN" } });
+    expect(mocks.signInWithData).toHaveBeenCalledWith({ csrfToken: "csrf-token", user: { id: 5, role: "ADMIN" } });
   });
 
   it("rejects mismatched passwords before calling the API", async () => {
-    const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText("Username"), "new_admin");
-    await user.type(screen.getByLabelText("Email (must match invitation)"), "admin@example.invalid");
-    await user.type(screen.getByLabelText("First name"), "New");
-    await user.type(screen.getByLabelText("Last name"), "Admin");
-    await user.type(screen.getByLabelText("Password"), "AdminPass123");
-    await user.type(screen.getByLabelText("Confirm password"), "Different123");
-    await user.click(screen.getByRole("button", { name: "Create administrator account" }));
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "new_admin" } });
+    fireEvent.change(screen.getByLabelText("Email (must match invitation)"), { target: { value: "admin@example.invalid" } });
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "New" } });
+    fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Admin" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "AdminPass123" } });
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "Different123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create administrator account" }));
 
     expect(await screen.findByText("Passwords do not match.")).toBeTruthy();
     expect(mocks.api.post).not.toHaveBeenCalled();

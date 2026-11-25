@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import Dashboard from "./Dashboard";
 
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ user: { id: 1, username: "admin", role: "SCHOOL_ADMIN" } }),
+  useAuth: () => ({ user: { id: 1, username: "admin", role: "ADMIN" } }),
 }));
 
 const summary = {
@@ -42,10 +42,11 @@ describe("Dashboard", () => {
     expect(learners.getAttribute("href")).toBe("/admin/learners");
     expect(screen.getByRole("link", { name: /Attendance rate: 87\.5%/i }).getAttribute("href")).toBe("/admin/attendance");
     expect(screen.getByRole("button", { name: /Refresh data/i })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Attendance mix" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Attendance over time" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Exam performance" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Learner status" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Manage learners/i })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Attendance mix" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Start here" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Review teacher approvals/i }).getAttribute("href")).toBe("/admin/teacher-approvals");
+    expect(screen.getByRole("link", { name: /Verify guardian links/i }).getAttribute("href")).toBe("/admin/guardian-links");
   });
 });

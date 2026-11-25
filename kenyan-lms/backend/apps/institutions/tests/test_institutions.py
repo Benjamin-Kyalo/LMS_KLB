@@ -27,7 +27,7 @@ class InstitutionIsolationTests(APITestCase):
         self.school_b = Institution.objects.create(name="School B", code="B001", institution_type=self.kind)
         self.admin_a = User.objects.create_user(
             username="admina", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN, institution=self.school_a,
+            role=Roles.ADMIN, institution=self.school_a,
         )
 
     def test_admin_sees_only_own_institution(self):

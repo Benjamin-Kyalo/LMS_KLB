@@ -3,7 +3,7 @@ import EmptyState from "./EmptyState";
 
 export default function DataTable({ columns, rows, loading, error, emptyTitle = "Nothing here yet", emptyHint, emptyAction }) {
   if (loading) return <Loading />;
-  if (error) return <div className="notice error">{error}</div>;
+  if (error) return <div className="notice error" role="alert">{error}</div>;
   if (!rows || rows.length === 0) return <EmptyState title={emptyTitle} hint={emptyHint} action={emptyAction} />;
   return (
     <div className="panel" style={{ overflowX: "auto" }}>

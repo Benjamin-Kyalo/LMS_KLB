@@ -4,19 +4,23 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.accounts.models import OnboardingProfile
 from apps.core.constants import Roles
 from apps.institutions.models import Institution, InstitutionType
+from apps.learners.models import GuardianLinkRequest, Learner
 
 User = get_user_model()
 
 
 class AuthenticationTests(APITestCase):
-    def test_login_returns_token(self):
-        User.objects.create_user(username="admin", password="StrongPass123!", role=Roles.SCHOOL_ADMIN)
+    def test_login_creates_a_session_without_returning_a_bearer_token(self):
+        User.objects.create_user(username="admin", password="StrongPass123!", role=Roles.ADMIN)
         response = self.client.post(reverse("login"), {"username": "admin", "password": "StrongPass123!"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("token", response.data)
-        self.assertEqual(response.data["user"]["role"], Roles.SCHOOL_ADMIN)
+        self.assertNotIn("token", response.data)
+        self.assertIn("csrfToken", response.data)
+        self.assertEqual(response.data["user"]["role"], Roles.ADMIN)
+        self.assertEqual(self.client.get(reverse("me")).status_code, status.HTTP_200_OK)
 
     def test_login_rejects_bad_password(self):
         User.objects.create_user(username="admin", password="StrongPass123!")
@@ -39,7 +43,7 @@ class AuthenticationTests(APITestCase):
         school = Institution.objects.create(name="School A", code="A2", institution_type=kind)
         user = User.objects.create_user(
             username="schooluser", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN, institution=school,
+            role=Roles.ADMIN, institution=school,
         )
         self.client.force_authenticate(user=user)
         response = self.client.get(reverse("me"))
@@ -60,7 +64,7 @@ class AuthenticationTests(APITestCase):
         self.client.force_authenticate(user=user)
         response = self.client.get(reverse("user-roles"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), len(Roles.CHOICES))
+        self.assertEqual(len(response.data), 5)
 
     def test_create_superuser_defaults_to_platform_super_admin_role(self):
         user = User.objects.create_superuser(
@@ -80,7 +84,7 @@ class InstitutionAssignmentTests(APITestCase):
         self.other = Institution.objects.create(name="B", code="B1", institution_type=kind)
         self.admin = User.objects.create_user(
             username="admin", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN, institution=self.school,
+            role=Roles.ADMIN, institution=self.school,
         )
 
     def test_cannot_create_user_in_another_institution(self):
@@ -106,6 +110,18 @@ class InstitutionAssignmentTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         target.refresh_from_db()
         self.assertEqual(target.institution_id, self.school.id)
+
+    def test_admin_created_teacher_has_an_approved_profile(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(reverse("user-list"), {
+            "username": "directteacher", "email": "direct@sample.invalid",
+            "first_name": "Direct", "last_name": "Teacher",
+            "role": Roles.TEACHER,
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        teacher = User.objects.get(username="directteacher").teacher_profile
+        self.assertTrue(teacher.approval_records.filter(status="APPROVED").exists())
+        self.assertTrue(OnboardingProfile.objects.get(user=teacher.user).teacher_approved)
 
 
 class RegistrationTests(APITestCase):
@@ -138,12 +154,65 @@ class RegistrationTests(APITestCase):
         self.assertEqual(user.role, Roles.TEACHER)
         self.assertFalse(user.is_active)
         self.assertTrue(user.teacher_profile)
+        self.assertTrue(user.teacher_profile.approval_records.exists())
+        response = self.client.post(reverse("login"), {
+            "username": "newteacher", "password": "StrongPass123!",
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("approval", str(response.data))
+
+    def test_guardian_registration_requires_a_learner_identifier(self):
+        payload = {
+            "username": "newguardian", "email": "guardian@sample.invalid",
+            "password": "StrongPass123!", "first_name": "New", "last_name": "Guardian",
+            "role": Roles.GUARDIAN, "institution": self.school.id,
+            "relationship_to_learner": "Parent",
+        }
+        response = self.client.post(reverse("register"), payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("learner_identifier", response.data)
+
+    def test_guardian_registration_starts_an_unverified_link_request(self):
+        learner_user = User.objects.create_user(
+            username="samplelearner", password="StrongPass123!",
+            role=Roles.LEARNER, institution=self.school,
+        )
+        Learner.objects.create(
+            user=learner_user, institution=self.school, admission_number="SM-100"
+        )
+        response = self.client.post(reverse("register"), {
+            "username": "newguardian", "email": "guardian@sample.invalid",
+            "password": "StrongPass123!", "first_name": "New", "last_name": "Guardian",
+            "role": Roles.GUARDIAN, "institution": self.school.id,
+            "relationship_to_learner": "Parent", "learner_identifier": "SM-100",
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        request = GuardianLinkRequest.objects.get()
+        self.assertEqual(request.status, "PENDING")
+        self.assertEqual(request.learner.admission_number, "SM-100")
+        self.assertFalse(request.guardian.user_id == learner_user.id)
+
+    def test_onboarding_flags_cannot_be_set_by_the_account_owner(self):
+        user = User.objects.create_user(
+            username="onboarder", password="StrongPass123!",
+            role=Roles.TEACHER, institution=self.school,
+        )
+        self.client.force_authenticate(user=user)
+        response = self.client.patch(reverse("onboarding-me"), {
+            "profile_complete": True, "teacher_approved": True, "classes_assigned": True,
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(response.data["profile_complete"])
+        self.assertFalse(response.data["teacher_approved"])
+        self.assertFalse(response.data["classes_assigned"])
+        self.assertFalse(response.data["is_complete"])
+        self.assertTrue(OnboardingProfile.objects.get(user=user).profile_complete)
 
     def test_public_registration_rejects_admin_role(self):
         response = self.client.post(reverse("register"), {
             "username": "eviladmin", "email": "evil@sample.invalid",
             "password": "StrongPass123!", "first_name": "Evil", "last_name": "Admin",
-            "role": Roles.SCHOOL_ADMIN, "institution": self.school.id,
+            "role": Roles.ADMIN, "institution": self.school.id,
         }, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -163,7 +232,7 @@ class RegistrationTests(APITestCase):
     def test_school_admin_cannot_grant_platform_role(self):
         admin = User.objects.create_user(
             username="schooladmin", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN, institution=self.school,
+            role=Roles.ADMIN, institution=self.school,
         )
         self.client.force_authenticate(user=admin)
         response = self.client.post(reverse("user-list"), {
@@ -206,7 +275,7 @@ class AdminInvitationTests(APITestCase):
     def test_invitation_is_single_use_and_creates_admin(self):
         self.client.force_authenticate(user=self.super_admin)
         created = self.client.post(reverse("admin-invitation-list"), {
-            "email": "newadmin@sample.invalid", "role": Roles.SCHOOL_ADMIN,
+            "email": "newadmin@sample.invalid", "role": Roles.ADMIN,
             "institution": self.school.id,
         }, format="json")
         self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
@@ -218,7 +287,7 @@ class AdminInvitationTests(APITestCase):
             "password": "StrongPass123!",
         }, format="json")
         self.assertEqual(accepted.status_code, status.HTTP_201_CREATED, accepted.data)
-        self.assertEqual(User.objects.get(username="newadmin").role, Roles.SCHOOL_ADMIN)
+        self.assertEqual(User.objects.get(username="newadmin").role, Roles.ADMIN)
 
         reused = self.client.post(reverse("admin-invitation-accept"), {
             "token": created.data["token"], "username": "newadmin2",
@@ -234,7 +303,7 @@ class AdminInvitationTests(APITestCase):
         )
         self.client.force_authenticate(user=learner)
         response = self.client.post(reverse("admin-invitation-list"), {
-            "email": "hacker@sample.invalid", "role": Roles.SCHOOL_ADMIN,
+            "email": "hacker@sample.invalid", "role": Roles.ADMIN,
             "institution": self.school.id,
         }, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -246,11 +315,44 @@ class AdminInvitationTests(APITestCase):
         )
         admin = User.objects.create_user(
             username="localadmin", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN, institution=self.school,
+            role=Roles.ADMIN, institution=self.school,
         )
         self.client.force_authenticate(user=admin)
         response = self.client.post(reverse("admin-invitation-list"), {
-            "email": "cross@sample.invalid", "role": Roles.SCHOOL_ADMIN,
+            "email": "cross@sample.invalid", "role": Roles.ADMIN,
             "institution": other_school.id,
         }, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetAdminTests(APITestCase):
+    def setUp(self):
+        kind = InstitutionType.objects.create(name="Reset Primary", code="RSTP")
+        self.school = Institution.objects.create(name="Reset School", code="RSTS", institution_type=kind)
+        self.admin = User.objects.create_user(
+            username="resetadmin", password="StrongPass123!",
+            role=Roles.ADMIN, institution=self.school,
+        )
+        self.target = User.objects.create_user(
+            username="resettarget", password="StrongPass123!",
+            email="resettarget@sample.invalid", role=Roles.LEARNER,
+            institution=self.school,
+        )
+
+    def test_admin_can_reset_a_users_password(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(reverse("user-reset-password", args=[self.target.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertIn("temporary_password", response.data)
+        self.target.refresh_from_db()
+        self.assertTrue(self.target.must_change_password)
+        self.assertTrue(self.target.check_password(response.data["temporary_password"]))
+
+    def test_non_admin_cannot_reset_a_password(self):
+        learner = User.objects.create_user(
+            username="resetlearner", password="StrongPass123!",
+            role=Roles.LEARNER, institution=self.school,
+        )
+        self.client.force_authenticate(user=learner)
+        response = self.client.post(reverse("user-reset-password", args=[self.target.id]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

@@ -23,7 +23,7 @@ class ReferenceCodeTests(APITestCase):
         )
         self.admin = UserModel.objects.create_user(
             username="code_admin", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN, institution=self.school,
+            role=Roles.ADMIN, institution=self.school,
         )
 
     def _user(self, username, role=Roles.LEARNER):

@@ -32,7 +32,7 @@ class AnalyticsTests(APITestCase):
             name="Other Analytics School", code="ANOT", institution_type=self.kind
         )
         self.admin = User.objects.create_user(
-            username="demo_admin", role=Roles.SCHOOL_ADMIN, institution=self.school
+            username="demo_admin", role=Roles.ADMIN, institution=self.school
         )
         self.teacher = User.objects.create_user(
             username="demo_teacher", role=Roles.TEACHER, institution=self.school

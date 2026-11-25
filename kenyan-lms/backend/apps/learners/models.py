@@ -42,6 +42,9 @@ class LearnerGuardian(models.Model):
     learner = models.ForeignKey(Learner, on_delete=models.CASCADE, related_name="guardian_links")
     guardian = models.ForeignKey("guardians.Guardian", on_delete=models.CASCADE, related_name="learner_links")
     relationship = models.CharField(max_length=50, blank=True)
+    # Admin-created links and links produced by the verification workflow are
+    # trusted; a request that is still pending never creates this record.
+    is_verified = models.BooleanField(default=True)
     is_primary = models.BooleanField(default=False)
     can_view_academics = models.BooleanField(default=True)
     can_view_attendance = models.BooleanField(default=True)
@@ -55,6 +58,50 @@ class LearnerGuardian(models.Model):
 
     def __str__(self):
         return f"{self.guardian.user.full_name} -> {self.learner.user.full_name}"
+
+
+class GuardianLinkRequest(AutoReferenceModelMixin, InstitutionScopedModel):
+    """A guardian's proposed learner link, pending administrative verification."""
+
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("VERIFIED", "Verified"),
+        ("REJECTED", "Rejected"),
+    ]
+
+    guardian = models.ForeignKey(
+        "guardians.Guardian", on_delete=models.CASCADE, related_name="link_requests"
+    )
+    learner = models.ForeignKey(
+        Learner, on_delete=models.CASCADE, related_name="guardian_link_requests"
+    )
+    learner_identifier = models.CharField(max_length=50)
+    reference = models.CharField(max_length=50, blank=True, unique=True)
+    relationship = models.CharField(max_length=50, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING", db_index=True)
+    notes = models.TextField(blank=True)
+    verified_link = models.ForeignKey(
+        LearnerGuardian, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="verified_requests",
+    )
+    decided_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="guardian_link_decisions",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["guardian", "learner"],
+                name="unique_pending_guardian_link_request",
+                condition=models.Q(status="PENDING"),
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.guardian.user.full_name} -> {self.learner.user.full_name} ({self.status})"
 
 
 class TransferRecord(models.Model):

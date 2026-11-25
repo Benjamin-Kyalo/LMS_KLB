@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useResource } from "../hooks/useApi";
 import { api } from "../services/api";
@@ -7,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import StatCard from "../components/StatCard";
 import DataTable from "../components/DataTable";
 import Loading from "../components/Loading";
+import RollingLabel from "../components/RollingLabel";
 
 const percent = (value) => (value === null || value === undefined ? "—" : `${Number(value).toFixed(1)}%`);
 
@@ -17,14 +19,18 @@ export default function AnalyticsOverview() {
   const cohorts = useResource("/analytics/cohorts/");
   const remediation = useResource("/analytics/remediation/summary/");
   const snapshots = useResource("/analytics/snapshots/");
+  const [busyAction, setBusyAction] = useState("");
 
-  async function post(path, message) {
+  async function post(path, message, action) {
+    setBusyAction(action);
     try {
-      const result = await api.post(path, {});
-      push(result?.queued ? "Queued offline; it will sync when connected." : message, "success");
+      await api.post(path, {});
+      push(message, "success");
       dashboard.reload(); cohorts.reload(); remediation.reload(); snapshots.reload();
     } catch (err) {
       push(err.details ? JSON.stringify(err.details) : err.message, "error");
+    } finally {
+      setBusyAction("");
     }
   }
 
@@ -41,14 +47,27 @@ export default function AnalyticsOverview() {
           <h1>Analytics &amp; remediation</h1>
         </div>
         <div className="actions">
-          <Link className="button secondary" to="/admin/analytics/rules">Rules</Link>
-          <Link className="button secondary" to="/admin/analytics/tasks">Tasks</Link>
-          <Link className="button secondary" to="/admin/analytics/snapshots">Snapshots</Link>
+          <Link className="button-link secondary" to="/admin/analytics/rules"><RollingLabel>Rules</RollingLabel></Link>
+          <Link className="button-link secondary" to="/admin/analytics/tasks"><RollingLabel>Tasks</RollingLabel></Link>
+          <Link className="button-link secondary" to="/admin/analytics/snapshots"><RollingLabel>Snapshots</RollingLabel></Link>
           {canWriteTeaching(user) && (
-            <button onClick={() => post("/analytics/remediation/evaluate/", "Remediation evaluated.")}>Evaluate now</button>
+            <button
+              aria-busy={busyAction === "evaluate" || undefined}
+              disabled={Boolean(busyAction)}
+              onClick={() => post("/analytics/remediation/evaluate/", "Remediation evaluated.", "evaluate")}
+            >
+              {busyAction === "evaluate" ? "Evaluating…" : <RollingLabel>Evaluate now</RollingLabel>}
+            </button>
           )}
           {isAdmin(user) && (
-            <button className="secondary" onClick={() => post("/analytics/snapshots/refresh/", "Snapshot refreshed.")}>Refresh snapshot</button>
+            <button
+              className="secondary"
+              aria-busy={busyAction === "snapshot" || undefined}
+              disabled={Boolean(busyAction)}
+              onClick={() => post("/analytics/snapshots/refresh/", "Snapshot refreshed.", "snapshot")}
+            >
+              {busyAction === "snapshot" ? "Refreshing…" : <RollingLabel>Refresh snapshot</RollingLabel>}
+            </button>
           )}
         </div>
       </div>
@@ -59,7 +78,7 @@ export default function AnalyticsOverview() {
       </div>
 
       {(dashboard.error || cohorts.error || remediation.error) && (
-        <div className="notice error" style={{ marginBottom: "1rem" }}>
+        <div className="notice error" role="alert" style={{ marginBottom: "1rem" }}>
           {dashboard.error || cohorts.error || remediation.error}
         </div>
       )}

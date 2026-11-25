@@ -17,7 +17,7 @@ class QuizMarkingTests(APITestCase):
     def setUp(self):
         kind = InstitutionType.objects.create(name="Primary", code="PRI")
         self.school = Institution.objects.create(name="A", code="A1", institution_type=kind)
-        self.admin = User.objects.create_user(username="a", password="StrongPass123!", role=Roles.SCHOOL_ADMIN, institution=self.school)
+        self.admin = User.objects.create_user(username="a", password="StrongPass123!", role=Roles.ADMIN, institution=self.school)
         learner_user = User.objects.create_user(username="l", password="StrongPass123!", role=Roles.LEARNER, institution=self.school)
         self.learner = Learner.objects.create(user=learner_user, institution=self.school, admission_number="L1")
         self.quiz = Quiz.objects.create(institution=self.school, title="Q", is_published=True)

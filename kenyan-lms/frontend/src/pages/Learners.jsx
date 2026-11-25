@@ -7,6 +7,7 @@ import { isAdmin } from "../utilities/roles";
 import DataTable from "../components/DataTable";
 import Modal from "../components/Modal";
 import FormField from "../components/FormField";
+import RollingLabel from "../components/RollingLabel";
 import { TablePagination, TableToolbar } from "../components/TableTools";
 import useTableControls from "../hooks/useTableControls";
 import { statusTag } from "../utilities/format";
@@ -33,8 +34,8 @@ export default function Learners() {
     setSaving(true);
     setFormError(null);
     try {
-      const result = await api.post("/learners/", form);
-      push(result?.queued ? "Learner saved offline; it will sync when you reconnect." : "Learner registered.", "success");
+      await api.post("/learners/", form);
+      push("Learner registered.", "success");
       setOpen(false);
       reload();
     } catch (err) {
@@ -50,7 +51,7 @@ export default function Learners() {
           <h1>Learners</h1>
         </div>
         <div className="actions">
-          {canWrite && <button onClick={startCreate}>Register learner</button>}
+          {canWrite && <button onClick={startCreate}><RollingLabel>Register learner</RollingLabel></button>}
         </div>
       </div>
 
@@ -73,7 +74,7 @@ export default function Learners() {
       {open && (
         <Modal title="Register learner" onClose={() => setOpen(false)}>
           <form onSubmit={save}>
-            {formError && <div className="notice error" style={{ marginBottom: "0.75rem" }}>{formError}</div>}
+            {formError && <div className="notice error" role="alert" style={{ marginBottom: "0.75rem" }}>{formError}</div>}
             <div className="form-grid">
               <FormField label="Username"><input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required /></FormField>
               <FormField label="Admission number" hint="Leave blank to generate ADM-SCHOOL-001 automatically."><input value={form.admission_number} onChange={(e) => setForm({ ...form, admission_number: e.target.value })} /></FormField>
@@ -82,8 +83,8 @@ export default function Learners() {
               <div className="full"><p className="muted">No password is created or shown. After saving, use the password reset flow to let the learner set one.</p></div>
             </div>
             <div className="form-actions">
-              <button type="button" className="ghost" onClick={() => setOpen(false)}>Cancel</button>
-              <button type="submit" disabled={saving}>{saving ? "Saving…" : "Register"}</button>
+              <button type="button" className="ghost" onClick={() => setOpen(false)}><RollingLabel>Cancel</RollingLabel></button>
+              <button type="submit" disabled={saving}>{saving ? "Saving…" : <RollingLabel>Register</RollingLabel>}</button>
             </div>
           </form>
         </Modal>

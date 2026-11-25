@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useOnlineStatus } from "../hooks/useOnlineStatus";
-import SyncStatus from "../components/SyncStatus";
-import SyncQueuePanel from "../components/SyncQueuePanel";
-import SampleDataBadge from "../components/SampleDataBadge";
+import { useSiteContent } from "../context/SiteContentContext";
+import RollingLabel from "../components/RollingLabel";
 import { isGuardian, isLearner, ROLES } from "../utilities/roles";
 
 function PortalNav({ to, children, onNavigate }) {
@@ -22,9 +20,8 @@ function PortalNav({ to, children, onNavigate }) {
 
 export default function PortalLayout() {
   const { user, signOut } = useAuth();
+  const { content } = useSiteContent();
   const navigate = useNavigate();
-  const location = useLocation();
-  const online = useOnlineStatus();
   const [menuOpen, setMenuOpen] = useState(false);
 
   async function handleLogout() {
@@ -34,6 +31,9 @@ export default function PortalLayout() {
 
   const closeMenu = () => setMenuOpen(false);
   const roleLabel = isGuardian(user) ? "Parent / Guardian" : isLearner(user) ? "Learner" : ROLES[user?.role] || user?.role;
+  const navLabel = (key, fallback) => (
+    (content.app.portalNav || []).find((item) => item.key === key)?.label || fallback
+  );
 
   return (
     <div className="portal-shell">
@@ -46,9 +46,8 @@ export default function PortalLayout() {
             onError={(event) => { event.currentTarget.src = "/mark.svg"; }}
           />
           <div>
-            <div className="overline" style={{ marginBottom: 0 }}>KLB Learning</div>
+            <div className="overline" style={{ marginBottom: 0 }}>{content.app.portalBrand}</div>
             <strong>{user?.institution_name || "Your school"}</strong>
-            <SampleDataBadge code={user?.institution_code} />
           </div>
         </div>
 
@@ -57,37 +56,33 @@ export default function PortalLayout() {
             <div>{user?.full_name || user?.username}</div>
             <div className="muted" style={{ fontSize: "0.75rem" }}>{roleLabel}</div>
           </div>
-          <button className="ghost small" onClick={handleLogout}>Sign out</button>
+          <button className="ghost small" onClick={handleLogout}><RollingLabel>Sign out</RollingLabel></button>
           <button className="secondary mobile-nav-toggle" onClick={() => setMenuOpen(!menuOpen)}>
-            {menuOpen ? "Hide menu" : "Menu"}
+            {menuOpen ? <RollingLabel>Hide menu</RollingLabel> : <RollingLabel>Menu</RollingLabel>}
           </button>
         </div>
       </header>
 
       <nav className={`portal-nav${menuOpen ? " is-open" : ""}`} aria-label="Learner portal">
-        <PortalNav to="/portal" onNavigate={closeMenu}>Home</PortalNav>
-        <PortalNav to="/portal/courses" onNavigate={closeMenu}>My courses</PortalNav>
-        <PortalNav to="/portal/textbooks" onNavigate={closeMenu}>Textbook library</PortalNav>
-        <PortalNav to="/portal/resources" onNavigate={closeMenu}>Resources</PortalNav>
-        {isLearner(user) && <PortalNav to="/portal/assignments" onNavigate={closeMenu}>Assignments</PortalNav>}
-        {isLearner(user) && <PortalNav to="/portal/quizzes" onNavigate={closeMenu}>Quizzes</PortalNav>}
-        <PortalNav to="/portal/reports" onNavigate={closeMenu}>Progress report</PortalNav>
-        {isLearner(user) && <PortalNav to="/portal/remediation" onNavigate={closeMenu}>My support tasks</PortalNav>}
-        <PortalNav to="/portal/fees" onNavigate={closeMenu}>Fees</PortalNav>
-        <PortalNav to="/portal/tutor" onNavigate={closeMenu}>Ask the tutor</PortalNav>
-        <PortalNav to="/portal/communications" onNavigate={closeMenu}>Messages</PortalNav>
-        <PortalNav to="/portal/sync" onNavigate={closeMenu}>Offline queue</PortalNav>
-        <PortalNav to="/portal/profile" onNavigate={closeMenu}>My profile</PortalNav>
+        <PortalNav to="/portal" onNavigate={closeMenu}>{navLabel("home", "Home")}</PortalNav>
+        <PortalNav to="/portal/courses" onNavigate={closeMenu}>{navLabel("courses", "My courses")}</PortalNav>
+        <PortalNav to="/portal/textbooks" onNavigate={closeMenu}>{navLabel("textbooks", "Textbook library")}</PortalNav>
+        <PortalNav to="/portal/resources" onNavigate={closeMenu}>{navLabel("resources", "Resources")}</PortalNav>
+        <PortalNav to="/portal/documents" onNavigate={closeMenu}>{navLabel("documents", "Documents")}</PortalNav>
+        {isLearner(user) && <PortalNav to="/portal/assignments" onNavigate={closeMenu}>{navLabel("assignments", "Assignments")}</PortalNav>}
+        {isLearner(user) && <PortalNav to="/portal/quizzes" onNavigate={closeMenu}>{navLabel("quizzes", "Quizzes")}</PortalNav>}
+        <PortalNav to="/portal/reports" onNavigate={closeMenu}>{navLabel("reports", "Progress report")}</PortalNav>
+        {isLearner(user) && <PortalNav to="/portal/remediation" onNavigate={closeMenu}>{navLabel("remediation", "My support tasks")}</PortalNav>}
+        <PortalNav to="/portal/fees" onNavigate={closeMenu}>{navLabel("fees", "Fees")}</PortalNav>
+        <PortalNav to="/portal/tutor" onNavigate={closeMenu}>{navLabel("tutor", "Ask the tutor")}</PortalNav>
+        <PortalNav to="/portal/communications" onNavigate={closeMenu}>{navLabel("communications", "Messages")}</PortalNav>
+        <PortalNav to="/portal/profile" onNavigate={closeMenu}>{navLabel("profile", "My profile")}</PortalNav>
+        {user?.onboarding?.is_complete === false && (
+          <PortalNav to="/onboarding" onNavigate={closeMenu}>Complete setup</PortalNav>
+        )}
       </nav>
 
       <main className="portal-main">
-        {!online && (
-          <div className="notice warn offline-banner" style={{ marginBottom: "1rem" }}>
-            You are offline. Cached pages still open; new changes will sync when you reconnect.
-          </div>
-        )}
-        <SyncStatus />
-        {location.pathname !== "/portal/sync" && <SyncQueuePanel className="layout-sync-panel" />}
         <Outlet />
       </main>
     </div>

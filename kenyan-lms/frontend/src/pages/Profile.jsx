@@ -3,7 +3,8 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { useToast } from "../context/ToastContext";
 import FormField from "../components/FormField";
-import { ROLES } from "../utilities/roles";
+import RollingLabel from "../components/RollingLabel";
+import { roleLabel } from "../utilities/roles";
 
 export default function Profile() {
   const { user, setUser } = useAuth();
@@ -13,28 +14,37 @@ export default function Profile() {
     email: user?.email || "", phone: user?.phone || "",
   });
   const [pw, setPw] = useState({ old_password: "", new_password: "" });
-  const [busy, setBusy] = useState(false);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
 
   async function saveProfile(e) {
     e.preventDefault();
-    setBusy(true);
+    setProfileBusy(true);
+    setProfileSaved(false);
     try {
       const updated = await api.patch("/auth/me/", form);
       setUser(updated);
       push("Profile updated.", "success");
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 1400);
     } catch (err) { push(err.message, "error"); }
-    finally { setBusy(false); }
+    finally { setProfileBusy(false); }
   }
 
   async function changePassword(e) {
     e.preventDefault();
-    setBusy(true);
+    setPasswordBusy(true);
+    setPasswordSaved(false);
     try {
       await api.post("/auth/password/change/", pw);
       push("Password changed.", "success");
       setPw({ old_password: "", new_password: "" });
+      setPasswordSaved(true);
+      setTimeout(() => setPasswordSaved(false), 1400);
     } catch (err) { push(err.message, "error"); }
-    finally { setBusy(false); }
+    finally { setPasswordBusy(false); }
   }
 
   return (
@@ -47,7 +57,7 @@ export default function Profile() {
       </div>
 
       <div className="panel panel-pad" style={{ marginBottom: "1rem" }}>
-        <p className="muted">Role: <strong>{ROLES[user?.role] || user?.role}</strong> · Institution: {user?.institution_name || "Platform"}</p>
+        <p className="muted">Role: <strong>{roleLabel(user)}</strong> · Institution: {user?.institution_name || "Platform"}</p>
         <form onSubmit={saveProfile}>
           <div className="form-grid">
             <FormField label="First name"><input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} /></FormField>
@@ -55,7 +65,11 @@ export default function Profile() {
             <FormField label="Email"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></FormField>
             <FormField label="Phone"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></FormField>
           </div>
-          <div className="form-actions"><button disabled={busy}>Save profile</button></div>
+          <div className="form-actions">
+            <button disabled={profileBusy} aria-busy={profileBusy || undefined}>
+              {profileSaved ? "Profile saved ✓" : profileBusy ? "Saving…" : <RollingLabel>Save profile</RollingLabel>}
+            </button>
+          </div>
         </form>
       </div>
 
@@ -66,7 +80,11 @@ export default function Profile() {
             <FormField label="Current password"><input type="password" value={pw.old_password} onChange={(e) => setPw({ ...pw, old_password: e.target.value })} required /></FormField>
             <FormField label="New password"><input type="password" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} required /></FormField>
           </div>
-          <div className="form-actions"><button disabled={busy}>Change password</button></div>
+          <div className="form-actions">
+            <button disabled={passwordBusy} aria-busy={passwordBusy || undefined}>
+              {passwordSaved ? "Password updated ✓" : passwordBusy ? "Updating…" : <RollingLabel>Change password</RollingLabel>}
+            </button>
+          </div>
         </form>
       </div>
     </section>

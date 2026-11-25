@@ -28,11 +28,11 @@ class FeeTests(APITestCase):
         )
         cls.admin_a = User.objects.create_user(
             username="fee_admin_a", password="not-a-real-password",
-            role=Roles.SCHOOL_ADMIN, institution=cls.school_a,
+            role=Roles.ADMIN, institution=cls.school_a,
         )
         cls.admin_b = User.objects.create_user(
             username="fee_admin_b", password="not-a-real-password",
-            role=Roles.SCHOOL_ADMIN, institution=cls.school_b,
+            role=Roles.ADMIN, institution=cls.school_b,
         )
         cls.learner_user = User.objects.create_user(
             username="fee_learner", password="not-a-real-password",

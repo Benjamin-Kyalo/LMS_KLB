@@ -27,7 +27,7 @@ class ReportTests(APITestCase):
         )
         self.admin = User.objects.create_user(
             username="report_admin", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN, institution=self.school,
+            role=Roles.ADMIN, institution=self.school,
         )
         self.learner_user = User.objects.create_user(
             username="report_learner", password="StrongPass123!",
@@ -68,7 +68,7 @@ class ReportTests(APITestCase):
     def test_dashboard_does_not_fail_open_for_institutionless_staff(self):
         drifter = User.objects.create_user(
             username="no_school_admin", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN,
+            role=Roles.ADMIN,
         )
         self.client.force_authenticate(user=drifter)
         response = self.client.get(reverse("school-dashboard"))
@@ -125,6 +125,23 @@ class ReportTests(APITestCase):
         self.assertEqual(response.data["exams"], [])
         self.assertIsNone(response.data["average_score"])
         self.assertGreater(response.data["attendance"]["PRESENT"], 0)
+
+    def test_unverified_guardian_link_exposes_no_learner_data(self):
+        guardian_user = User.objects.create_user(
+            username="unverified_guardian", password="StrongPass123!",
+            role=Roles.GUARDIAN, institution=self.school,
+        )
+        guardian = Guardian.objects.create(user=guardian_user, institution=self.school)
+        LearnerGuardian.objects.create(
+            learner=self.learner, guardian=guardian, is_verified=False
+        )
+        self.client.force_authenticate(user=guardian_user)
+        picker = self.client.get(reverse("report-my-learners"))
+        self.assertEqual(picker.data, [])
+        self.assertEqual(
+            self.client.get(reverse("learner-report", args=[self.learner.id])).status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
 
     def test_attendance_create_injects_institution(self):
         self.client.force_authenticate(user=self.admin)

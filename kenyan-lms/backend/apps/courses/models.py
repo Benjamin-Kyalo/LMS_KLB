@@ -49,7 +49,7 @@ class Lesson(InstitutionScopedModel):
     learning_outcome = models.ForeignKey("curriculum.LearningOutcome", on_delete=models.SET_NULL, null=True, blank=True)
     estimated_minutes = models.PositiveSmallIntegerField(default=15)
     sequence = models.PositiveSmallIntegerField(default=1)
-    is_downloadable = models.BooleanField(default=False, help_text="May be cached for offline use")
+    is_downloadable = models.BooleanField(default=False, help_text="May be downloaded for later reading")
 
     class Meta:
         ordering = ["module", "sequence"]
@@ -67,7 +67,7 @@ class LessonProgress(InstitutionScopedModel):
     )
     time_spent_seconds = models.PositiveIntegerField(default=0)
     completed_at = models.DateTimeField(null=True, blank=True)
-    synced_at = models.DateTimeField(null=True, blank=True, help_text="Set when an offline record reaches the server")
+    synced_at = models.DateTimeField(null=True, blank=True, help_text="Legacy timestamp retained for existing records")
 
     class Meta:
         constraints = [

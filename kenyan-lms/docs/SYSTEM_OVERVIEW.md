@@ -1,73 +1,95 @@
 # System overview
 
+**Current direction — normal web app only.** There is no offline queue,
+service worker, PWA manifest, workbox precache, Capacitor configuration or
+native wrapper. `npm run build` emits only `index.html`, hashed CSS/JS assets,
+`robots.txt`, SVG marks and local images. Failed mutations show an error and
+remain unsaved; uploads require a live connection. Earlier descriptions of
+queued writes, sync banners and cached pages were accurate historically but are
+superseded. See `README.md` and `SECURITY_AUDIT.md`.
+
 ## Two UI sides
 
 The React app has two shells over the same API:
 
 | Side | Base URL | Layout | Used by |
 |---|---|---|---|
-| Staff admin panel | `/admin/...` | `frontend/src/layouts/DashboardLayout.jsx` | Platform admins, school admins, teachers, content managers |
+| Staff admin panel | `/admin/...` | `frontend/src/layouts/DashboardLayout.jsx` | `SUPER_ADMIN`, `ADMIN`, custom roles with `admin.access`, teachers |
 | Learner / guardian portal | `/portal/...` | `frontend/src/layouts/PortalLayout.jsx` | Learners and guardians |
 
-`/` is the public homepage in `frontend/src/pages/Home.jsx`; it does not
-advertise the internal administration portal. Sign-in and registration route
-each role to the right side, and `RoleHome.jsx` handles old root URLs such as
-`/learners`, `/courses` and `/reports`. `frontend/src/App.jsx` defines the
-routes and guards; `ProtectedRoute.jsx` blocks a role that does not belong on
-that side. Both layouts read the school name and `institution_logo` from the
-profile API and show `/mark.svg` if no logo has been uploaded.
+`/` is the public homepage in `frontend/src/pages/Home.jsx`; its hero uses
+`frontend/src/components/ParticleHeadline.jsx`, which draws particles on a
+canvas while keeping the real `<h1>` text in the DOM. The canvas is
+`aria-hidden`, respects `prefers-reduced-motion`, repels pointer/touch input,
+resizes responsively and cleans up on unmount. The homepage does not advertise
+the internal administration portal. Sign-in and registration route each role to
+the right side, and `RoleHome.jsx` handles old root URLs such as `/learners`,
+`/courses` and `/reports`. `frontend/src/App.jsx` defines the routes and guards;
+`ProtectedRoute.jsx` blocks a role that does not belong on that side. Both
+layouts read the school name and `institution_logo` from `/api/auth/me/` and
+show `/mark.svg` if no logo has been uploaded.
 
-## The three components
+## The components
 
 | Component | Django apps | Responsibility |
 |---|---|---|
 | **SIS** | `accounts`, `institutions`, `learners`, `teachers`, `guardians`, `academics`, `attendance` | People, classes, timetables, attendance |
 | **LMS** | `courses`, `assessments`, `curriculum` | Teaching, learning, quizzes, exams, CBE outcomes |
 | **Publishing** | `content` | Textbooks, chapters, resources, exercises, licences |
-| **Cross-cutting** | `core`, `communications`, `reports` | Permissions, audit, messages, dashboards |
+| **Cross-cutting** | `core`, `communications`, `reports`, `theming` | Permissions, audit, messages, dashboards, palettes, site content |
 
 ## How a request travels
 
-1. React sends a JSON request, e.g. `GET /api/learners/`, with `Authorization: Token ...`.
-2. Django REST Framework authenticates the token and applies the default
-   `IsAuthenticated` permission.
+1. React sends a JSON request, e.g. `GET /api/learners/`, with its session
+   cookie. State-changing requests also send `X-CSRFToken` from the readable
+   CSRF cookie.
+2. Django REST Framework authenticates the session and applies the default
+   `IsAuthenticated` permission. Legacy token auth remains only for
+   compatibility.
 3. The ViewSet's `InstitutionScopedQuerysetMixin` narrows the queryset:
-   platform admins see everything; everyone else sees only their institution.
-   A user with no institution sees **nothing** (fail closed).
-4. The serializer converts model rows to JSON.
-5. React renders the result. Vite proxies `/api` to Django during development.
+   `SUPER_ADMIN` sees everything; `ADMIN` and custom-role accounts see only
+   their institution. A user with no institution sees **nothing** (fail closed).
+4. Content, assessment, course, learner, fee and attendance reads apply scoped
+   querysets and reduced field sets for ordinary users.
+5. The serializer converts model rows to JSON; React renders the result. Vite
+   proxies `/api` to Django during development.
 
 ```text
-React (5173)  --JSON/token-->  Django REST (8000)  --ORM-->  PostgreSQL "lms"
+React (5173) --session cookie + CSRF--> Django REST (8000) --ORM--> PostgreSQL "lms"
 ```
+
+Failed writes return an error and are not saved locally. There is no retry
+queue, sync banner or conflict page; the user decides whether to try again.
 
 ## Institution isolation — the central security rule
 
 `apps/core/viewsets.py` contains one mixin used by almost every ViewSet.
-It filters on `institution_id` for non-platform users. Object-level checks
-also exist in `apps/core/permissions.py`. Tests prove that a school admin
-cannot see another school's learners or courses, and gets a 404 for another
-school's course detail page.
+It filters on `institution_id` for everyone except `SUPER_ADMIN`. Object-level
+checks and capability enforcement also exist in `apps/core/permissions.py`.
+Tests prove that an institution `ADMIN` cannot see another school's learners or
+courses, and gets a 404 for another school's course detail page.
 
-The same mixin now also forces `institution` on create and update, so a client
-cannot smuggle another school's ID into a payload. A project-wide smoke test
-loads every list endpoint to catch wiring errors before deployment.
+The same mixin forces `institution` on create and update, so a client cannot
+smuggle another school's ID into a payload. A project-wide smoke test loads
+every list endpoint to catch wiring errors before deployment.
 
 The institution ViewSet is a deliberate exception because an `Institution`
 does not have an `institution` field of its own. Its `get_queryset()` limits
-platform admins to all schools and everyone else to their own school. The
-`mine` action adds a second check: only administrators may PATCH the profile.
-Learners and guardians can GET it but receive HTTP 403 on PATCH.
+`SUPER_ADMIN` to all schools and everyone else to their own school. The
+`mine` action adds a second check: only `SUPER_ADMIN` and `ADMIN` may PATCH the
+profile (custom roles are limited to their capabilities). Learners and guardians
+can GET it but receive HTTP 403 on PATCH.
 
 ## School profile and logo
 
 `Institution` stores `phone`, `email`, `website`, `motto` and `logo` in
 addition to the existing identity and address fields. The migration
 `apps/institutions/migrations/0002_institution_logo_institution_motto_and_more.py`
-was applied after a backup (`backups/lms_20261123_134452.sql`). A logo upload
-is multipart, JPG/PNG/WebP, at most 2 MB, and needs a live connection because
-file uploads are not stored in the offline JSON queue. `GET /api/auth/me/`
-returns `institution_logo` so both layouts can render the same image.
+was applied after a backup (`backups/lms_20261123_134452.sql`). A logo upload is
+multipart, JPG/PNG/WebP, at most 2 MB, and server-side magic-byte sniffing
+validates the bytes. It needs a live connection because failed uploads are not
+saved or replayed. `GET /api/auth/me/` returns `institution_logo` so both
+layouts can render the same image.
 
 ## Reference numbers
 
@@ -77,54 +99,64 @@ PostgreSQL advisory locks so concurrent requests cannot issue the same
 number. Formats are documented in `REFERENCE_NUMBERING.md`; official codes
 supplied by a user are preserved.
 
-## Authentication
+## Authentication and security
 
 - Custom user model `accounts.User` (extends Django's `AbstractUser`) adds
   `role`, `institution`, `phone`, `preferred_language` and a legacy
   `must_change_password` flag. Admin-created accounts use an unusable password
   instead of a generated temporary one.
-- Login returns a DRF token. The browser keeps it in `localStorage`.
-- A `post_save` signal gives every new user a token automatically.
-- Password change and email-based reset are implemented. Reset links are
-  printed to the console in development (no email server configured).
+- Login sets an HttpOnly Django session cookie and a readable CSRF cookie; the
+  frontend echoes the latter as `X-CSRFToken`. Identity and roles are always
+  re-read from `/api/auth/me/` (the `/auth/me/` endpoint). No `klb_token` or
+  `klb_user` values are stored in `localStorage`.
+- PBKDF2 password hashing and validators are retained. Login failures are
+  counted in the database (IP/username and username-only scopes), and scoped
+  DRF throttles cover login, registration, reset, tutor and KEMIS paths.
+  `X-Forwarded-For` is trusted only from configured proxy IPs.
+- Reset links expire after one hour and use hashed, single-use records;
+  successful password change/reset invalidates active sessions and legacy
+  tokens. In local development reset links are printed to the console.
+- Production adds security headers and a CSP, and fails closed without a
+  separate `PRODUCTION_SECRET_KEY`, SMTP host, allowed hosts and CORS origins.
+- Local `.env` remains Git-ignored and owner-managed, `backups/` is Git-ignored because dumps
+  contain hashes/PII, and no secret is in source control. See
+  `SECURITY_AUDIT.md` for the full hardening record.
 
 ## Roles
 
-`SUPER_ADMIN`, `PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `SCHOOL_ADMIN`,
-`TEACHER`, `LEARNER`, `GUARDIAN`, `CONTENT_MANAGER`.
+Built-ins: `SUPER_ADMIN` (global unrestricted, including institution management
+and granting any role), `ADMIN` (unrestricted within its own institution; can
+create/assign custom roles, cannot grant `SUPER_ADMIN` or create global
+institutions), `CUSTOM`, `TEACHER`, `LEARNER`, `GUARDIAN`.
 
-Role strings live in `apps/core/constants.py` and are exposed to the UI via
-`GET /api/auth/users/roles/`.
+`CUSTOM` is a named reusable role with a `custom_role` id and picked
+capabilities from `apps/core/constants.py`. It enters `/admin` only with
+`admin.access`; the backend enforces the remaining capabilities. Custom-role
+CRUD is at `/api/auth/roles/`, and `GET /api/auth/users/roles/` returns built-ins
+plus custom options. User payloads use `{ "role": "CUSTOM", "custom_role":
+<id> }`; responses include `custom_role`, `custom_role_name` and `capabilities`.
 
-## Offline strategy
+The retired `PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `SCHOOL_ADMIN` and
+`CONTENT_MANAGER` names are removed and those accounts migrate to `ADMIN` with
+passwords untouched; `SUPER_ADMIN` is unchanged. See `USER_ROLES_JOURNEYS.md`.
 
-`vite-plugin-pwa` generates a service worker that precaches the app shell and
-uses a **NetworkFirst** cache for `/api/` reads. The UI tracks connectivity
-and shows a warning banner when offline. Cached pages remain readable.
+## Completion and verification status
 
-Mutations (POST, PATCH, DELETE — never authentication calls) are wrapped by
-`frontend/src/services/api.js`. If a mutation fails because the network is
-unavailable, it is stored in an IndexedDB queue
-(`frontend/src/services/offlineQueue.js`) and a "waiting to sync" notice
-appears. On reconnection the queue is replayed in order; successful items
-are removed, server rejections are recorded with their HTTP error, and the
-pages reload through the `klb:synced` event.
+Phase 0–6 are mostly implemented on the original delivery roadmap. The former
+Phase 7 (offline/mobile) work was **removed**, not completed. Phase 8 is
+partial: bounded local fees, approval, KEMIS, tutor and analytics modules
+exist, but no official integration or hosted AI provider is configured.
+Phase 9 is not complete.
 
-A structured 409 includes the server's current `updated_at`. A queued PATCH,
-PUT or DELETE is replayed once with that value as `If-Match`: this is an
-optimistic rebase, not a blind overwrite. If the server version moved again,
-the local edit stays in the queue with its details for manual retry, rebase or
-discard. This is first-pass recovery, not a fully automatic merge engine.
-
-## Completion status
-
-Phase 0–6 are mostly implemented. Phase 7 (offline and mobile) remains a
-foundation: caching, queued writes and one safe conflict rebase exist, but a
-fresh device/offline replay and signed native build were not performed. Phase 8
-is partial: bounded local fees, approval, KEMIS, tutor and analytics modules
-exist, but no official integration or hosted AI provider is configured. Phase 9
-is not complete. See `docs/HANDOVER_REPORT.md` for the full, honest status and
-`docs/TESTING_CHECKLIST.md` for results that were actually observed.
+Frontend verification after hardening: **101 tests across 32 files**, a clean
+web-only build and `npm audit --audit-level=moderate` with **0 vulnerabilities**.
+The focused backend auth/account/core/tutor/KEMIS/security suite passes
+(**71 tests**) and the full backend suite passes (**221 tests**).
+**This project is not production-ready**: proxy headers, TLS, media serving
+permissions, least-privilege DB, a shared throttle cache, SMTP, final
+`manage.py check --deploy` values and assistive-technology checks still need
+verification; reduced-motion browser checks have passed under forced media at
+desktop and 390 px. See `HANDOVER_REPORT.md` and `TESTING_CHECKLIST.md`.
 
 ## Why a modular monolith?
 

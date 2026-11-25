@@ -22,6 +22,32 @@ class Teacher(AutoReferenceModelMixin, InstitutionScopedModel):
         return f"{self.user.full_name} ({self.staff_number})"
 
 
+class TeacherApproval(AutoReferenceModelMixin, InstitutionScopedModel):
+    """Account approval workflow for teachers who registered publicly."""
+
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+    ]
+
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name="approval_records")
+    reference = models.CharField(max_length=50, blank=True, unique=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING", db_index=True)
+    notes = models.TextField(blank=True)
+    decided_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="teacher_approval_decisions",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.teacher.user.full_name} — {self.get_status_display()}"
+
+
 class TeacherClassAssignment(InstitutionScopedModel):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name="assignments")
     school_class = models.ForeignKey("institutions.SchoolClass", on_delete=models.CASCADE, related_name="teacher_assignments")

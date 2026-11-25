@@ -33,7 +33,7 @@ class KemisTestBase(APITestCase):
             name="KEMIS Other School", code="KEM002", institution_type=self.kind,
         )
         # Only the seeded demo usernames are used. No password is set or printed.
-        self.admin = self._demo_user("demo_admin", Roles.SCHOOL_ADMIN, self.school)
+        self.admin = self._demo_user("demo_admin", Roles.ADMIN, self.school)
         self.teacher = self._demo_user("demo_teacher", Roles.TEACHER, self.school)
         self.learner_user = self._demo_user("demo_learner", Roles.LEARNER, self.school)
         self.guardian = self._demo_user("demo_guardian", Roles.GUARDIAN, self.school)

@@ -5,6 +5,7 @@ import { useResource } from "../hooks/useApi";
 import { api } from "../services/api";
 import FormField from "../components/FormField";
 import Loading from "../components/Loading";
+import RollingLabel from "../components/RollingLabel";
 
 const EDITABLE = [
   { name: "name", label: "Institution name", full: true, required: true },
@@ -16,8 +17,7 @@ const EDITABLE = [
 ];
 
 // School administrators register and maintain the school's own details here.
-// The logo upload bypasses the JSON offline queue because files cannot be
-// replayed from stored JSON.
+// The logo upload uses the file upload endpoint.
 export default function SchoolProfile() {
   const { user, setUser } = useAuth();
   const { push } = useToast();
@@ -72,7 +72,7 @@ export default function SchoolProfile() {
   }
 
   if (loading) return <Loading />;
-  if (error) return <div className="notice error">{error}</div>;
+  if (error) return <div className="notice error" role="alert">{error}</div>;
 
   return (
     <section>
@@ -126,7 +126,7 @@ export default function SchoolProfile() {
           ))}
         </div>
         <div className="form-actions">
-          <button type="submit" disabled={saving}>{saving ? "Saving…" : "Save school details"}</button>
+          <button type="submit" disabled={saving}>{saving ? "Saving…" : <RollingLabel>Save school details</RollingLabel>}</button>
         </div>
       </form>
     </section>

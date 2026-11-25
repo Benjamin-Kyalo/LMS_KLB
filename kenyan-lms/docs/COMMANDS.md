@@ -84,8 +84,11 @@ Focused tests used during the latest work:
 .\.venv\Scripts\python.exe -m pytest apps/core/tests/test_reference_codes.py
 ```
 
-The latest recorded results are in `docs/TESTING_CHECKLIST.md`. The final full
-backend suite result is **95 passed**; do not replace it with an older result.
+The latest recorded results are in `docs/TESTING_CHECKLIST.md`. After the
+web-only/security work, the focused backend auth/account/core/tutor/KEMIS/
+security suite is passing (**71 tests**) and the full backend suite passes
+(**221 tests**). Older full-suite results such as **100 passed** and
+**95 passed** are historical.
 
 ## 5. Backend: accounts
 
@@ -107,10 +110,14 @@ backend suite result is **95 passed**; do not replace it with an older result.
 `role` field, so change it explicitly when a different scope is needed:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py shell -c "from apps.accounts.models import User; u=User.objects.get(username='your_new_admin'); u.role='SCHOOL_ADMIN'; u.save(update_fields=['role'])"
+.\.venv\Scripts\python.exe manage.py shell -c "from apps.accounts.models import User; u=User.objects.get(username='your_new_admin'); u.role='ADMIN'; u.save(update_fields=['role'])"
 ```
 
-For a single school, also set `u.institution`. `seed_sample_data` is add-only
+`ADMIN` is unrestricted in its own institution but cannot grant `SUPER_ADMIN`
+or create global institutions. Retired roles (`PLATFORM_ADMIN`,
+`INSTITUTION_ADMIN`, `SCHOOL_ADMIN`, `CONTENT_MANAGER`) are migrated to `ADMIN`
+without changing or printing passwords. For a single school, also set
+`u.institution`. `seed_sample_data` is add-only
 and idempotent; see `docs/SAMPLE_DATA.md`. Never write a password into the
 command or a document.
 
@@ -147,9 +154,11 @@ return to local settings in that session:
 Remove-Item Env:DJANGO_SETTINGS_MODULE
 ```
 
-This is a **check**, not a deployment. A WSGI/ASGI server, TLS termination,
-backups and monitoring are still required. See
-`docs/PRODUCTION_CONFIGURATION.md`.
+This is a **check**, not a deployment. Production settings fail closed without
+a separate `PRODUCTION_SECRET_KEY`, SMTP host, allowed hosts and CORS origins.
+A WSGI/ASGI server, TLS termination, shared throttle cache, backups,
+monitoring and the remaining runtime checks are still required; the project is
+**not production-ready**. See `docs/PRODUCTION_CONFIGURATION.md`.
 
 ## 8. Frontend
 
@@ -167,9 +176,17 @@ npm audit --audit-level=moderate
 `npm run dev` serves the app at <http://127.0.0.1:5173>. Staff pages are under
 `/admin/...`; learner and guardian pages are under `/portal/...`.
 
-`npm run build` writes `frontend/dist`, including the generated service worker
-and PWA manifest. A Vite message about one chunk larger than 500 kB is a
-warning, not a failure. The most recent build produced 7 PWA precache entries.
+`npm run build` writes `frontend/dist` for the normal web app only. The output
+is `index.html`, hashed CSS/JS assets, `robots.txt`, SVG marks and local images
+— no service worker, manifest or workbox files. A Vite message about one chunk
+larger than 500 kB is a warning, not a failure. The latest frontend checks
+recorded **101 tests across 32 files** and `npm audit --audit-level=moderate`
+with **0 vulnerabilities**.
+
+If users installed the old service worker before removal, deployment (not the
+app build) must include a one-release kill-switch: serve `/sw.js` with no-cache
+and an unregister/self-delete response, or have those users clear site data.
+See `docs/PRODUCTION_CONFIGURATION.md`.
 
 Use `npm ci` instead of `npm install` when you want to install exactly the
 versions in `package-lock.json` (for example, on a build server).
@@ -190,7 +207,10 @@ Get-Content .\scripts\backup_database.ps1
 The script reads `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME` and `DB_PASSWORD`
 from `.env`, then writes `backups\lms_YYYYMMDD_HHMMSS.sql`. No password is
 typed into the command. The backup taken before the school-profile migration is
-`backups\lms_20261123_134452.sql`.
+`backups\lms_20261123_134452.sql`. Dumps contain password hashes and personal
+data; `backups/` is Git-ignored, and local `.env` secrets are owner-managed. The
+PostgreSQL password must not be rotated again without approval. Never commit
+either one.
 
 Only read the restore script during normal work. Restoring overwrites data, so
 do it only with a clear reason and a fresh backup:

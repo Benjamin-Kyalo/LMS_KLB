@@ -2,18 +2,22 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, listAll } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { useSiteContent } from "../context/SiteContentContext";
+import PublicHeader from "../components/PublicHeader";
+import PublicFooter from "../components/PublicFooter";
+import ParticleHeadline from "../components/ParticleHeadline";
+import AnimatedSubmitButton from "../components/AnimatedSubmitButton";
+import { useSectionStyle } from "../styles/sectionStyles";
 import { homeFor } from "../utilities/roles";
-
-const ROLE_OPTIONS = [
-  { value: "LEARNER", label: "Learner", note: "Courses, assignments and results" },
-  { value: "GUARDIAN", label: "Parent / Guardian", note: "Follow a learner's progress" },
-  { value: "TEACHER", label: "Teacher", note: "Created pending school approval" },
-];
 
 export default function Register() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { signIn } = useAuth();
+  const { content } = useSiteContent();
+  const sectionStyle = useSectionStyle("register");
+  const registerCopy = content.auth.register;
+  const roleOptions = registerCopy.roleOptions || [];
   const [schools, setSchools] = useState([]);
   const [loadingSchools, setLoadingSchools] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,9 +26,9 @@ export default function Register() {
   const requestedRole = String(params.get("role") || "").toUpperCase();
   const [form, setForm] = useState({
     username: "", email: "", password: "", confirm: "", first_name: "",
-    last_name: "", role: ROLE_OPTIONS.some((r) => r.value === requestedRole) ? requestedRole : "LEARNER",
+    last_name: "", role: roleOptions.some((r) => r.value === requestedRole) ? requestedRole : roleOptions[0]?.value || "LEARNER",
     institution: "", phone: "", date_of_birth: "", gender: "",
-    relationship_to_learner: "", occupation: "", employment_type: "CONTRACT",
+    relationship_to_learner: "", learner_identifier: "", occupation: "", employment_type: "CONTRACT",
   });
 
   useEffect(() => {
@@ -62,7 +66,7 @@ export default function Register() {
         return;
       }
       const data = await signIn(form.username, form.password);
-      navigate(homeFor(data.user));
+      navigate(data.user?.onboarding?.is_complete === false ? "/onboarding" : homeFor(data.user));
     } catch (err) {
       setError(err.details ? JSON.stringify(err.details) : err.message);
     } finally {
@@ -72,40 +76,42 @@ export default function Register() {
 
   return (
     <div className="public-auth-page">
-      <header className="public-topbar">
-        <Link to="/" className="public-brand">
-          <span className="public-mark">KLB</span>
-          <span><strong>Digital Learning Ecosystem</strong><small>Kenya Literature Bureau</small></span>
-        </Link>
-        <nav aria-label="Registration navigation">
-          <Link to="/login">Sign in</Link>
-        </nav>
-      </header>
+      <PublicHeader links={content.header.authLinks} ariaLabel="Registration navigation" showSignIn={false} />
 
-      <main className="public-auth-main">
+      <main className="public-auth-main view-enter section-styled" style={sectionStyle}>
+        <img
+          className="public-auth-photo"
+          src={registerCopy.storyImageSrc || "/images/register-learn.jpg"}
+          alt=""
+          aria-hidden="true"
+        />
+        <div className="public-auth-photo-scrim" aria-hidden="true" />
         <div className="public-auth-copy">
-          <div className="overline">Create your account</div>
-          <h1>Choose your role, then fill in only what applies.</h1>
-          <p>
-            Learner and guardian accounts are ready to use immediately. Teacher accounts are
-            created pending approval by the school. Administrator accounts require a secure,
-            single-use invitation token and are never created through this form.
-          </p>
-          <div className="notice info" style={{ marginTop: "1rem" }}>
-            The school database is shared: accounts created here appear in the administration
-            portal for the same institution.
+          <div className="overline">{registerCopy.overline}</div>
+          <ParticleHeadline text={registerCopy.heading} className="public-auth-headline" />
+          <p className="auth-copy-reveal auth-copy-reveal--delayed">{registerCopy.copy}</p>
+          <div
+            className="notice info auth-copy-reveal auth-copy-reveal--delayed"
+            style={{ marginTop: "1rem" }}
+          >
+            {registerCopy.notice}
           </div>
         </div>
 
-        <form className="public-auth-card" onSubmit={submit}>
+        <form className="public-auth-card auth-card-enter" onSubmit={submit}>
           <h2>Register</h2>
-          {error && <div className="notice error">{error}</div>}
-          {notice && <div className="notice success">{notice}</div>}
+          <ol className="form-steps" aria-label="Registration steps">
+            {(registerCopy.steps || []).map((step, index) => (
+              <li key={step}><span>{index + 1}</span> {step}</li>
+            ))}
+          </ol>
+          {error && <div className="notice error" role="alert">{error}</div>}
+          {notice && <div className="notice success" role="status">{notice}</div>}
 
           <fieldset className="role-picker">
             <legend>Account type</legend>
             <div className="role-options">
-              {ROLE_OPTIONS.map((item) => (
+              {roleOptions.map((item) => (
                 <label key={item.value} className={form.role === item.value ? "selected" : ""}>
                   <input
                     type="radio" name="role" value={item.value}
@@ -121,7 +127,7 @@ export default function Register() {
           <div className="form-grid">
             <FormInput label="First name" value={form.first_name} onChange={(v) => update("first_name", v)} required />
             <FormInput label="Last name" value={form.last_name} onChange={(v) => update("last_name", v)} required />
-            <FormInput label="Username" value={form.username} onChange={(v) => update("username", v)} required />
+            <FormInput label="Username" value={form.username} onChange={(v) => update("username", v)} hint="Leave blank to generate from your name." />
             <FormInput label="Email" type="email" value={form.email} onChange={(v) => update("email", v)} required />
             <FormInput label="Password" type="password" value={form.password} onChange={(v) => update("password", v)} required hint="At least 8 characters" />
             <FormInput label="Confirm password" type="password" value={form.confirm} onChange={(v) => update("confirm", v)} required />
@@ -129,7 +135,7 @@ export default function Register() {
             <label>
               School / institution
               <select value={form.institution} onChange={(e) => update("institution", e.target.value)} required>
-                <option value="">— choose —</option>
+                <option value="">Choose one</option>
                 {schools.map((school) => (
                   <option key={school.id} value={school.id}>{school.name} ({school.code})</option>
                 ))}
@@ -143,7 +149,7 @@ export default function Register() {
                 <label>
                   Gender
                   <select value={form.gender} onChange={(e) => update("gender", e.target.value)} required>
-                    <option value="">— choose —</option>
+                    <option value="">Choose one</option>
                     <option value="F">Female</option>
                     <option value="M">Male</option>
                     <option value="OTHER">Other</option>
@@ -154,6 +160,13 @@ export default function Register() {
             {form.role === "GUARDIAN" && (
               <>
                 <FormInput label="Relationship to learner" value={form.relationship_to_learner} onChange={(v) => update("relationship_to_learner", v)} required />
+                <FormInput
+                  label="Learner admission or assessment number"
+                  value={form.learner_identifier}
+                  onChange={(v) => update("learner_identifier", v)}
+                  required
+                  hint="Your school verifies this link before any learner data is shown."
+                />
                 <FormInput label="Occupation" value={form.occupation} onChange={(v) => update("occupation", v)} />
               </>
             )}
@@ -171,15 +184,16 @@ export default function Register() {
           </div>
 
           <div className="form-actions">
-            <button type="submit" disabled={saving || loadingSchools}>
+            <AnimatedSubmitButton disabled={saving || loadingSchools}>
               {saving ? "Creating…" : "Create account"}
-            </button>
+            </AnimatedSubmitButton>
           </div>
           <p className="muted" style={{ fontSize: "0.82rem" }}>
             Already registered? <Link to="/login">Sign in</Link>
           </p>
         </form>
       </main>
+      <PublicFooter />
     </div>
   );
 }

@@ -69,16 +69,20 @@ export default function PortalRemediation() {
                 <button
                   className="small"
                   disabled={busyId === task.id}
+                  aria-busy={busyId === task.id}
+                  aria-label={`Mark complete: ${task.rule_name || task.competency_name || "task"}`}
                   onClick={() => updateTask(task, "complete", "Task marked complete.")}
                 >
-                  Mark complete
+                  {busyId === task.id ? "Updating…" : "Mark complete"}
                 </button>
                 <button
                   className="ghost small"
                   disabled={busyId === task.id}
+                  aria-busy={busyId === task.id}
+                  aria-label={`Not needed: ${task.rule_name || task.competency_name || "task"}`}
                   onClick={() => updateTask(task, "dismiss", "Task dismissed.")}
                 >
-                  Not needed
+                  {busyId === task.id ? "Updating…" : "Not needed"}
                 </button>
               </div>
             </article>

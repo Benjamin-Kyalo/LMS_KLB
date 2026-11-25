@@ -18,10 +18,9 @@ run created **0** new records because all labelled records already existed.
 - Users have `sample_` usernames and `.invalid` email addresses.
 - Most business codes start with `SMP-`; departments use `DEP-...`.
 - Text fields that are obviously fictional start with `SAMPLE`.
-- The admin and portal layouts show a **SAMPLE DATA** badge when the signed-in
-  institution uses a demo code such as `DEMO01`. The public homepage has no
-  sample-data banner; the labelling remains visible in the authenticated apps
-  and in the records themselves.
+- The former admin and portal **SAMPLE DATA** badge has been removed. The
+  labelling remains only in the seeder's usernames, `.invalid` addresses and
+  business codes; no production UI marks an institution as sample data.
 - No sample account stores a usable password created by the seeder. Admin-created
   records use unusable passwords and must use the password-reset flow.
 - The seeder never prints a password.

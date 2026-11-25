@@ -1,34 +1,175 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { useOnlineStatus } from "../hooks/useOnlineStatus";
-import SyncStatus from "../components/SyncStatus";
-import SyncQueuePanel from "../components/SyncQueuePanel";
-import SampleDataBadge from "../components/SampleDataBadge";
 import {
-  ROLES, canUseAdmin, canWriteContent, canWriteTeaching,
-  isAdmin, isPlatform, isTeacher,
+  Building2,
+  ChevronDown,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Search,
+  SlidersHorizontal,
+  Users,
+} from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { useSiteContent } from "../context/SiteContentContext";
+import {
+  CAPABILITIES, canUseAdmin, canWriteContent, canWriteTeaching,
+  hasCapability, isAdmin, isCustomRole, isSuperAdmin, isTeacher, roleLabel,
 } from "../utilities/roles";
 
-function NavItem({ to, children, onNavigate }) {
+const GROUP_ICONS = {
+  overview: LayoutDashboard,
+  people: Users,
+  learning: GraduationCap,
+  operations: Building2,
+  system: SlidersHorizontal,
+};
+
+function isItemActive(item, pathname) {
+  if (item.end) return pathname === item.to;
+  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+}
+
+function NavItem({ to, label, end = false, onNavigate }) {
   return (
     <NavLink
       to={to}
-      end={to === "/admin"}
+      end={end}
       onClick={onNavigate}
       className={({ isActive }) => `admin-nav-link${isActive ? " active" : ""}`}
     >
-      {children}
+      {label}
     </NavLink>
   );
 }
 
 export default function DashboardLayout() {
   const { user, signOut } = useAuth();
+  const { content: siteContent } = useSiteContent();
   const navigate = useNavigate();
   const location = useLocation();
-  const online = useOnlineStatus();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  const admin = isAdmin(user);
+  const superAdmin = isSuperAdmin(user);
+  const customAdmin = isCustomRole(user) && canUseAdmin(user);
+  const teaching = canWriteTeaching(user);
+  const content = canWriteContent(user);
+  const staff = isAdmin(user) || isTeacher(user);
+  // Built-in admins pass every capability check. Custom roles need the named
+  // capability plus admin.access, which is already checked by customAdmin.
+  const allows = (capability) => customAdmin && hasCapability(user, capability);
+
+  const groups = [
+    {
+      id: "overview",
+      label: "Overview",
+      items: [{ to: "/admin", label: "Dashboard", end: true }],
+    },
+    {
+      id: "people",
+      label: "People & access",
+      items: [
+        { to: "/admin/users", label: "Users", show: admin || allows(CAPABILITIES.USERS_MANAGE) },
+        { to: "/admin/roles", label: "Roles", show: admin || allows(CAPABILITIES.ROLES_MANAGE) },
+        { to: "/admin/invitations", label: "Admin invitations", show: admin || allows(CAPABILITIES.USERS_MANAGE) },
+        { to: "/admin/teacher-approvals", label: "Teacher approvals", show: admin || allows(CAPABILITIES.TEACHERS_MANAGE) },
+        { to: "/admin/guardian-links", label: "Guardian links", show: admin || allows(CAPABILITIES.GUARDIANS_MANAGE) },
+        { to: "/admin/learners", label: "Learners", show: admin || isTeacher(user) || allows(CAPABILITIES.LEARNERS_MANAGE) },
+        { to: "/admin/teachers", label: "Teachers", show: admin || allows(CAPABILITIES.TEACHERS_MANAGE) },
+        { to: "/admin/guardians", label: "Guardians", show: admin || allows(CAPABILITIES.GUARDIANS_MANAGE) },
+      ],
+    },
+    {
+      id: "learning",
+      label: "Learning",
+      items: [
+        { to: "/admin/courses", label: "Courses", show: staff || allows(CAPABILITIES.COURSES_MANAGE) },
+        { to: "/admin/modules", label: "Modules", show: staff || allows(CAPABILITIES.COURSES_MANAGE) },
+        { to: "/admin/lessons", label: "Lessons", show: staff || allows(CAPABILITIES.COURSES_MANAGE) },
+        { to: "/admin/assignments", label: "Assignments", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
+        { to: "/admin/submissions", label: "Submissions", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
+        { to: "/admin/quizzes", label: "Quizzes", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
+        { to: "/admin/questions", label: "Question bank", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
+        { to: "/admin/exams", label: "Exams", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
+        { to: "/admin/results", label: "Exam results", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
+        { to: "/admin/timetable", label: "Timetable", show: staff || allows(CAPABILITIES.ACADEMICS_MANAGE) },
+        { to: "/admin/attendance", label: "Attendance", show: staff || allows(CAPABILITIES.ATTENDANCE_MANAGE) },
+        { to: "/admin/curriculum", label: "Curriculum", show: teaching },
+        { to: "/admin/tutor", label: "Curriculum tutor", show: staff || allows(CAPABILITIES.TUTOR_USE) },
+      ],
+    },
+    {
+      id: "operations",
+      label: "School operations",
+      items: [
+        { to: "/admin/departments", label: "Departments", show: admin || allows(CAPABILITIES.ACADEMICS_MANAGE) },
+        { to: "/admin/academic-years", label: "Academic years", show: admin || allows(CAPABILITIES.ACADEMICS_MANAGE) },
+        { to: "/admin/terms", label: "Terms", show: admin || allows(CAPABILITIES.ACADEMICS_MANAGE) },
+        { to: "/admin/classes", label: "Classes", show: admin || allows(CAPABILITIES.ACADEMICS_MANAGE) },
+        { to: "/admin/subjects", label: "Subjects", show: admin || allows(CAPABILITIES.ACADEMICS_MANAGE) },
+        { to: "/admin/fees", label: "Fees & payments", show: staff || allows(CAPABILITIES.FEES_MANAGE) },
+        { to: "/admin/events", label: "School events", show: staff || allows(CAPABILITIES.ACADEMICS_MANAGE) },
+        { to: "/admin/kemis", label: "KEMIS exports", show: staff || allows(CAPABILITIES.REPORTS_VIEW) },
+        { to: "/admin/approval", label: "Approval review", show: staff || allows(CAPABILITIES.CONTENT_MANAGE) },
+        { to: "/admin/communications", label: "Messages", show: staff || allows(CAPABILITIES.COMMUNICATIONS_MANAGE) },
+        { to: "/admin/reports", label: "Reports", show: staff || allows(CAPABILITIES.REPORTS_VIEW) },
+        { to: "/admin/analytics", label: "Analytics", show: staff || allows(CAPABILITIES.REPORTS_VIEW) },
+      ],
+    },
+    {
+      id: "system",
+      label: "Content & settings",
+      items: [
+        { to: "/admin/textbooks", label: "Textbooks", show: staff || allows(CAPABILITIES.CONTENT_MANAGE) },
+        { to: "/admin/chapters", label: "Chapters", show: content },
+        { to: "/admin/resources", label: "Resources", show: content },
+        { to: "/admin/resource-collections", label: "Collections", show: content },
+        { to: "/admin/embed-providers", label: "Embed providers", show: content },
+        { to: "/admin/school", label: "School profile", show: admin || allows(CAPABILITIES.ACADEMICS_MANAGE) },
+        { to: "/admin/institutions", label: "Institutions", show: superAdmin },
+        { to: "/admin/appearance", label: "Appearance", show: admin || allows(CAPABILITIES.APPEARANCE_MANAGE) },
+        { to: "/admin/profile", label: "Profile" },
+        { to: "/onboarding", label: "First-time setup", show: staff },
+      ],
+    },
+  ].map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.show !== false),
+  }));
+
+  const activeGroup = groups.find((group) =>
+    group.items.some((item) => isItemActive(item, location.pathname))
+  ) || groups[0];
+  const activeItem = activeGroup.items.find((item) =>
+    isItemActive(item, location.pathname)
+  );
+
+  const [openGroups, setOpenGroups] = useState(() => new Set([activeGroup.id]));
+
+  useEffect(() => {
+    setOpenGroups((current) => {
+      if (current.has(activeGroup.id)) return current;
+      const next = new Set(current);
+      next.add(activeGroup.id);
+      return next;
+    });
+  }, [activeGroup.id]);
+
+  function toggleGroup(id) {
+    setOpenGroups((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const closeMenu = () => setMenuOpen(false);
 
   async function handleLogout() {
@@ -36,12 +177,21 @@ export default function DashboardLayout() {
     navigate("/login");
   }
 
-  const admin = isAdmin(user);
-  const teaching = canWriteTeaching(user);
-  const content = canWriteContent(user);
+  const needle = query.trim().toLowerCase();
+  const visibleGroups = needle
+    ? groups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) =>
+            `${group.label} ${item.label}`.toLowerCase().includes(needle)
+          ),
+        }))
+        .filter((group) => group.items.length)
+    : groups;
 
   return (
     <div className="app-shell">
+      {menuOpen && <button type="button" className="sidebar-backdrop" onClick={closeMenu} aria-label="Close navigation" />}
       <aside className={`app-sidebar${menuOpen ? " is-open" : ""}`}>
         <div className="admin-brand" style={{ padding: "0 0.9rem 1rem" }}>
           <img
@@ -51,87 +201,103 @@ export default function DashboardLayout() {
             onError={(event) => { event.currentTarget.src = "/mark.svg"; }}
           />
           <div>
-            <div className="display" style={{ fontSize: "1.2rem", color: "var(--forest)", fontWeight: 700 }}>KLB Learning</div>
-            <div className="muted" style={{ fontSize: "0.75rem" }}>{user?.institution_name || "Kenya · LMS + SIS + Publishing"}</div>
-            <SampleDataBadge code={user?.institution_code} />
+            <div className="display" style={{ fontSize: "1.2rem", color: "var(--primary)", fontWeight: 700 }}>
+              {siteContent.app.adminBrand}
+            </div>
+            <div className="muted" style={{ fontSize: "0.75rem" }}>
+              {user?.institution_name || "Kenya · LMS + SIS + Publishing"}
+            </div>
           </div>
         </div>
 
-        <div className="overline" style={{ padding: "0 0.9rem" }}>Overview</div>
-        <NavItem to="/admin" onNavigate={closeMenu}>Dashboard</NavItem>
+        <label className="sidebar-search">
+          <Search size={16} strokeWidth={1.8} aria-hidden="true" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Find a page"
+            aria-label="Find an admin page"
+          />
+        </label>
 
-        {admin && (
-          <>
-            <div className="overline" style={{ padding: "0.8rem 0.9rem 0.2rem" }}>Administration</div>
-            <NavItem to="/admin/school" onNavigate={closeMenu}>School profile</NavItem>
-            <NavItem to="/admin/departments" onNavigate={closeMenu}>Departments</NavItem>
-            <NavItem to="/admin/academic-years" onNavigate={closeMenu}>Academic years</NavItem>
-            <NavItem to="/admin/terms" onNavigate={closeMenu}>Terms</NavItem>
-            <NavItem to="/admin/classes" onNavigate={closeMenu}>Classes</NavItem>
-            <NavItem to="/admin/subjects" onNavigate={closeMenu}>Subjects</NavItem>
-            <NavItem to="/admin/users" onNavigate={closeMenu}>Users</NavItem>
-            <NavItem to="/admin/roles" onNavigate={closeMenu}>Roles</NavItem>
-            <NavItem to="/admin/invitations" onNavigate={closeMenu}>Admin invitations</NavItem>
-            {isPlatform(user) && <NavItem to="/admin/institutions" onNavigate={closeMenu}>Institutions</NavItem>}
-          </>
-        )}
-
-        <div className="overline" style={{ padding: "0.8rem 0.9rem 0.2rem" }}>Teaching &amp; assessment</div>
-        <NavItem to="/admin/courses" onNavigate={closeMenu}>Courses</NavItem>
-        <NavItem to="/admin/modules" onNavigate={closeMenu}>Modules</NavItem>
-        <NavItem to="/admin/lessons" onNavigate={closeMenu}>Lessons</NavItem>
-        <NavItem to="/admin/assignments" onNavigate={closeMenu}>Assignments</NavItem>
-        <NavItem to="/admin/submissions" onNavigate={closeMenu}>Submissions</NavItem>
-        <NavItem to="/admin/quizzes" onNavigate={closeMenu}>Quizzes</NavItem>
-        <NavItem to="/admin/questions" onNavigate={closeMenu}>Question bank</NavItem>
-        <NavItem to="/admin/exams" onNavigate={closeMenu}>Exams</NavItem>
-        <NavItem to="/admin/results" onNavigate={closeMenu}>Exam results</NavItem>
-        <NavItem to="/admin/timetable" onNavigate={closeMenu}>Timetable</NavItem>
-        <NavItem to="/admin/attendance" onNavigate={closeMenu}>Attendance</NavItem>
-        {teaching && <NavItem to="/admin/curriculum" onNavigate={closeMenu}>Curriculum</NavItem>}
-
-        <div className="overline" style={{ padding: "0.8rem 0.9rem 0.2rem" }}>Publishing</div>
-        <NavItem to="/admin/textbooks" onNavigate={closeMenu}>Textbooks</NavItem>
-        {content && <NavItem to="/admin/chapters" onNavigate={closeMenu}>Chapters</NavItem>}
-        {content && <NavItem to="/admin/resources" onNavigate={closeMenu}>Resources</NavItem>}
-        {canUseAdmin(user) && <NavItem to="/admin/approval" onNavigate={closeMenu}>Approval review</NavItem>}
-
-        <div className="overline" style={{ padding: "0.8rem 0.9rem 0.2rem" }}>School records</div>
-        {canUseAdmin(user) && <NavItem to="/admin/fees" onNavigate={closeMenu}>Fees &amp; payments</NavItem>}
-        {admin && <NavItem to="/admin/kemis" onNavigate={closeMenu}>KEMIS exports</NavItem>}
-        {(admin || isTeacher(user)) && <NavItem to="/admin/learners" onNavigate={closeMenu}>Learners</NavItem>}
-        {admin && <NavItem to="/admin/teachers" onNavigate={closeMenu}>Teachers</NavItem>}
-        {admin && <NavItem to="/admin/guardians" onNavigate={closeMenu}>Guardians</NavItem>}
-        <NavItem to="/admin/events" onNavigate={closeMenu}>School events</NavItem>
-
-        <div className="overline" style={{ padding: "0.8rem 0.9rem 0.2rem" }}>Reports &amp; account</div>
-        {canUseAdmin(user) && <NavItem to="/admin/communications" onNavigate={closeMenu}>Messages</NavItem>}
-        {canUseAdmin(user) && <NavItem to="/admin/reports" onNavigate={closeMenu}>Reports</NavItem>}
-        {canUseAdmin(user) && <NavItem to="/admin/analytics" onNavigate={closeMenu}>Analytics</NavItem>}
-        {canUseAdmin(user) && <NavItem to="/admin/tutor" onNavigate={closeMenu}>Curriculum tutor</NavItem>}
-        {canUseAdmin(user) && <NavItem to="/admin/sync" onNavigate={closeMenu}>Offline queue</NavItem>}
-        <NavItem to="/admin/profile" onNavigate={closeMenu}>Profile</NavItem>
-
-        <div style={{ marginTop: "1.5rem", padding: "0 0.9rem" }}>
-          <div className="muted" style={{ fontSize: "0.8rem" }}>{user?.full_name || user?.username}</div>
-          <div className="tag" style={{ marginTop: "0.3rem" }}>{ROLES[user?.role] || user?.role}</div>
-          <button className="ghost small" style={{ marginTop: "0.7rem" }} onClick={handleLogout}>Sign out</button>
+        <nav className="admin-nav" aria-label="Admin sections">
+          {visibleGroups.map((group) => {
+            const Icon = GROUP_ICONS[group.id] || SlidersHorizontal;
+            const open = needle ? true : openGroups.has(group.id);
+            return (
+              <div
+                className={`admin-nav-group${group.id === activeGroup.id ? " is-current" : ""}`}
+                key={group.id}
+              >
+                <button
+                  type="button"
+                  className="admin-nav-group-button"
+                  aria-expanded={open}
+                  onClick={() => toggleGroup(group.id)}
+                >
+                  <Icon size={17} strokeWidth={1.8} aria-hidden="true" />
+                  <span>{group.label}</span>
+                  <ChevronDown
+                    size={15}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    className={`admin-nav-chevron${open ? " is-open" : ""}`}
+                  />
+                </button>
+                {open && (
+                  <div className="admin-nav-items">
+                    {group.items.map((item) => (
+                      <NavItem
+                        key={`${group.id}-${item.to}`}
+                        to={item.to}
+                        label={item.label}
+                        end={item.end}
+                        onNavigate={closeMenu}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {!visibleGroups.length && (
+            <p className="sidebar-empty">No pages match “{query}”.</p>
+          )}
+        </nav>
+        <div className="admin-sidebar-footer">
+          <a className="sidebar-live-link" href="/" target="_blank" rel="noopener noreferrer">
+            View live site
+          </a>
         </div>
       </aside>
 
-      <main className="app-main">
-        <button className="secondary mobile-nav-toggle" onClick={() => setMenuOpen(!menuOpen)}>
-          {menuOpen ? "Hide menu" : "Show menu"}
-        </button>
-        {!online && (
-          <div className="notice warn offline-banner" style={{ marginBottom: "1rem" }}>
-            You are offline. Cached pages still work — any changes you make are queued and sent automatically when you reconnect.
+      <div className="app-content">
+        <header className="admin-topbar">
+          <button className="secondary mobile-nav-toggle" onClick={() => setMenuOpen(!menuOpen)}>
+            {menuOpen ? "Hide menu" : "Show menu"}
+          </button>
+          <nav className="admin-breadcrumb" aria-label="Breadcrumb">
+            <ol>
+              <li>Admin</li>
+              <li aria-current="page">{activeItem?.label || activeGroup.label}</li>
+            </ol>
+          </nav>
+          <div className="admin-account">
+            <div>
+              <strong>{user?.full_name || user?.username}</strong>
+              <span className="tag">{roleLabel(user)}</span>
+            </div>
+            <button className="ghost small" onClick={handleLogout}>
+              <LogOut size={14} strokeWidth={1.8} aria-hidden="true" /> Sign out
+            </button>
           </div>
-        )}
-        <SyncStatus />
-        {location.pathname !== "/admin/sync" && <SyncQueuePanel className="layout-sync-panel" />}
-        <Outlet />
-      </main>
+        </header>
+
+        <main className="app-main">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

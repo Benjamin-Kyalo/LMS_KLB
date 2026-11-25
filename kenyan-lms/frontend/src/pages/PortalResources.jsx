@@ -1,17 +1,12 @@
-import PortalList from "../components/PortalList";
+import ResourceCatalogue from "../components/ResourceCatalogue";
 
 export default function PortalResources() {
   return (
-    <PortalList
-      title="Learning resources"
+    <ResourceCatalogue
+      endpoint="/content/portal/resources/"
       overline="Digital publishing"
-      endpoint="/content/resources/"
-      columns={[
-        { key: "title", label: "Resource" },
-        { key: "resource_type", label: "Type" },
-        { key: "offline_available", label: "Offline", render: (r) => (r.offline_available ? "Yes" : "No") },
-      ]}
-      emptyHint="No learning resources have been shared with your institution yet."
+      title="Learning resources"
+      description="Published resources plus material shared with your school, class or subjects."
     />
   );
 }

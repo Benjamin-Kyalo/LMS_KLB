@@ -8,18 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "mobile:sync": "npm run build && cap sync",
-    "cap:add:android": "cap add android",
-    "cap:add:ios": "cap add ios",
-    "cap:sync": "cap sync",
-    "cap:open:android": "cap open android",
-    "cap:open:ios": "cap open ios"
+    "audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
-    "@capacitor/android": "8.6.2",
-    "@capacitor/cli": "8.6.2",
-    "@capacitor/core": "8.6.2",
-    "@capacitor/ios": "8.6.2",
     "lucide-react": "1.78.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -32,11 +23,9 @@
     "@testing-library/user-event": "14.6.1",
     "@types/node": "26.6.6",
     "@vitejs/plugin-react": "6.3.0",
-    "fake-indexeddb": "6.2.8",
     "jsdom": "27.4.0",
     "typescript": "7.0.2",
     "vite": "8.3.8",
-    "vite-plugin-pwa": "2.0.0",
     "vitest": "4.1.12"
   },
   "overrides": {

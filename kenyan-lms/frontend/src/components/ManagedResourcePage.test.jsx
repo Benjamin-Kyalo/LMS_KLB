@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import ManagedResourcePage from "./ManagedResourcePage";
 
-const mocks = vi.hoisted(() => ({ role: "SCHOOL_ADMIN" }));
+const mocks = vi.hoisted(() => ({ role: "ADMIN", capabilities: [] }));
 
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ user: { id: 1, role: mocks.role, institution_id: 7 } }),
+  useAuth: () => ({
+    user: { id: 1, role: mocks.role, capabilities: mocks.capabilities, institution_id: 7 },
+  }),
 }));
 vi.mock("../services/api", () => ({
   api: { post: vi.fn(), patch: vi.fn(), del: vi.fn() },
@@ -34,13 +36,14 @@ function renderPage(endpoint) {
 describe("ManagedResourcePage action permissions", () => {
   afterEach(() => {
     cleanup();
-    mocks.role = "SCHOOL_ADMIN";
+    mocks.role = "ADMIN";
+    mocks.capabilities = [];
   });
 
   it("lets a school admin write school structure but not the institution list", () => {
     renderPage("/institutions/subjects/");
     expect(screen.getByRole("button", { name: "New" })).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Edit" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Edit Existing" }).length).toBeGreaterThan(0);
     cleanup();
 
     renderPage("/institutions/");
@@ -51,9 +54,9 @@ describe("ManagedResourcePage action permissions", () => {
     mocks.role = "TEACHER";
     renderPage("/institutions/subjects/");
     expect(screen.queryByRole("button", { name: "New" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-    expect(screen.getByRole("button", { name: "View" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit Existing" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete Existing" })).toBeNull();
+    expect(screen.getByRole("button", { name: "View Existing" })).toBeTruthy();
   });
 
   it("still lets a teacher write teaching records", () => {
@@ -62,8 +65,9 @@ describe("ManagedResourcePage action permissions", () => {
     expect(screen.getByRole("button", { name: "New" })).toBeTruthy();
   });
 
-  it("lets content managers write publishing records only", () => {
-    mocks.role = "CONTENT_MANAGER";
+  it("lets a custom content role write publishing records only", () => {
+    mocks.role = "CUSTOM";
+    mocks.capabilities = ["admin.access", "content.manage"];
     renderPage("/content/resources/");
     expect(screen.getByRole("button", { name: "New" })).toBeTruthy();
     cleanup();
@@ -75,13 +79,13 @@ describe("ManagedResourcePage action permissions", () => {
   it("keeps learner submissions read-only in the staff screen", () => {
     renderPage("/courses/submissions/");
     expect(screen.queryByRole("button", { name: "New" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit Existing" })).toBeNull();
   });
 
   it("fails closed for an endpoint with no known write scope", () => {
     renderPage("/unknown/resource/");
     expect(screen.queryByRole("button", { name: "New" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-    expect(screen.getByRole("button", { name: "View" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Delete Existing" })).toBeNull();
+    expect(screen.getByRole("button", { name: "View Existing" })).toBeTruthy();
   });
 });

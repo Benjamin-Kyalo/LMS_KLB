@@ -24,7 +24,7 @@ class ApprovalWorkflowTests(APITestCase):
         # Demo usernames only; no passwords are stored or printed.
         self.admin = User.objects.create_user(
             username="demo_admin", password=None,
-            role=Roles.SCHOOL_ADMIN, institution=self.school,
+            role=Roles.ADMIN, institution=self.school,
         )
         self.teacher = User.objects.create_user(
             username="demo_teacher", password=None,
@@ -172,7 +172,7 @@ class ApprovalWorkflowTests(APITestCase):
         self.request.save(update_fields=["status", "updated_at"])
         url = reverse("approvalrequest-publish", args=[self.request.id])
 
-        self.client.force_authenticate(user=self.admin)
+        self.client.force_authenticate(user=self.teacher)
         forbidden = self.client.post(url)
         self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
 

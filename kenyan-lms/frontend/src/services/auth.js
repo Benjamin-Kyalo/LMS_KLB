@@ -1,8 +1,9 @@
-import { api } from "./api";
+import { api, setCsrfToken } from "./api";
 
+// Identity lives in the server session cookie. The browser never receives a
+// long-lived bearer token and roles are always re-read from /auth/me/.
 export function storeLogin(data) {
-  localStorage.setItem("klb_token", data.token);
-  localStorage.setItem("klb_user", JSON.stringify(data.user));
+  if (data?.csrfToken) setCsrfToken(data.csrfToken);
   return data;
 }
 
@@ -12,22 +13,6 @@ export async function login(username, password) {
 }
 
 export async function logout() {
-  try { await api.post("/auth/logout/", {}); } catch { /* token may already be gone */ }
-  localStorage.removeItem("klb_token");
-  localStorage.removeItem("klb_user");
-}
-
-export function storedUser() {
-  const raw = localStorage.getItem("klb_user");
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    localStorage.removeItem("klb_user");
-    return null;
-  }
-}
-
-export function isLoggedIn() {
-  return Boolean(localStorage.getItem("klb_token"));
+  try { await api.post("/auth/logout/", {}); } catch { /* session may already be gone */ }
+  setCsrfToken("");
 }

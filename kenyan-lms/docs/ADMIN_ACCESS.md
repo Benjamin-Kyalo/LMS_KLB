@@ -5,13 +5,21 @@ and what to do when access goes wrong. It does **not** contain any passwords.
 Passwords are set locally, at the keyboard, and never written into a document,
 a script or a chat message.
 
+**Current direction:** normal web app only. There is no offline queue, service
+worker, PWA or native app; failed saves show an error and remain unsaved.
+Sign-in uses an HttpOnly Django session cookie with a readable CSRF cookie
+echoed as `X-CSRFToken`. Identity and roles are re-read from
+`/api/auth/me/`; no `klb_token` or `klb_user` lives in `localStorage`.
+Password changes/resets invalidate active sessions, and reset links expire
+after one hour. See `SECURITY_AUDIT.md`.
+
 ## 1. Sign in and you land on the right side
 
 There are two UI sides now:
 
 | Side | Address | Who uses it | Layout file |
 |---|---|---|---|
-| Staff / admin | `/admin/...` | Platform admins, school admins, teachers, content managers | `frontend/src/layouts/DashboardLayout.jsx` |
+| Staff / admin | `/admin/...` | `SUPER_ADMIN`, `ADMIN`, custom roles with `admin.access`, teachers | `frontend/src/layouts/DashboardLayout.jsx` |
 | Learner / guardian portal | `/portal/...` | Learners and guardians | `frontend/src/layouts/PortalLayout.jsx` |
 
 After sign in, the app sends staff to `/admin` and learners or guardians to
@@ -27,11 +35,11 @@ the demo data is missing.
 
 | Username | Role |
 |---|---|
-| `demo_admin` | School administrator |
-| `demo_teacher` | Teacher |
-| `demo_learner` | Learner |
-| `demo_guardian` | Guardian |
-| `platform_admin` | Platform super administrator |
+| `demo_admin` | `ADMIN` (institution administrator) |
+| `demo_teacher` | `TEACHER` |
+| `demo_learner` | `LEARNER` |
+| `demo_guardian` | `GUARDIAN` |
+| `platform_admin` | `SUPER_ADMIN` (demo username retained; `SUPER_ADMIN` is unchanged) |
 
 **No demo password is printed here, and none should be pasted into a ticket or
 a document.** Set a password you control with `changepassword` (section 3).
@@ -57,11 +65,14 @@ Creating a new administrator:
 institution, change it deliberately:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py shell -c "from apps.accounts.models import User; u=User.objects.get(username='your_new_admin'); u.role='SCHOOL_ADMIN'; u.save(update_fields=['role'])"
+.\.venv\Scripts\python.exe manage.py shell -c "from apps.accounts.models import User; u=User.objects.get(username='your_new_admin'); u.role='ADMIN'; u.save(update_fields=['role'])"
 ```
 
 Replace `your_new_admin` with the username you chose. No password goes into
-this command. Set `u.institution` as well for a school account.
+this command. Set `u.institution` as well for an institution account. For a
+custom-role account, assign the role through the user API with
+`{ "role": "CUSTOM", "custom_role": <id> }`; user responses include
+`custom_role`, `custom_role_name` and `capabilities`.
 
 If password reset email is configured, users can also use
 `POST /api/auth/password/reset/`. In local development the reset link is
@@ -82,33 +93,52 @@ at `/admin/signup` and chooses their own password.
 The token is a high-entropy server-side value stored in the database so an
 authorised admin can copy it from the invitation list. It is **not** HMAC-signed
 or hashed. Treat the token like a credential and do not send it over unsecured
-channels. A school admin cannot invite into another institution or grant a
-platform role above their own.
+channels. An `ADMIN` cannot invite into another institution or grant
+`SUPER_ADMIN`; only `SUPER_ADMIN` can grant any role.
 
-Teacher self-registration creates an inactive account that a school
-administrator must approve before sign-in.
+Teacher self-registration creates an inactive account that an institution
+`ADMIN` must approve before sign-in.
 
 ## 4. Roles and what each one can do
 
 | Role | Scope | What it can do |
 |---|---|---|
-| `SUPER_ADMIN` | All institutions | Platform-wide access: create institutions, manage all records, manage users |
-| `PLATFORM_ADMIN` | All institutions | Same platform-wide access as `SUPER_ADMIN` |
-| `INSTITUTION_ADMIN` | Own institution | Manage people, classes, subjects, reports and the school profile; cannot create or delete institutions |
-| `SCHOOL_ADMIN` | Own institution | Same as `INSTITUTION_ADMIN`; this is the normal school account |
+| `SUPER_ADMIN` | Global | Unrestricted access, including institution management and granting any role. Unchanged by the simplification |
+| `ADMIN` | Own institution | Unrestricted CRUD within the institution: people, classes, subjects, reports and the school profile. Can create and assign custom roles; cannot grant `SUPER_ADMIN` or create global institutions |
+| `CUSTOM` | Own institution, picked capabilities | Named reusable role identified by `custom_role`; enters `/admin` only with `admin.access`, and every other capability is enforced by the backend |
 | `TEACHER` | Own institution | Classes, courses, modules, lessons, questions, assignments, quizzes, exams, attendance and messages; can view learners, but cannot create users or edit the school profile |
 | `LEARNER` | Own records | Portal only: courses, textbooks, resources, assignments, quizzes, progress report and profile; may read school identity, may not edit it |
 | `GUARDIAN` | Linked learners only | Portal only: reports and messages for learners explicitly linked to the account |
-| `CONTENT_MANAGER` | Catalogue | Staff side: textbooks, chapters and resources; publishing through the content endpoints |
 
-Roles are a string on `accounts.User.role`. Platform-level permissions are
-decided by that role, not by `is_superuser` alone.
+`PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `SCHOOL_ADMIN` and `CONTENT_MANAGER` are
+retired names and are no longer assignable. Existing accounts with those values
+are migrated to `ADMIN`; the migration never changes, generates or prints a
+password. `SUPER_ADMIN` accounts are unchanged. Check the institution on
+migrated accounts: with no institution, institution data is hidden by design.
+
+Roles are a string on `accounts.User.role`; custom-role accounts also carry a
+`custom_role` id. Permissions come from the role/capability set, not from
+`is_superuser` alone.
+
+### Custom-role capabilities
+
+`admin.access`, `users.manage`, `roles.manage`, `academics.manage`,
+`learners.manage`, `teachers.manage`, `guardians.manage`, `courses.manage`,
+`assessments.manage`, `content.manage`, `attendance.manage`, `fees.manage`,
+`communications.manage`, `reports.view`, `appearance.manage`,
+`institutions.manage`, `tutor.use`.
+
+Only `admin.access` controls admin-portal entry; the backend enforces the other
+capabilities. Custom-role CRUD uses `/api/auth/roles/`, and
+`/api/auth/users/roles/` returns the built-ins plus custom options. User
+payloads use `{ "role": "CUSTOM", "custom_role": <id> }`; responses include
+`custom_role`, `custom_role_name` and `capabilities`.
 
 ## 5. Where permissions are configured
 
 | File | What it holds |
 |---|---|
-| `backend/apps/core/constants.py` | The `Roles` class: role codes, labels and role groups |
+| `backend/apps/core/constants.py` | The `Roles` class: built-in role kinds, labels and role groups, and the `Capabilities` allowlist |
 | `backend/apps/core/permissions.py` | `can_assign_role()`, `IsContentCurator`, `IsStaff`, `same_institution` and the DRF permission classes |
 | `backend/apps/core/viewsets.py` | `InstitutionScopedQuerysetMixin` plus `AdminWriteMixin`, `StaffWriteMixin`, `PlatformWriteMixin`, `ContentWriteMixin`; shared queryset filter and forced `institution` on writes |
 | Each app's `views.py` | Per-endpoint overrides in `get_permissions()` (for example `backend/apps/accounts/views.py` and `backend/apps/institutions/views.py`) |
@@ -117,18 +147,19 @@ decided by that role, not by `is_superuser` alone.
 | `frontend/src/components/ProtectedRoute.jsx` | Blocks a page when the signed-in role is not allowed |
 | `frontend/src/components/RoleHome.jsx` | Redirects old root URLs to the correct side by role; `/` itself is the public homepage |
 | `frontend/src/components/ManagedResourcePage.jsx` | Derives create/edit/delete buttons from the endpoint scope and signed-in role; unknown endpoints fail closed |
-| `frontend/src/utilities/roles.js` | Shared role sets, hierarchy helpers and `homeFor()` used by routes and layouts |
+| `frontend/src/utilities/roles.js` | Shared role sets, role/capability helpers and `homeFor()` used by routes and layouts |
 
-Add a new role in `constants.py` first, then update the permission helpers,
-the frontend role utility (`frontend/src/utilities/roles.js`) and the route
-guards. Do not scatter role strings through components.
+Add a capability to the allowlist in `constants.py` first, then update the
+permission helpers, the frontend role utility (`frontend/src/utilities/roles.js`)
+and the route guards. Do not scatter role strings through components.
 
 ## 6. Cross-institution isolation
 
 This is the central security rule:
 
-- Platform admins (`SUPER_ADMIN`, `PLATFORM_ADMIN`) see all institutions.
-- Everyone else sees only rows where `institution_id` matches their account.
+- `SUPER_ADMIN` is the only global role and sees all institutions.
+- `ADMIN` and custom-role accounts see only rows where `institution_id` matches
+  their account.
 - A user with **no institution** gets an empty queryset — the system fails
   closed, not open.
 - On create and update, the shared mixin overwrites any client-supplied
@@ -136,30 +167,32 @@ This is the central security rule:
   another school's ID into a payload.
 - A record outside the allowed queryset returns **404**, not 403, so the
   existence of another school's record is not revealed.
-- Only platform admins may create or delete an institution.
+- Only `SUPER_ADMIN` may create or delete a global institution; `ADMIN` cannot.
 - `GET /api/institutions/mine/` is limited to the signed-in user's own school;
   `PATCH` is further limited to administrators.
 
-Tests cover school admin visibility, platform admin visibility, cross-school
+Tests cover institution-admin visibility, super-admin visibility, cross-school
 institution smuggling and school-profile edit rules. See
 `docs/TESTING_CHECKLIST.md`.
 
 ## 7. Editing the school profile
 
-1. Sign in as `SCHOOL_ADMIN` (or `INSTITUTION_ADMIN` / a platform admin).
+1. Sign in as `ADMIN` or `SUPER_ADMIN`. A custom role reaches this page only
+   when `admin.access` is selected, and any edit is limited to the capabilities
+   that role was granted.
 2. Open `/admin/school` — **School profile** in the sidebar.
 3. Edit the name, phone, email, website, motto or physical address and press
    **Save school details**.
 4. To change the logo, choose a JPG, PNG or WebP file of at most 2 MB. The
-   upload needs an internet connection; it is not queued offline because file
-   uploads cannot be replayed from saved JSON.
+   upload needs a live connection. If it fails, an error is shown and the
+   previous logo stays in place; retry the upload. There is no local queue.
 
 The API behind the page is:
 
 | Method | Endpoint | Who may use it |
 |---|---|---|
 | GET | `/api/institutions/mine/` | Any signed-in user with an institution, including learners and guardians |
-| PATCH | `/api/institutions/mine/` | Platform admins and institution/school admins only; others get HTTP 403 |
+| PATCH | `/api/institutions/mine/` | `SUPER_ADMIN` and `ADMIN` only; custom roles are limited to their capabilities; learners and guardians get HTTP 403 |
 
 Logos are saved under `institutions/logos/` and returned as a URL. The user
 profile endpoint `GET /api/auth/me/` also returns `institution_logo` (an
@@ -182,14 +215,14 @@ Try these in order:
 2. **No account exists:** run
    `.\.venv\Scripts\python.exe manage.py createsuperuser`, then set the role
    with the `shell -c` command in section 3.
-3. **Account deactivated:** an institution admin can reactivate a user with
-   `POST /api/auth/users/{id}/set_active/`. A platform admin can do the same
-   for any school.
+3. **Account deactivated:** an `ADMIN` can reactivate a user in its own
+   institution with `POST /api/auth/users/{id}/set_active/`. `SUPER_ADMIN` can
+   do the same for any school.
 4. **Wrong school or wrong role:** check `role` and `institution` on the user
    record. An account with no institution sees no institution data by design.
 5. **Login succeeded but the page is wrong:** sign out and sign in again. The
-   role is read from `GET /api/auth/me/`; stale browser state can keep the old
-   layout visible. Old root URLs redirect by role, so use `/admin` or `/portal`
+   role is always re-read from `GET /api/auth/me/`; the browser does not trust a
+   stored role. Old root URLs redirect by role, so use `/admin` or `/portal`
    directly when testing.
 6. **Only an admin can fix it and nobody has access:** use local/server access
    to run `changepassword` for an existing admin. Do **not** delete or recreate
@@ -199,8 +232,15 @@ Try these in order:
 
 - Never put a real password in source code, a document, a screenshot or a chat.
 - Do not generate or display passwords for other users; admin-created accounts
-  use unusable passwords and the reset flow.
+  use unusable passwords and the reset flow. The retired-role migration changes
+  only role values: no password is changed, generated, printed or stored in a
+  document or chat.
 - Keep `.env` local and Git-ignored; `.env.example` is the safe template.
-- Take a backup with `scripts/backup_database.ps1` before database changes.
+  Local secrets are owner-managed and none is in source control.
+- `backups/` is Git-ignored: dumps contain password hashes and PII. Take a
+  backup with `scripts/backup_database.ps1` before database changes and store
+  dumps securely.
 - Do not commit or push working changes without review.
-- This system is not a substitute for an independent security review.
+- This system is **not production-ready** and is not a substitute for an
+  independent security review or the deployment checks in
+  `PRODUCTION_CONFIGURATION.md`.

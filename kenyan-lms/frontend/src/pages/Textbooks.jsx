@@ -4,6 +4,7 @@ import { useList } from "../hooks/useApi";
 import { api } from "../services/api";
 import Modal from "../components/Modal";
 import Loading from "../components/Loading";
+import RollingLabel from "../components/RollingLabel";
 import { statusTag } from "../utilities/format";
 
 export default function Textbooks({ resourcesTo = "/resources" }) {
@@ -12,11 +13,18 @@ export default function Textbooks({ resourcesTo = "/resources" }) {
   const { data, loading, error, reload } = useList("/content/available/");
   const [detail, setDetail] = useState(null);
   const [detailError, setDetailError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   async function open(id) {
     setDetailError(null);
     try { setDetail(await api.get(`/content/textbooks/${id}/`)); }
     catch (err) { setDetailError(err.message); }
+  }
+
+  async function refresh() {
+    setRefreshing(true);
+    try { await reload(); }
+    finally { setRefreshing(false); }
   }
 
   if (loading) return <Loading />;
@@ -28,7 +36,11 @@ export default function Textbooks({ resourcesTo = "/resources" }) {
           <div className="overline">Digital publishing</div>
           <h1>Textbook library</h1>
         </div>
-        <div className="actions"><button className="secondary" onClick={reload}>Refresh catalogue</button></div>
+        <div className="actions">
+          <button className="secondary" onClick={refresh} aria-busy={refreshing} disabled={refreshing}>
+            {refreshing ? "Refreshing…" : <RollingLabel>Refresh catalogue</RollingLabel>}
+          </button>
+        </div>
       </div>
 
       {error && <div className="notice error">{error}</div>}
@@ -36,7 +48,9 @@ export default function Textbooks({ resourcesTo = "/resources" }) {
         <div className="panel panel-pad" style={{ textAlign: "center", padding: "2rem" }}>
           <h3>No licensed textbooks available yet</h3>
           <p className="muted">Published titles appear here once your institution has an active content licence.</p>
-          <Link to={resourcesTo} className="button-link">Browse learning resources →</Link>
+          <Link to={resourcesTo} className="button-link">
+            <RollingLabel>Browse learning resources →</RollingLabel>
+          </Link>
         </div>
       )}
 
@@ -48,7 +62,13 @@ export default function Textbooks({ resourcesTo = "/resources" }) {
             <p className="muted" style={{ fontSize: "0.85rem" }}>{book.subject_name || "General"} · {book.chapter_count} chapters</p>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.6rem" }}>
               {statusTag(book.status)}
-              <button className="secondary small" onClick={() => open(book.id)}>Open</button>
+              <button
+                className="secondary small"
+                onClick={() => open(book.id)}
+                aria-label={`Open ${book.title || "textbook"}`}
+              >
+                Open
+              </button>
             </div>
           </div>
         ))}
@@ -69,7 +89,7 @@ export default function Textbooks({ resourcesTo = "/resources" }) {
             </div>
           ))}
           <div className="form-actions">
-            <button type="button" className="ghost" onClick={() => setDetail(null)}>Close</button>
+            <button type="button" className="ghost" onClick={() => setDetail(null)}><RollingLabel>Close</RollingLabel></button>
           </div>
         </Modal>
       )}

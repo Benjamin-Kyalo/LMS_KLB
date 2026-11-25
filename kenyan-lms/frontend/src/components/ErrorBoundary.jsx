@@ -1,4 +1,5 @@
 import { Component } from "react";
+import RollingLabel from "./RollingLabel";
 
 export default class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -9,7 +10,9 @@ export default class ErrorBoundary extends Component {
         <div className="panel panel-pad" style={{ margin: "2rem" }}>
           <h2>Something went wrong</h2>
           <p className="mono">{String(this.state.error.message || this.state.error)}</p>
-          <button onClick={() => this.setState({ error: null })}>Try again</button>
+          <button onClick={() => this.setState({ error: null })}>
+            <RollingLabel>Try again</RollingLabel>
+          </button>
         </div>
       );
     }

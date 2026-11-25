@@ -3,7 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import RoleHome from "./RoleHome";
 
-const state = vi.hoisted(() => ({ user: { id: 1, role: "SCHOOL_ADMIN" } }));
+const state = vi.hoisted(() => ({ user: { id: 1, role: "ADMIN" } }));
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({ user: state.user }),
@@ -29,11 +29,11 @@ function renderHome(legacy = false) {
 describe("RoleHome", () => {
   afterEach(() => {
     cleanup();
-    state.user = { id: 1, role: "SCHOOL_ADMIN" };
+    state.user = { id: 1, role: "ADMIN" };
   });
 
-  it("sends school and platform administrators to the admin side", () => {
-    for (const role of ["SCHOOL_ADMIN", "INSTITUTION_ADMIN", "PLATFORM_ADMIN", "SUPER_ADMIN"]) {
+  it("sends administrators to the admin side", () => {
+    for (const role of ["ADMIN", "SUPER_ADMIN"]) {
       state.user = { id: 1, role };
       renderHome();
       expect(screen.getByText("Admin home")).toBeTruthy();
@@ -41,13 +41,20 @@ describe("RoleHome", () => {
     }
   });
 
-  it("sends teachers and content managers to the admin side", () => {
-    for (const role of ["TEACHER", "CONTENT_MANAGER"]) {
-      state.user = { id: 1, role };
-      renderHome();
-      expect(screen.getByText("Admin home")).toBeTruthy();
-      cleanup();
-    }
+  it("sends teachers to the admin side", () => {
+    state.user = { id: 1, role: "TEACHER" };
+    renderHome();
+    expect(screen.getByText("Admin home")).toBeTruthy();
+    cleanup();
+
+    state.user = {
+      id: 6,
+      role: "CUSTOM",
+      custom_role_name: "Office manager",
+      capabilities: ["admin.access", "users.manage"],
+    };
+    renderHome();
+    expect(screen.getByText("Admin home")).toBeTruthy();
   });
 
   it("sends learners and guardians to the user portal", () => {
@@ -71,7 +78,7 @@ describe("RoleHome", () => {
     expect(screen.getByText("Custom portal home")).toBeTruthy();
     cleanup();
 
-    state.user = { id: 4, role: "SCHOOL_ADMIN" };
+    state.user = { id: 4, role: "ADMIN" };
     renderHome(true);
     expect(screen.getByText("Custom admin home")).toBeTruthy();
   });

@@ -55,7 +55,7 @@ class Command(BaseCommand):
                 first_name=first, last_name=last, institution=school,
             )
 
-        admin = make_user("demo_admin", Roles.SCHOOL_ADMIN, "Asha", "Mwangi")
+        admin = make_user("demo_admin", Roles.ADMIN, "Asha", "Mwangi")
         teacher_user = make_user("demo_teacher", Roles.TEACHER, "Joseph", "Kamau")
         guardian_user = make_user("demo_guardian", Roles.GUARDIAN, "Grace", "Otieno")
         learner_user = make_user("demo_learner", Roles.LEARNER, "Amina", "Otieno")

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useList } from "../hooks/useApi";
 import { api, listAll } from "../services/api";
 import { useToast } from "../context/ToastContext";
@@ -6,10 +6,12 @@ import { useAuth } from "../context/AuthContext";
 import DataTable from "../components/DataTable";
 import Modal from "../components/Modal";
 import FormField from "../components/FormField";
+import RollingLabel from "../components/RollingLabel";
+import HoldToConfirmButton from "../components/HoldToConfirmButton";
 import { TablePagination, TableToolbar } from "../components/TableTools";
 import useTableControls from "../hooks/useTableControls";
 import { formatDateTime } from "../utilities/format";
-import { ADMIN_INVITATION_ROLES, ROLES, isPlatform } from "../utilities/roles";
+import { ADMIN_INVITATION_ROLES, isSuperAdmin, roleLabel } from "../utilities/roles";
 
 function statusOf(row) {
   if (row.revoked) return "Revoked";
@@ -23,15 +25,25 @@ export default function AdminInvitations() {
   const { data, loading, error, reload } = useList("/auth/admin-invitations/");
   const { push } = useToast();
   const controls = useTableControls(data);
+  const canGrantSuper = isSuperAdmin(actor);
+  const invitationRoles = canGrantSuper
+    ? ["SUPER_ADMIN", ...ADMIN_INVITATION_ROLES]
+    : [...ADMIN_INVITATION_ROLES];
   const [institutions, setInstitutions] = useState([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ email: "", role: "SCHOOL_ADMIN", institution: "" });
+  const [form, setForm] = useState({ email: "", role: "ADMIN", institution: "" });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [newToken, setNewToken] = useState(null);
+  const [copiedToken, setCopiedToken] = useState(null);
+  const copyTimer = useRef(null);
+
+  useEffect(() => () => {
+    if (copyTimer.current !== null) clearTimeout(copyTimer.current);
+  }, []);
 
   useEffect(() => {
-    if (!isPlatform(actor)) return;
+    if (!isSuperAdmin(actor)) return;
     let active = true;
     listAll("/institutions/")
       .then((rows) => { if (active) setInstitutions(rows); })
@@ -40,7 +52,7 @@ export default function AdminInvitations() {
   }, [actor]);
 
   function startCreate() {
-    setForm({ email: "", role: "SCHOOL_ADMIN", institution: actor.institution_id || "" });
+    setForm({ email: "", role: "ADMIN", institution: actor.institution_id || "" });
     setFormError(null);
     setNewToken(null);
     setOpen(true);
@@ -52,7 +64,7 @@ export default function AdminInvitations() {
     setFormError(null);
     try {
       const payload = { email: form.email, role: form.role };
-      if (isPlatform(actor)) payload.institution = form.institution;
+      if (isSuperAdmin(actor)) payload.institution = form.institution;
       const result = await api.post("/auth/admin-invitations/", payload);
       setNewToken(result.token);
       push("Invitation created. Copy the token now.", "success");
@@ -77,6 +89,9 @@ export default function AdminInvitations() {
     try {
       await navigator.clipboard.writeText(token);
       push("Token copied to clipboard.", "success");
+      setCopiedToken(token);
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopiedToken(null), 1500);
     } catch {
       push("Select the token and copy it manually.", "info");
     }
@@ -89,12 +104,13 @@ export default function AdminInvitations() {
           <div className="overline">Access control</div>
           <h1>Administrator invitations</h1>
         </div>
-        <div className="actions"><button onClick={startCreate}>New invitation</button></div>
+        <div className="actions"><button onClick={startCreate}><RollingLabel>New invitation</RollingLabel></button></div>
       </div>
 
       <div className="notice info" style={{ marginBottom: "1rem" }}>
-        Invitations are single-use, expire after seven days and fix the administrator role
-        and institution. Public registration cannot create administrator accounts.
+        Invitations are single-use, expire after seven days and fix the built-in administrator
+        role and institution. Custom roles are assigned on the Users screen. Public registration
+        cannot create administrator accounts.
       </div>
 
       <TableToolbar title="invitations" controls={controls} onRefresh={reload} />
@@ -102,7 +118,7 @@ export default function AdminInvitations() {
       <DataTable
         columns={[
           { key: "email", label: "Email" },
-          { key: "role", label: "Role", render: (r) => ROLES[r.role] || r.role },
+          { key: "role", label: "Role", render: (r) => roleLabel(r) },
           { key: "created_at", label: "Issued", render: (r) => formatDateTime(r.created_at) },
           { key: "expires_at", label: "Expires", render: (r) => formatDateTime(r.expires_at) },
           { key: "status", label: "Status", render: (r) => {
@@ -112,24 +128,31 @@ export default function AdminInvitations() {
           } },
           { key: "token", label: "Token", render: (r) => (
             <div className="row-actions">
-              <button className="ghost small" onClick={() => copy(r.token)}>Copy</button>
+              <button
+                className="ghost small"
+                aria-label={`${copiedToken === r.token ? "Copied" : "Copy"} invitation token for ${r.email || "record"}`}
+                onClick={() => copy(r.token)}
+              >
+                {copiedToken === r.token ? "Copied" : "Copy"}
+              </button>
             </div>
           ) },
           { key: "_actions", label: "Actions", render: (r) => (
-            <button
+            <HoldToConfirmButton
               className="ghost small danger"
               disabled={r.revoked || Boolean(r.accepted_at)}
-              onClick={() => revoke(r)}
+              aria-label={`Revoke invitation for ${r.email || "record"}`}
+              onConfirm={() => revoke(r)}
             >
               Revoke
-            </button>
+            </HoldToConfirmButton>
           ) },
         ]}
         rows={controls.visibleRows}
         loading={loading}
         error={error}
         emptyTitle={controls.query ? "No matching invitations" : "No invitations yet"}
-        emptyHint="Issue an invitation to create a school or institution administrator."
+        emptyHint="Issue an invitation to create an administrator account."
       />
 
       {!loading && !error && <TablePagination controls={controls} />}
@@ -137,22 +160,31 @@ export default function AdminInvitations() {
       {open && (
         <Modal title="New administrator invitation" onClose={() => setOpen(false)}>
           <form onSubmit={save}>
-            {formError && <div className="notice error" style={{ marginBottom: "0.75rem" }}>{formError}</div>}
+            {formError && <div className="notice error" role="alert" style={{ marginBottom: "0.75rem" }}>{formError}</div>}
             {newToken && (
-              <div className="notice success invite-token" style={{ marginBottom: "0.75rem" }}>
+              <div className="notice success invite-token" role="status" style={{ marginBottom: "0.75rem" }}>
                 <strong>Copy this token now:</strong>
                 <code>{newToken}</code>
-                <button type="button" className="ghost small" onClick={() => copy(newToken)}>Copy</button>
+                <button
+                  type="button"
+                  className="ghost small"
+                  aria-label={copiedToken === newToken ? "Copied invitation token" : "Copy invitation token"}
+                  onClick={() => copy(newToken)}
+                >
+                  {copiedToken === newToken ? "Copied" : "Copy"}
+                </button>
               </div>
             )}
             <div className="form-grid">
               <FormField label="Invitee email" full><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></FormField>
               <FormField label="Administrator role">
                 <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} required>
-                  {[...ADMIN_INVITATION_ROLES].map((role) => <option key={role} value={role}>{ROLES[role]}</option>)}
+                  {invitationRoles.map((role) => (
+                    <option key={role} value={role}>{roleLabel({ role })}</option>
+                  ))}
                 </select>
               </FormField>
-              {isPlatform(actor) && (
+              {canGrantSuper && (
                 <FormField label="Institution">
                   <select value={form.institution} onChange={(e) => setForm({ ...form, institution: e.target.value })} required>
                     <option value="">— choose —</option>
@@ -162,8 +194,8 @@ export default function AdminInvitations() {
               )}
             </div>
             <div className="form-actions">
-              <button type="button" className="ghost" onClick={() => setOpen(false)}>Close</button>
-              <button type="submit" disabled={saving}>{saving ? "Issuing…" : "Issue invitation"}</button>
+              <button type="button" className="ghost" onClick={() => setOpen(false)}><RollingLabel>Close</RollingLabel></button>
+              <button type="submit" disabled={saving}>{saving ? "Issuing…" : <RollingLabel>Issue invitation</RollingLabel>}</button>
             </div>
           </form>
         </Modal>

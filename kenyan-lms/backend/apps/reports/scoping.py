@@ -4,7 +4,7 @@ Keeping these rules in one module prevents the dashboard and the chart data
 endpoint from disagreeing about what a user may see.
 """
 from apps.core.constants import Roles
-from apps.core.permissions import is_platform_admin
+from apps.core.permissions import is_platform_admin, is_staff_user
 from apps.learners.models import LearnerGuardian
 
 
@@ -22,14 +22,16 @@ def scoped_institution_id(user):
 
 def dashboard_viewer(user):
     """Only staff and platform administrators see school-wide dashboards."""
-    return bool(user.is_authenticated) and user.role in (Roles.STAFF_ROLES | Roles.PLATFORM_ROLES)
+    return bool(user.is_authenticated) and (is_staff_user(user) or is_platform_admin(user))
 
 
 def guardian_link(user, learner):
     if user.role != Roles.GUARDIAN:
         return None
     return (
-        LearnerGuardian.objects.filter(learner=learner, guardian__user=user)
+        LearnerGuardian.objects.filter(
+            learner=learner, guardian__user=user, is_verified=True
+        )
         .select_related("guardian")
         .first()
     )
@@ -37,7 +39,7 @@ def guardian_link(user, learner):
 
 def can_view_learner(user, learner):
     """Check whether this user may open an individual learner report."""
-    if is_platform_admin(user) or user.role in Roles.STAFF_ROLES:
+    if is_platform_admin(user) or is_staff_user(user):
         return scoped_institution_id(user) in (None, learner.institution_id)
     if user.role == Roles.LEARNER:
         return learner.user_id == user.id

@@ -4,8 +4,11 @@
 
 1. Back up **before** structural database changes.
 2. Restore into a **new** database, never over the live one.
-3. Keep `.env` and backups out of Git.
-4. Test the restore procedure occasionally, not only during a crisis.
+3. Keep `.env` and backups out of Git. Local `.env` remains Git-ignored and owner-managed;
+   no secret is in source control.
+4. `backups/` is Git-ignored because dumps contain password hashes and PII.
+   Encrypt dumps and store them off-host.
+5. Test the restore procedure occasionally, not only during a crisis.
 
 ## Backup
 

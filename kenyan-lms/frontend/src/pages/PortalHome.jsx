@@ -6,16 +6,11 @@ import { api } from "../services/api";
 import ChartCard from "../components/ChartCard";
 import Loading from "../components/Loading";
 import { isGuardian, isLearner } from "../utilities/roles";
-
-const STATUS_COLORS = {
-  PRESENT: "#0B3D2E",
-  ABSENT: "#B44635",
-  LATE: "#8A5A15",
-  EXCUSED: "#1C5D7E",
-};
+import { useTheme } from "../context/ThemeContext";
 
 export default function PortalHome() {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const { data: learners, loading } = useList("/reports/my-learners/");
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
@@ -35,7 +30,7 @@ export default function PortalHome() {
     status,
     label: status.charAt(0) + status.slice(1).toLowerCase(),
     value,
-    fill: STATUS_COLORS[status],
+    fill: colors.attendance[status],
   }));
   const examData = (report?.exams || []).map((item) => {
     const label = item.label || item.exam || "Exam";
@@ -64,7 +59,14 @@ export default function PortalHome() {
       {!learners.length ? (
         <div className="panel panel-pad" style={{ textAlign: "center", padding: "2rem" }}>
           <h3>No linked learner yet</h3>
-          <p className="muted">Ask your school administrator to link your account before reports can be shown.</p>
+          <p className="muted">
+            {guardian
+              ? "Submit your learner's admission number in first-time setup. Reports open after your school verifies the link."
+              : "Your school administrator must add a learner record for you before reports can be shown."}
+          </p>
+          {guardian && user?.onboarding?.is_complete === false && (
+            <p style={{ marginTop: "0.8rem" }}><Link to="/onboarding">Complete setup →</Link></p>
+          )}
         </div>
       ) : (
         <>
@@ -103,7 +105,7 @@ export default function PortalHome() {
               type="bar"
               data={examData}
               xKey="label"
-              series={[{ key: "percentage", label: "Score %", colour: "#1C5D7E" }]}
+              series={[{ key: "percentage", label: "Score %", colour: colors.score }]}
               emptyText="No exam results recorded yet."
             />
           </div>

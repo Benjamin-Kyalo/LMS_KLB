@@ -63,7 +63,7 @@ class QuizAttempt(InstitutionScopedModel):
     max_score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     status = models.CharField(
         max_length=20, default="IN_PROGRESS",
-        choices=[("IN_PROGRESS", "In progress"), ("COMPLETED", "Completed"), ("SYNCED", "Synced from offline")],
+        choices=[("IN_PROGRESS", "In progress"), ("COMPLETED", "Completed"), ("SYNCED", "Synced (legacy)")],
     )
     synced_at = models.DateTimeField(null=True, blank=True)
 

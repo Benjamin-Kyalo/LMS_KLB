@@ -24,7 +24,7 @@ class LearnerTests(APITestCase):
         self.other = Institution.objects.create(name="Other School", code="O001", institution_type=kind)
         self.admin = User.objects.create_user(
             username="admin", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN, institution=self.school,
+            role=Roles.ADMIN, institution=self.school,
         )
 
     def test_create_learner_creates_user_and_profile(self):

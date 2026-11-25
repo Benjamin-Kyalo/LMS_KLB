@@ -36,6 +36,24 @@ class InstitutionSerializer(serializers.ModelSerializer):
         return value
 
 
+class InstitutionProfileSerializer(InstitutionSerializer):
+    """Allowlisted fields a school admin may change through ``mine`` PATCH.
+
+    Identity and platform-controlled fields (code, institution_type,
+    is_active, settings, reference, timestamps) are not accepted here. The
+    full ``InstitutionSerializer`` remains in use for platform-admin updates.
+    """
+
+    class Meta(InstitutionSerializer.Meta):
+        fields = [
+            "id", "name", "institution_type_name", "email", "phone", "website",
+            "motto", "logo", "address_line", "town", "county", "sub_county",
+            "postal_code",
+        ]
+        read_only_fields = ["id", "institution_type_name"]
+        extra_kwargs = {}
+
+
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department

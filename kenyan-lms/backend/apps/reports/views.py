@@ -84,7 +84,9 @@ def my_learners(request):
     elif user.role == Roles.LEARNER:
         learners = Learner.objects.filter(user=user)
     elif user.role == Roles.GUARDIAN:
-        learners = Learner.objects.filter(guardian_links__guardian__user=user)
+        learners = Learner.objects.filter(
+            guardian_links__guardian__user=user, guardian_links__is_verified=True
+        ).distinct()
     else:
         learners = Learner.objects.none()
     return Response([

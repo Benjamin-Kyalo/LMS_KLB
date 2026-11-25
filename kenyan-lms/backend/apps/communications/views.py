@@ -9,11 +9,12 @@ from apps.communications.models import Announcement, Message, Notification, Noti
 from apps.communications.serializers import (
     AnnouncementSerializer, MessageSerializer, NotificationPreferenceSerializer, NotificationSerializer,
 )
-from apps.core.constants import Roles
+from apps.core.constants import Capabilities, Roles
 from apps.core.viewsets import InstitutionScopedQuerysetMixin, StaffWriteMixin
 
 
 class AnnouncementViewSet(StaffWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
+    capability = Capabilities.COMMUNICATIONS_MANAGE
     serializer_class = AnnouncementSerializer
 
     def get_queryset(self):

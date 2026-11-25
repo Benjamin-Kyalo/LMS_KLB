@@ -1,8 +1,12 @@
 """Health check used by both humans and monitoring tools."""
+import logging
+
 from django.db import connection
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(["GET"])
@@ -15,9 +19,10 @@ def health_check(request):
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
-    except Exception as exc:  # pragma: no cover - only fails when DB is down
+    except Exception:  # pragma: no cover - only fails when DB is down
         database_ok = False
-        error = str(exc)
+        logger.exception("Database health probe failed")
+        error = "Database unavailable"
 
     return Response(
         {

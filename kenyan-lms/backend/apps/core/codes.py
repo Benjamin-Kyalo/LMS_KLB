@@ -14,6 +14,7 @@ import re
 from django.apps import apps
 from django.db import connection, transaction
 from django.db.models import Max
+from django.utils import timezone
 
 STOP_WORDS = {"the", "of", "and", "for", "secondary", "primary", "school", "academy"}
 GENERIC_ENDINGS = {"school", "academy", "college", "university", "institute"}
@@ -141,6 +142,39 @@ def assign_institution_code(instance):
     instance.code = code
 
 
+PERSON_ID_PREFIXES = {
+    "Teacher": "TR",
+    "Learner": "LR",
+    "Guardian": "GD",
+}
+
+
+def assign_person_id(instance, field, prefix):
+    """Generate ``TR_KSCH_2026/11_001`` style identifiers."""
+    institution = getattr(instance, "institution", None)
+    if institution is None or getattr(institution, "pk", None) is None:
+        raise ValueError(f"A {instance.__class__.__name__} needs an institution before an ID can be generated.")
+    now = timezone.now()
+    year_month = now.strftime("%Y/%m")
+    school = school_abbreviation(institution.name)
+    head = f"{prefix}_{school}_{year_month}"
+    namespace = f"klb:person-id:{prefix}:{institution.pk}:{year_month}"
+
+    with transaction.atomic():
+        _lock(namespace, f"institution:{institution.pk}")
+        model = apps.get_model(instance._meta.label)
+        values = model.objects.using(connection.alias).filter(institution=institution).values_list(field, flat=True)
+        highest = 0
+        for value in values:
+            value = value or ""
+            if not value.startswith(head + "_"):
+                continue
+            match = re.search(r"_(\d+)$", value)
+            if match:
+                highest = max(highest, int(match.group(1)))
+        setattr(instance, field, f"{head}_{highest + 1:03d}")
+
+
 def ensure_reference(instance):
     """Dispatch code generation based on the model class name.
 
@@ -162,7 +196,8 @@ def ensure_reference(instance):
         institution = getattr(instance, "institution", None)
         if institution is None or institution.pk is None:
             raise ValueError("A learner needs an institution before references can be generated.")
-        assign_reference(instance, "admission_number", model_label, "ADM", institution=institution)
+        if not getattr(instance, "admission_number", None):
+            assign_person_id(instance, "admission_number", PERSON_ID_PREFIXES[name])
         assign_reference(instance, "assessment_number", model_label, "ASM", institution=institution)
         return
 
@@ -170,7 +205,16 @@ def ensure_reference(instance):
         institution = getattr(instance, "institution", None)
         if institution is None or institution.pk is None:
             raise ValueError("A teacher needs an institution before a staff number can be generated.")
-        assign_reference(instance, "staff_number", model_label, "TCH", institution=institution)
+        if not getattr(instance, "staff_number", None):
+            assign_person_id(instance, "staff_number", PERSON_ID_PREFIXES[name])
+        return
+
+    if name == "Guardian":
+        institution = getattr(instance, "institution", None)
+        if institution is None or institution.pk is None:
+            raise ValueError("A guardian needs an institution before an ID can be generated.")
+        if not getattr(instance, "guardian_number", None):
+            assign_person_id(instance, "guardian_number", PERSON_ID_PREFIXES[name])
         return
 
     if name == "Course":
@@ -260,6 +304,8 @@ def ensure_reference(instance):
             "AnalyticsSnapshot": "ANA",
             "RemediationRule": "RMR",
             "RemediationTask": "RMT",
+            "TeacherApproval": "TAP",
+            "GuardianLinkRequest": "GLR",
         }
         options = {"digits": 5}
         institution = getattr(instance, "institution", None)

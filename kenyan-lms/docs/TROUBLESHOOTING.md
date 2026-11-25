@@ -4,12 +4,24 @@ For every issue: identify the exact error, apply the smallest fix, then
 confirm with a test or a working request. Never reset the database as a
 routine fix.
 
+**Current direction:** normal web app only. There is no offline queue, service
+worker, PWA install or native app. Failed saves show an error and stay unsaved;
+uploads require a live connection. If a user still sees old cached wording or a
+stale bundle, the cause is an installed **old** service worker from before the
+removal. That is a deployment cleanup, not app code: serve a one-release
+kill-switch `/sw.js` with no-cache and an unregister/self-delete response, or
+have the user clear site data (see `PRODUCTION_CONFIGURATION.md`).
+
 ## PostgreSQL connection fails
 
 **Means:** Django cannot reach the database.
 
-**Likely causes:** wrong `DB_PASSWORD` in `.env`; PostgreSQL service stopped;
-BOM at the start of `.env`.
+**Likely causes:** wrong `DB_PASSWORD` in `.env`; PostgreSQL role password out
+of sync with `.env`; PostgreSQL service stopped; BOM at the start of `.env`.
+If the role and `.env` drifted apart, run
+`powershell -ExecutionPolicy Bypass -File .\scripts\set_postgres_password.ps1`
+from an Administrator PowerShell. It reads the password from `.env`, restores
+`pg_hba.conf`, and never prints the secret.
 
 **Identify:**
 
@@ -23,6 +35,19 @@ $env:PGPASSWORD="your-password"
 
 **Confirm:** `python manage.py check --database default` succeeds and
 `GET /api/health/` returns `"database":"connected"`.
+
+### pgAdmin still shows `password authentication failed for user "postgres"`
+
+This is a **saved client password** problem, not a table-permission problem. The
+server role and `.env` are already aligned and verified with a direct login.
+In pgAdmin:
+
+1. Select the server in Object Explorer.
+2. Use **Object → Clear Saved Password** (or right-click the server → **Clear Saved Password**).
+3. Right-click the server → **Connect…**, type the current password, and tick
+   **Save Password** only after the connection succeeds.
+4. Expand the **`lms`** database → **Schemas → public → Tables** to see this
+   application's tables. Other databases in the tree do not contain them.
 
 ## `fe_sendauth: no password supplied`
 
@@ -63,8 +88,12 @@ fails after an install, delete `node_modules` and `package-lock.json`, then
 
 ## 401 Unauthorized
 
-**Means:** missing or expired token. Sign out and sign in again. Tokens are
-deleted on logout.
+**Means:** the Django session is missing or expired, or the CSRF header was not
+sent. Sign out and sign in again; the frontend echoes the CSRF cookie as
+`X-CSRFToken`. Identity and roles are re-read from `/api/auth/me/`, not from
+browser-stored credentials. Repeated failures can trigger the database-backed
+lockout; wait for the lockout window or have an administrator reactivate the
+account.
 
 ## 403 Forbidden
 
@@ -81,8 +110,11 @@ That is correct behaviour — the API explains which field failed.
 
 ## File upload fails
 
-Check `MEDIA_ROOT` exists, the form sends `multipart/form-data`, and the file
-is not larger than your web server's limit.
+Check the connection is live (failed uploads are not queued or replayed), the
+form sends `multipart/form-data`, `MEDIA_ROOT` exists and the file is within the
+size limit. The server sniffs magic bytes, so the content must really be JPG,
+PNG or WebP for a logo or an allowed type for a resource; renaming a file does
+not pass validation.
 
 ## Tests fail
 

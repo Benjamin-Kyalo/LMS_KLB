@@ -27,7 +27,7 @@ class EndpointSmokeTests(APITestCase):
         school = Institution.objects.create(name="Smoke School", code="SMK", institution_type=kind)
         self.admin = User.objects.create_user(
             username="smoke_admin", password="StrongPass123!",
-            role=Roles.SCHOOL_ADMIN, institution=school,
+            role=Roles.ADMIN, institution=school,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.admin)

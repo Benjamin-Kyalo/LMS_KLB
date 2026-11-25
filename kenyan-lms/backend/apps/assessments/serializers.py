@@ -13,6 +13,18 @@ class QuestionSerializer(serializers.ModelSerializer):
         read_only_fields = ["institution", "created_by"]
 
 
+class StudentQuestionSerializer(serializers.ModelSerializer):
+    """Question shape for learners: no answer key or teacher explanation."""
+
+    class Meta:
+        model = Question
+        fields = [
+            "id", "institution", "subject", "learning_outcome", "question_type",
+            "text", "options", "marks", "created_by", "created_at", "updated_at",
+        ]
+        read_only_fields = ["institution", "created_by"]
+
+
 class QuizQuestionSerializer(serializers.ModelSerializer):
     question_text = serializers.CharField(source="question.text", read_only=True)
 
@@ -44,20 +56,22 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizAttempt
         fields = "__all__"
-        read_only_fields = ["institution", "started_at", "score", "completed_at", "status"]
+        read_only_fields = [
+            "institution", "quiz", "learner", "max_score", "started_at",
+            "score", "completed_at", "status",
+        ]
+
+
+class QuizAnswerInputSerializer(serializers.Serializer):
+    question = serializers.IntegerField()
+    answer = serializers.CharField(allow_blank=True)
 
 
 class QuizSubmissionSerializer(serializers.Serializer):
     """Accepts a batch of answers and marks objective questions automatically."""
 
     attempt = serializers.IntegerField()
-    answers = serializers.ListField(child=serializers.DictField())
-
-    def validate_answers(self, value):
-        for item in value:
-            if "question" not in item or "answer" not in item:
-                raise serializers.ValidationError("Each answer needs 'question' and 'answer'.")
-        return value
+    answers = QuizAnswerInputSerializer(many=True)
 
 
 class ExamSerializer(serializers.ModelSerializer):

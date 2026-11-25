@@ -1,8 +1,19 @@
 # API documentation
 
 Base URL: `http://127.0.0.1:8000/api`
-Authentication: `Authorization: Token <token>` (except login, health and
-password reset endpoints).
+
+**Authentication is Django session-cookie based.** The browser receives an
+HttpOnly session cookie; the CSRF cookie is readable and the frontend echoes it
+as the `X-CSRFToken` header on state-changing requests. Identity and roles are
+always re-read from `/api/auth/me/` (the `/auth/me/` endpoint). No bearer token
+is issued at login, and no `klb_token` or `klb_user` is kept in `localStorage`.
+Legacy token authentication remains only for compatibility; those tokens are
+revoked on logout, password change and reset.
+
+This is a **normal web app**: there is no offline queue, service worker, PWA
+manifest or native wrapper. Failed mutations return an error and remain
+unsaved; they are not queued or replayed. Uploads require a live network
+connection. Historical references below to offline replay are superseded.
 
 The frontend keeps all HTTP calls in `frontend/src/services/api.js`.
 
@@ -18,9 +29,11 @@ old root URLs redirect by role. Examples:
 | `/admin/learners`, `/admin/teachers`, `/admin/guardians` | Staff | `/api/learners/`, `/api/teachers/`, `/api/guardians/` |
 | `/admin/courses`, `/admin/modules`, `/admin/lessons` | Staff | `/api/courses/`, `/api/courses/modules/`, `/api/courses/lessons/` |
 | `/admin/school` | Staff admin only | `/api/institutions/mine/` |
+| `/admin/appearance` | `SUPER_ADMIN`, `ADMIN`, or a custom role with `admin.access` and `appearance.manage` | `/api/theming/palettes/`, `/api/theming/site-content/` |
 | `/portal` | Learner / guardian | `/api/reports/my-learners/`, `/api/reports/learner/{id}/` |
 | `/portal/courses`, `/portal/assignments`, `/portal/quizzes` | Learner / guardian | `/api/courses/`, `/api/courses/assignments/`, `/api/assessments/quizzes/` |
-| `/portal/textbooks`, `/portal/resources` | Learner / guardian | `/api/content/available/`, `/api/content/resources/` |
+| `/library` | Public | `/api/content/facets/`, `/api/content/public/books/`, `/api/content/public/resources/` |
+| `/portal/textbooks`, `/portal/resources`, `/portal/documents` | Learner / guardian | `/api/content/available/`, `/api/content/portal/resources/`, `/api/content/portal/documents/` |
 | `/portal/reports`, `/portal/communications` | Learner / guardian | `/api/reports/learner/{id}/`, `/api/communications/announcements/` |
 
 For create requests, omit business reference fields such as
@@ -33,7 +46,7 @@ duplicates. See `REFERENCE_NUMBERING.md`.
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/api/health/` | API and database status |
-| POST | `/api/auth/login/` | Username + password → token and user |
+| POST | `/api/auth/login/` | Username + password → session cookie and user (CSRF cookie set) |
 | POST | `/api/auth/register/` | Public self-service signup (learner, guardian or provisional teacher only) |
 | POST | `/api/auth/password/reset/` | Email a reset link (console in dev) |
 | POST | `/api/auth/password/reset/confirm/` | Set a new password |
@@ -49,31 +62,93 @@ administrator role is rejected by the serializer, not just hidden in the UI.
 |---|---|---|
 | `LEARNER` | `date_of_birth`, `gender` | Active account and linked learner record |
 | `GUARDIAN` | `relationship_to_learner` (`occupation` optional) | Active account and linked guardian record |
-| `TEACHER` | `employment_type` (`PERMANENT`, `CONTRACT`, `PART_TIME` or `VOLUNTEER`) | Inactive account and teacher record until a school administrator approves it |
+| `TEACHER` | `employment_type` (`PERMANENT`, `CONTRACT`, `PART_TIME` or `VOLUNTEER`) | Inactive account and teacher record until an institution `ADMIN` approves it |
 
 A successful response is HTTP 201 with `{"detail", "user"}`. The frontend then
 signs in the new learner or guardian; teacher accounts wait for approval. No
-token or administrator role can be requested through this endpoint.
+administrator role can be requested through this endpoint, and no bearer token
+is issued.
+
+### Identity onboarding and verification
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET, PATCH | `/api/auth/onboarding/me/` | Read or update the signed-in user's onboarding checklist; GET is also embedded in `/api/auth/me/` |
+| GET | `/api/teachers/approvals/` | Pending and decided teacher approvals (institution/admin scoped) |
+| POST | `/api/teachers/approvals/{id}/approve/` | Activate a teacher and optionally assign a class, subject and year |
+| POST | `/api/teachers/approvals/{id}/reject/` | Reject with a required short reason |
+| GET, POST | `/api/learners/link-requests/` | Guardian link requests (`GLR` reference prefix) |
+| POST | `/api/learners/link-requests/{id}/verify/` | Verify a link; creates or confirms the `LearnerGuardian` grant |
+| POST | `/api/learners/link-requests/{id}/reject/` | Reject a link request |
+
+Teacher approval references use the `TAP` prefix. An institution `ADMIN` may
+decide approvals or link requests; custom roles may do so only when the relevant
+people capability is picked and enforced by the backend. All decisions are audit
+logged. These mutations require a live connection: there is no offline queue or
+replay path.
+
+## Roles and capabilities
+
+The built-in roles are `SUPER_ADMIN`, `ADMIN`, `CUSTOM`, `TEACHER`, `LEARNER`
+and `GUARDIAN`.
+
+- `SUPER_ADMIN` is global and unrestricted, including institution management
+  and granting any role. It is unchanged by the role simplification.
+- `ADMIN` has unrestricted CRUD inside its own institution. It can create and
+  assign custom roles, but cannot grant `SUPER_ADMIN` or create global
+  institutions.
+- `CUSTOM` is a named, reusable role identified by a `custom_role` id and made
+  up of picked capabilities. It enters the admin portal only when
+  `admin.access` is selected; the backend enforces all other capabilities.
+- `TEACHER`, `LEARNER` and `GUARDIAN` keep their existing scope.
+
+The retired names `PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `SCHOOL_ADMIN` and
+`CONTENT_MANAGER` are removed. Existing accounts with those roles are migrated
+to `ADMIN`; `SUPER_ADMIN` accounts are unchanged. The migration changes only
+the role value: passwords are never changed, generated, printed or placed in
+documentation. Verify the `institution` on migrated accounts, since a user with
+no institution sees no institution data by design.
+
+The custom-role capability allowlist is:
+`admin.access`, `users.manage`, `roles.manage`, `academics.manage`,
+`learners.manage`, `teachers.manage`, `guardians.manage`, `courses.manage`,
+`assessments.manage`, `content.manage`, `attendance.manage`, `fees.manage`,
+`communications.manage`, `reports.view`, `appearance.manage`,
+`institutions.manage`, `tutor.use`.
 
 ## Authentication and users
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/api/auth/logout/` | Delete current token |
-| GET, PATCH | `/api/auth/me/` | Read or update own profile. GET includes `institution_name` and `institution_logo` (absolute URL or `null`) |
+| POST | `/api/auth/logout/` | End the Django session; revoke any legacy token |
+| GET, PATCH | `/api/auth/me/` | Re-read identity/roles and read or update own profile. GET includes `institution_name`, `institution_logo` (absolute URL or `null`), `custom_role`, `custom_role_name` and `capabilities` |
 | POST | `/api/auth/password/change/` | Change own password |
 | GET, POST | `/api/auth/users/` | List / create users (admin only to create) |
-| GET | `/api/auth/users/roles/` | Available role codes |
+| GET | `/api/auth/users/roles/` | Available options: built-in roles plus named custom roles |
+| GET, POST | `/api/auth/roles/` | List / create custom roles (custom-role CRUD) |
+| GET, PATCH, DELETE | `/api/auth/roles/{id}/` | Read / update / delete a custom role |
 | POST | `/api/auth/users/{id}/set_active/` | Activate / deactivate |
-| GET, POST | `/api/auth/admin-invitations/` | List / issue administrator invitations (institution or platform admin) |
+| GET, POST | `/api/auth/admin-invitations/` | List / issue administrator invitations (`SUPER_ADMIN` or `ADMIN`) |
 | GET, PATCH, DELETE | `/api/auth/admin-invitations/{id}/` | Inspect, update or revoke an invitation. DELETE sets `revoked=true` |
-| POST | `/api/auth/admin-invitations/accept/` | Public redemption of a valid invitation token; returns an auth token and user |
+| POST | `/api/auth/admin-invitations/accept/` | Public redemption of a valid invitation token; creates the session and returns the user |
+
+Create a custom-role user by sending the role kind and the chosen role id:
+
+```json
+{ "username": "librarian1", "role": "CUSTOM", "custom_role": 12 }
+```
+
+User responses echo `role`, `custom_role`, `custom_role_name` and the effective
+`capabilities` list alongside the usual profile fields. A custom role cannot be
+used to grant `SUPER_ADMIN`, and a role without `admin.access` does not enter
+the admin portal. Custom-role CRUD is guarded by the `roles.manage` capability
+and by the same institution scoping as other admin data.
 
 Administrator invitations are the only way to create an administrator through
-the application. The issuing admin supplies `email`, `role` and, for school or
-institution roles, `institution`. The server generates `token`, `expires_at`,
-`accepted_at`, `revoked` and `created_at`. A school admin cannot invite a role
-above their own, and platform-only roles require a platform admin. Tokens are
+the application. The issuing admin supplies `email`, `role` and, for institution
+roles, `institution`. The server generates `token`, `expires_at`, `accepted_at`,
+`revoked` and `created_at`. `ADMIN` cannot invite into another institution or
+grant `SUPER_ADMIN`; only `SUPER_ADMIN` may grant any role. Tokens are
 high-entropy, single-use and expire after seven days. They are stored in the
 database so an authorised admin can copy them later, are **not** HMAC-signed or
 hashed, and must be treated like credentials.
@@ -85,12 +160,19 @@ in the request. The form's confirmation field is checked in the browser and is
 not sent to the API. The frontend route is `/admin/signup?token=...`; it is not
 advertised in public navigation or public registration.
 
+Password hashing remains PBKDF2. Login failures are counted in the database
+for IP/username and username-only scopes, with DRF throttles on login,
+registration, reset, tutor and KEMIS endpoints. `X-Forwarded-For` is trusted
+only from configured proxy IPs. Reset links expire after one hour and use
+hashed, single-use records; a successful password change or reset invalidates
+active sessions and legacy tokens. See `SECURITY_AUDIT.md`.
+
 ## SIS
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET, POST | `/api/institutions/` | Institutions (create/delete: platform admins only) |
-| GET, PATCH | `/api/institutions/mine/` | Read or edit the signed-in user's own school. PATCH is limited to platform and institution/school admins; learners and guardians get HTTP 403 |
+| GET, POST | `/api/institutions/` | Institutions (create/delete: `SUPER_ADMIN` only) |
+| GET, PATCH | `/api/institutions/mine/` | Read or edit the signed-in user's own school. PATCH is limited to `SUPER_ADMIN` and `ADMIN`; custom roles are limited to their picked capabilities; learners and guardians get HTTP 403 |
 | GET, POST | `/api/institutions/types/` | Institution types |
 | GET, POST | `/api/institutions/academic-years/` | Academic years |
 | GET, POST | `/api/institutions/terms/` | Terms |
@@ -141,10 +223,50 @@ advertised in public navigation or public registration.
 | POST | `/api/content/textbooks/{id}/publish/` | Publish a title |
 | GET | `/api/content/available/` | Titles licensed to your institution |
 | GET, POST | `/api/content/chapters/` | Chapters |
-| GET, POST | `/api/content/resources/` | Audio, video, PDF, links |
-| GET, POST | `/api/content/exercises/` | Chapter exercises |
+| GET, POST | `/api/content/resources/` | Admin-managed resource records (taxonomy, uploads, links, embeds) |
+| GET | `/api/content/resources/{id}/download/` | Permission-checked attachment download |
+| GET | `/api/content/exercises/` | Chapter exercises |
 | GET, POST | `/api/content/exercise-attempts/` | Exercise attempts |
 | GET, POST | `/api/content/access/` | Licence grants |
+
+### Resource discovery (Phase 2)
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/content/facets/` | Public | Levels, learning areas, collections, types; adds subjects and classes for signed-in readers |
+| GET | `/api/content/public/books/` | Public | Published, non-expired book metadata with `cover_url` and licence label |
+| GET | `/api/content/public/resources/` | Public | Published, public-scope resources with `thumbnail_url` |
+| GET | `/api/content/portal/resources/` | Authenticated | Published public/institution/class resources visible to the reader |
+| GET | `/api/content/portal/documents/` | Authenticated | Same scoping, limited to PDF and link documents |
+| GET, POST | `/api/content/collections/` | Authenticated; curator writes | Admin-managed browsing collections |
+| GET, POST | `/api/content/embed-providers/` | Authenticated; curator writes | Active YouTube/Vimeo host allowlist |
+
+Catalogue endpoints are paginated and accept `page`, `page_size`, `ordering`,
+`q` (also accepted as `keyword` or `search`), and the filters advertised by each view (for example
+`education_level`, `learning_area`, `collection`, `subject`, `school_class`,
+`resource_type`, `delivery` and `access_scope`). Portal scoping uses the user's
+institution, verified learner links, learner class or teacher assignments; it
+never grants cross-school access. Public and portal serializers expose only safe
+read fields and a server-built `embed_url` or scoped `download_url`. Books expose
+`cover_url`; resources expose `thumbnail_url`. Both are either local frontend
+artwork paths under `/images/` or uploaded files under `MEDIA_URL`, never raw
+storage names or unsafe external hotlinks. The management resource endpoint also
+accepts a validated `thumbnail_image` upload so curators can replace card art.
+See `docs/ASSET_CREDITS.md` for OER metadata and artwork provenance.
+
+`ContentResource` supports `delivery` values `UPLOAD`, `LINK` and `EMBED`, and
+`access_scope` values `PUBLIC`, `INSTITUTION` and `CLASS`. Local file uploads are
+stored under `content/resources/`. Uploads require a live connection and are
+never queued for replay. Filenames and bytes are validated by magic-byte
+sniffing, not by extension alone. Embed records store only a validated provider and source URL. The server checks
+HTTPS, the active provider's host, and a known video ID before building a
+sandboxed iframe URL; client-supplied iframe, script or HTML is never rendered.
+The default maximum upload size is 5 MB (`CONTENT_RESOURCE_MAX_UPLOAD_BYTES`).
+The general `/api/content/resources/` endpoint is an authenticated management
+catalogue and does not apply the public/portal status gate; use the scoped
+catalogue endpoints for readers. Serving private media in production still needs
+an explicit web-server or object-storage decision; Django's `DEBUG` media
+serving is not a deployment plan.
 
 ## Communication and reports
 
@@ -181,13 +303,67 @@ Accepted types are JPG (`image/jpeg`), PNG (`image/png`) and WebP
 (`image/webp`), with a maximum size of 2 MB. Other types and larger files
 return HTTP 400 with a field error. Files are stored under
 `institutions/logos/`. The frontend calls `api.upload()` from
-`frontend/src/services/api.js`, which needs a live connection and does **not**
-queue the upload offline. After a successful save, the UI refreshes
+`frontend/src/services/api.js`, which needs a live connection; a failed upload
+surfaces an error and remains unsaved. After a successful save, the UI refreshes
 `/api/auth/me/` so both layouts show the new logo.
 
 The migration behind these fields is
 `backend/apps/institutions/migrations/0002_institution_logo_institution_motto_and_more.py`.
 A backup was taken first at `backups/lms_20261123_134452.sql`.
+
+## Theming and site content
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/theming/active/` | Public | Active palette with ramp shades |
+| GET, POST | `/api/theming/palettes/` | `SUPER_ADMIN`, `ADMIN`, or custom role with `appearance.manage` | Palette catalogue and onboarding |
+| POST | `/api/theming/palettes/{id}/activate/` | `SUPER_ADMIN`, `ADMIN`, or custom role with `appearance.manage` | Choose one active palette |
+| GET | `/api/theming/site-content/` | Public | Merged wording, photos and section styles |
+| PATCH | `/api/theming/site-content/` | `SUPER_ADMIN`, `ADMIN`, or custom role with `appearance.manage` | Validate and save edited wording or section styles |
+| POST | `/api/theming/site-content/image/` | `SUPER_ADMIN`, `ADMIN`, or custom role with `appearance.manage` | Upload and publish one allowlisted photo slot |
+| DELETE | `/api/theming/site-content/image/{slot}/` | `SUPER_ADMIN`, `ADMIN`, or custom role with `appearance.manage` | Clear one managed photo slot |
+| POST | `/api/theming/site-content/image/{slot}/reset/` | `SUPER_ADMIN`, `ADMIN`, or custom role with `appearance.manage` | Restore one slot to its shipped default |
+| POST | `/api/theming/site-content/hero-image/` | `SUPER_ADMIN`, `ADMIN`, or custom role with `appearance.manage` | Legacy alias that uploads the homepage hero slot |
+
+As of 25 November 2026, eight built-in palettes are seeded: Ocean Blue
+Serenity, Sage Green, Blue Coral Daylight, Forest Green, Citrus Bloom, Heritage
+Spice, Bright Horizon and Plum Harvest. Plum Harvest (`plum-harvest`, from
+`color 7.png`) is the current active palette and the fresh-install default;
+`theming.0004_seed_and_activate_plum_harvest` applied that selection locally.
+All eight are available for activation without changing component code.
+
+A site content PATCH accepts `{ "content": { ... } }` or a bare content object.
+Only known sections and keys are kept. Links must be local paths such as
+`/library` or full HTTPS addresses. Script, data and protocol-relative links are
+rejected with a field error such as `header.signInHref`. Omitted fields keep
+their saved value, and every successful save writes a `site_content.updated`
+audit entry. Section styles accept only six-digit hex colours and the supplied
+corner and spacing choices; there is no raw CSS field. A background and text
+colour pair must reach 4.5:1 contrast.
+
+Managed photo uploads accept a multipart field named `image` (or `file`) plus a
+`slot` chosen from `hero`, `workspace-learning`, `workspace-school`,
+`workspace-publishing`, `insights`, `login`, `register` and `tutor`. JPG, PNG and
+WebP files at least 640×360 px and at most 5 MB are checked by extension, bytes
+and decoded image before being stored under `MEDIA_ROOT/site-content/<slot>/`.
+A successful upload updates only that slot, returns the published content and
+writes a `site_content.image_uploaded` audit entry. `DELETE` clears the slot and
+writes `site_content.image_removed`; `POST .../reset/` restores the shipped
+value and writes `site_content.image_reset`. Empty image values are valid; other
+content values still go through the normal link validation. `SUPER_ADMIN` and
+`ADMIN` can manage photos, wording and section styles; a custom role can do so
+only when `admin.access` and `appearance.manage` are selected and enforced by
+the backend.
+
+The frontend reads the same endpoint through `SiteContentContext` and merges
+the live response over the local defaults in
+`frontend/src/config/publicSite.js`. Administrators manage colours, photos,
+wording and section styles from the single `/admin/appearance` page.
+`/admin/theme` and `/admin/site-content` remain aliases that open the matching
+tab. There is no
+offline content cache: if the API is unreachable, the page shows an error or the
+built-in defaults, and a failed save remains unsaved. See
+`docs/PUBLIC_SITE_CONTENT.md`.
 
 ## Response conventions
 
@@ -195,4 +371,10 @@ A backup was taken first at `backups/lms_20261123_134452.sql`.
   Use `listAll()` in the frontend to flatten them.
 - Validation errors return HTTP 400 with field-name keys.
 - Cross-institution detail requests return 404, not 403.
+- Content, assessment, course, learner, fee and attendance reads are scoped
+  server-side; ordinary users receive reduced field sets.
+- Health-check database failures return a generic `Database unavailable`
+  response; details go to logs.
+- Authenticated `/api/` responses carry `Cache-Control: no-store` and security
+  headers; production adds a CSP.
 - Timestamps are timezone-aware (`Africa/Nairobi`).

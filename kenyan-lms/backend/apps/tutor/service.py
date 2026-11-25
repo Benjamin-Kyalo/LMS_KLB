@@ -7,9 +7,13 @@ import re
 import unicodedata
 from typing import Any, Protocol
 from urllib.error import URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+from django.db.models import Q
 
 from apps.content.models import ContentResource, DigitalTextbook
+from apps.core.constants import ContentStatus, ResourceAccessScope
 from apps.courses.models import Course
 from apps.curriculum.models import Competency, LearningOutcome
 
@@ -17,6 +21,36 @@ MAX_QUESTION_LENGTH = 1000
 MIN_GROUNDING_SCORE = 4
 TOP_MATCHES = 3
 _HTTP_TIMEOUT_SECONDS = 10
+_TUTOR_ALLOWED_HOSTS_ENV = "KLB_TUTOR_ALLOWED_HOSTS"
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    """Never follow a redirect that could leave the configured host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise URLError("Redirects are not allowed for the tutor provider.")
+
+
+def _open_url(request, timeout):
+    return build_opener(_NoRedirect()).open(request, timeout=timeout)
+
+
+def _validated_endpoint(url):
+    """Return the URL only for HTTPS hosts explicitly allowed by the operator."""
+    parsed = urlparse(url)
+    allowed = [
+        host.strip().lower()
+        for host in os.environ.get(_TUTOR_ALLOWED_HOSTS_ENV, "").split(",")
+        if host.strip()
+    ]
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not host or not allowed:
+        return None
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        return None
+    if not any(host == trusted or host.endswith(f".{trusted}") for trusted in allowed):
+        return None
+    return url
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 _URL_RE = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
@@ -174,9 +208,20 @@ def _candidate_records(institution: Any) -> list[dict]:
         _candidate("textbook", record, ("isbn", "title", "subtitle", "description"))
         for record in DigitalTextbook.objects.all()
     )
+    resource_scope = Q(access_scope=ResourceAccessScope.PUBLIC)
+    if institution is not None:
+        resource_scope |= Q(
+            institution=institution,
+            access_scope__in=[
+                ResourceAccessScope.INSTITUTION,
+                ResourceAccessScope.CLASS,
+            ],
+        )
     candidates.extend(
         _candidate("resource", record, ("title", "description", "resource_type"), code_field=None)
-        for record in ContentResource.objects.all()
+        for record in ContentResource.objects.filter(
+            Q(status=ContentStatus.PUBLISHED), resource_scope
+        )
     )
     if institution is not None and getattr(institution, "pk", None) is not None:
         candidates.extend(
@@ -275,7 +320,7 @@ class ProviderAdapter(Protocol):
 
 
 class LocalProvider:
-    """Default adapter: deterministic, offline and grounded in stored records."""
+    """Default adapter: deterministic, local and grounded in stored records."""
 
     name = "local"
 
@@ -287,10 +332,11 @@ class HttpProvider:
     """Optional adapter. Credentials are read from the environment per call.
 
     If either variable is unset the local answer is returned without any
-    network access. A remote answer is accepted only when it is a verbatim
-    excerpt of the grounded local answer, so it cannot add marks, URLs or
-    invented facts. The key is sent as a header only: it is never logged,
-    returned or serialised.
+    network access. The URL must be HTTPS on a host listed in
+    ``KLB_TUTOR_ALLOWED_HOSTS`` and redirects are refused. A remote answer is
+    accepted only when it is a verbatim excerpt of the grounded local answer,
+    so it cannot add marks, URLs or invented facts. The key is sent as a header
+    only: it is never logged, returned or serialised.
     """
 
     name = "http"
@@ -305,6 +351,9 @@ class HttpProvider:
         local = answer_question(question, institution)
         url, key = self._configuration()
         if not url or not key:
+            return local
+        url = _validated_endpoint(url)
+        if not url:
             return local
 
         payload = json.dumps({
@@ -321,7 +370,7 @@ class HttpProvider:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=_HTTP_TIMEOUT_SECONDS) as response:
+            with _open_url(request, timeout=_HTTP_TIMEOUT_SECONDS) as response:
                 data = json.loads(response.read().decode("utf-8"))
         except (URLError, OSError, ValueError, UnicodeDecodeError):
             return local

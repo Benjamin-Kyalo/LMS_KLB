@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from apps.teachers import views
 
 router = DefaultRouter()
+router.register("approvals", views.TeacherApprovalViewSet, basename="teacherapproval")
 router.register("class-assignments", views.TeacherClassAssignmentViewSet, basename="teacherassignment")
 router.register("lesson-plans", views.LessonPlanViewSet, basename="lessonplan")
 router.register("", views.TeacherViewSet, basename="teacher")

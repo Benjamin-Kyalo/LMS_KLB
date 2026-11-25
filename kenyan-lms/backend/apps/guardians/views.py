@@ -2,12 +2,14 @@
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 
+from apps.core.constants import Capabilities
 from apps.core.viewsets import AdminWriteMixin, InstitutionScopedQuerysetMixin
 from apps.guardians.models import Guardian
 from apps.guardians.serializers import GuardianCreateSerializer, GuardianSerializer
 
 
 class GuardianViewSet(AdminWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
+    capability = Capabilities.GUARDIANS_MANAGE
     search_fields = ["user__first_name", "user__last_name", "phone"]
 
     def get_queryset(self):

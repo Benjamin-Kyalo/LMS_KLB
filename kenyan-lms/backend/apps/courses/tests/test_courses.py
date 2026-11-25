@@ -17,8 +17,8 @@ class CourseTests(APITestCase):
         kind = InstitutionType.objects.create(name="Primary", code="PRI")
         self.school = Institution.objects.create(name="A", code="A1", institution_type=kind)
         self.other = Institution.objects.create(name="B", code="B1", institution_type=kind)
-        self.admin = User.objects.create_user(username="a", password="StrongPass123!", role=Roles.SCHOOL_ADMIN, institution=self.school)
-        self.other_admin = User.objects.create_user(username="b", password="StrongPass123!", role=Roles.SCHOOL_ADMIN, institution=self.other)
+        self.admin = User.objects.create_user(username="a", password="StrongPass123!", role=Roles.ADMIN, institution=self.school)
+        self.other_admin = User.objects.create_user(username="b", password="StrongPass123!", role=Roles.ADMIN, institution=self.other)
         self.course = Course.objects.create(institution=self.school, title="Maths", status="PUBLISHED")
 
     def test_other_school_cannot_see_course(self):

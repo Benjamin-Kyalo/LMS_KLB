@@ -2,6 +2,15 @@ import { createContext, useCallback, useContext, useState } from "react";
 
 const ToastContext = createContext(null);
 
+function noticeKind(kind) {
+  if (kind === "warning") return "warn";
+  return ["error", "warn", "success", "info"].includes(kind) ? kind : "info";
+}
+
+function noticeRole(kind) {
+  return ["error", "warn", "warning"].includes(kind) ? "alert" : "status";
+}
+
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
@@ -14,9 +23,15 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ push }}>
       {children}
-      <div style={{ position: "fixed", bottom: 16, right: 16, display: "grid", gap: 8, zIndex: 100 }}>
+      <div className="toast-stack" aria-label="Notifications">
         {toasts.map((t) => (
-          <div key={t.id} className={`notice ${t.kind}`}>{t.message}</div>
+          <div
+            key={t.id}
+            className={`notice ${noticeKind(t.kind)}`}
+            role={noticeRole(t.kind)}
+          >
+            {t.message}
+          </div>
         ))}
       </div>
     </ToastContext.Provider>

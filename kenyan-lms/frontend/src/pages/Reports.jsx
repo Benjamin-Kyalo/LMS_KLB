@@ -4,15 +4,10 @@ import { useList } from "../hooks/useApi";
 import { api } from "../services/api";
 import ChartCard from "../components/ChartCard";
 import Loading from "../components/Loading";
-
-const STATUS_COLORS = {
-  PRESENT: "#0B3D2E",
-  ABSENT: "#B44635",
-  LATE: "#8A5A15",
-  EXCUSED: "#1C5D7E",
-};
+import { useTheme } from "../context/ThemeContext";
 
 export default function Reports() {
+  const { colors } = useTheme();
   const { data: learners, loading } = useList("/reports/my-learners/");
   const [params] = useSearchParams();
   const [selected, setSelected] = useState("");
@@ -39,7 +34,7 @@ export default function Reports() {
     status,
     label: status.charAt(0) + status.slice(1).toLowerCase(),
     value,
-    fill: STATUS_COLORS[status],
+    fill: colors.attendance[status],
   }));
   const examData = (report?.exams || []).map((item) => {
     const name = item.label || item.exam || "Exam";
@@ -73,7 +68,7 @@ export default function Reports() {
         </div>
       )}
 
-      {error && <div className="notice error">{error}</div>}
+      {error && <div className="notice error" role="alert">{error}</div>}
 
       {report && (
         <div>
@@ -100,7 +95,7 @@ export default function Reports() {
               type="bar"
               data={examData}
               xKey="label"
-              series={[{ key: "percentage", label: "Score %", colour: "#1C5D7E" }]}
+              series={[{ key: "percentage", label: "Score %", colour: colors.score }]}
               emptyText="No exam results recorded yet."
             />
           </div>

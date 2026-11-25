@@ -1,17 +1,30 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { isLoggedIn } from "../services/auth";
-import { hasRole, homeFor } from "../utilities/roles";
+import { canUseAdmin, hasCapability, hasRole, homeFor, isCustomRole } from "../utilities/roles";
 import Loading from "./Loading";
 
-export default function ProtectedRoute({ children, roles }) {
+// A route may be restricted by role, by capability, or by either one. The
+// capability path lets a CUSTOM user reach pages enabled for their role while
+// built-in users keep the existing role-based behaviour.
+export default function ProtectedRoute({ children, roles, capability }) {
   const { user, refreshing } = useAuth();
+  const location = useLocation();
 
-  // A token alone is not proof of identity. Wait for /auth/me/ to finish
-  // before deciding, otherwise a stale token causes a redirect loop.
-  if (!isLoggedIn()) return <Navigate to="/login" replace />;
+  // Identity comes only from the server session. Wait for /auth/me/ so a stale
+  // cached role can never unlock a protected route.
   if (refreshing) return <Loading />;
   if (!user) return <Navigate to="/login" replace />;
-  if (roles && !hasRole(user, roles)) return <Navigate to={homeFor(user)} replace />;
+
+  const roleAllowed = Boolean(roles && hasRole(user, roles));
+  const capabilityAllowed = Boolean(capability && hasCapability(user, capability));
+  // A capability alone never unlocks the admin portal for a custom role whose
+  // own permissions did not include admin.access.
+  const customWithoutAdminAccess = isCustomRole(user) && !canUseAdmin(user);
+  if ((roles || capability) && (customWithoutAdminAccess || (!roleAllowed && !capabilityAllowed))) {
+    // An admin denied a page inside /admin would otherwise bounce to /admin
+    // again, so fall back to the public home in that case.
+    const home = homeFor(user);
+    return <Navigate to={home && home !== location.pathname ? home : "/"} replace />;
+  }
   return children;
 }

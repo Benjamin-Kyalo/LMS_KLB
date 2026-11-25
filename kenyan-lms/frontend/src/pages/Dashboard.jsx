@@ -4,19 +4,44 @@ import { useResource } from "../hooks/useApi";
 import StatCard from "../components/StatCard";
 import ChartCard from "../components/ChartCard";
 import Loading from "../components/Loading";
+import RollingLabel from "../components/RollingLabel";
 import { isAdmin, isLearner, isGuardian, isTeacher } from "../utilities/roles";
+import { useTheme } from "../context/ThemeContext";
 
-const STATUS_COLORS = {
-  PRESENT: "#0B3D2E",
-  ABSENT: "#B44635",
-  LATE: "#8A5A15",
-  EXCUSED: "#1C5D7E",
-};
+function stepsFor(user) {
+  if (isLearner(user)) {
+    return [
+      { title: "Continue learning", to: "/portal/courses", hint: "Pick up where you left off." },
+      { title: "Complete assignments", to: "/portal/assignments", hint: "See what is due soon." },
+      { title: "Read your books", to: "/portal/textbooks", hint: "Open your digital library." },
+    ];
+  }
+  if (isGuardian(user)) {
+    return [
+      { title: "Check progress", to: "/portal/reports", hint: "Review your learner's latest results." },
+      { title: "Read messages", to: "/portal/communications", hint: "Stay up to date with school notices." },
+      { title: "Explore resources", to: "/portal/resources", hint: "Find learning support materials." },
+    ];
+  }
+  const steps = [];
+  if (isAdmin(user)) {
+    steps.push(
+      { title: "Review teacher approvals", to: "/admin/teacher-approvals", hint: "Approve new staff accounts." },
+      { title: "Verify guardian links", to: "/admin/guardian-links", hint: "Confirm family connections." },
+    );
+  }
+  steps.push(
+    { title: "Check attendance", to: "/admin/attendance", hint: "Follow up on gaps and patterns." },
+    { title: "Plan learning", to: "/admin/courses", hint: "Keep courses and lessons current." },
+    { title: "Open full analytics", to: "/admin/analytics", hint: "See trends across attendance and results." }
+  );
+  return steps.slice(0, 4);
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const staffView = !(isLearner(user) || isGuardian(user));
-  const quickBase = staffView ? "/admin" : "/portal";
   const summary = useResource(staffView ? "/reports/dashboard/" : null);
   const charts = useResource(staffView ? "/reports/analytics/" : null);
 
@@ -35,10 +60,7 @@ export default function Dashboard() {
     label: item.label.length > 18 ? `${item.label.slice(0, 17)}…` : item.label,
     percentage: item.percentage,
   }));
-  const attendanceStatus = (chartData.attendance_status || []).map((item) => ({
-    ...item,
-    fill: STATUS_COLORS[item.status],
-  }));
+  const steps = stepsFor(user);
 
   function refresh() {
     summary.reload();
@@ -51,16 +73,21 @@ export default function Dashboard() {
         <div>
           <div className="overline">Overview</div>
           <h1>Karibu, {user.first_name || user.username}</h1>
+          <p>Your school at a glance, with the next useful action close at hand.</p>
         </div>
         <div className="actions">
-          {staffView && <button className="secondary" onClick={refresh}>Refresh data</button>}
+          {staffView && (
+            <button className="secondary" onClick={refresh}>
+              <RollingLabel>Refresh data</RollingLabel>
+            </button>
+          )}
         </div>
       </div>
 
       {staffView && (summary.error || charts.error) ? (
-        <div className="notice error" style={{ marginBottom: "1rem" }}>
+        <div className="notice error" role="alert" style={{ marginBottom: "1rem" }}>
           {summary.error || charts.error}{" "}
-          <button className="ghost small" onClick={refresh}>Try again</button>
+          <button className="ghost small" onClick={refresh}><RollingLabel>Try again</RollingLabel></button>
         </div>
       ) : null}
 
@@ -83,14 +110,7 @@ export default function Dashboard() {
             />
           </div>
 
-          <div className="chart-grid">
-            <ChartCard
-              title="Attendance mix"
-              subtitle="Present, absent, late and excused"
-              type="pie"
-              data={attendanceStatus}
-              emptyText="No attendance records yet."
-            />
+          <div className="chart-grid chart-grid--focused">
             <ChartCard
               title="Attendance over time"
               subtitle="Last 14 recorded days"
@@ -98,10 +118,10 @@ export default function Dashboard() {
               data={trend}
               xKey="label"
               series={[
-                { key: "PRESENT", label: "Present", colour: "#0B3D2E" },
-                { key: "ABSENT", label: "Absent", colour: "#B44635" },
-                { key: "LATE", label: "Late", colour: "#8A5A15" },
-                { key: "EXCUSED", label: "Excused", colour: "#1C5D7E" },
+                { key: "PRESENT", label: "Present", colour: colors.attendance.PRESENT },
+                { key: "ABSENT", label: "Absent", colour: colors.attendance.ABSENT },
+                { key: "LATE", label: "Late", colour: colors.attendance.LATE },
+                { key: "EXCUSED", label: "Excused", colour: colors.attendance.EXCUSED },
               ]}
               emptyText="Attendance dates will appear here once marked."
             />
@@ -111,48 +131,38 @@ export default function Dashboard() {
               type="bar"
               data={exams}
               xKey="label"
-              series={[{ key: "percentage", label: "Score %", colour: "#1C5D7E" }]}
+              series={[{ key: "percentage", label: "Score %", colour: colors.score }]}
               emptyText="No exam results recorded yet."
             />
-            <ChartCard
-              title="Learner status"
-              subtitle="Active, transferred, alumni and suspended"
-              type="pie"
-              data={chartData.learner_status || []}
-              emptyText="No learners registered yet."
-            />
+          </div>
+          <div className="chart-more">
+            <Link to="/admin/analytics">Open the full analytics view →</Link>
           </div>
         </>
       )}
 
-      <div className="panel panel-pad" style={{ marginTop: "1.25rem" }}>
-        <h2>Where to next?</h2>
-        <div className="quick-links">
-          {(isAdmin(user) || isTeacher(user)) && <Link to="/admin/learners">Manage learners →</Link>}
-          {(isAdmin(user) || isTeacher(user)) && <Link to="/admin/attendance">Mark attendance →</Link>}
-          {(isAdmin(user) || isTeacher(user)) && <Link to="/admin/courses">Courses and lessons →</Link>}
-          <Link to={`${quickBase}/textbooks`}>Digital textbooks →</Link>
-          <Link to={`${quickBase}/assignments`}>Assignments →</Link>
-          <Link to={`${quickBase}/reports`}>Reports →</Link>
-          {isGuardian(user) && <Link to="/portal/reports">Your child's progress →</Link>}
-          {isLearner(user) && <Link to="/portal/courses">Continue learning →</Link>}
+      <div className="panel panel-pad roadmap" style={{ marginTop: "1.25rem" }}>
+        <div className="roadmap-heading">
+          <div className="overline">Guided path</div>
+          <h2>Start here</h2>
+          <p>A short, role-aware path through the most useful next actions.</p>
         </div>
+        <ol className="roadmap-steps">
+          {steps.map((step, index) => (
+            <li key={step.to + step.title}>
+              <span className="roadmap-step-number" aria-hidden="true">{index + 1}</span>
+              <div className="roadmap-step-copy">
+                <strong>{step.title}</strong>
+                <p>{step.hint}</p>
+              </div>
+              <Link to={step.to} className="button-link roadmap-step-link" aria-label={`Open ${step.title}`}>
+                <RollingLabel>Open {step.title}</RollingLabel>{" "}
+                <span className="arrow" aria-hidden="true">→</span>
+              </Link>
+            </li>
+          ))}
+        </ol>
       </div>
-
-      {isAdmin(user) && (
-        <div className="panel panel-pad" style={{ marginTop: "1rem" }}>
-          <h2>Administrator actions</h2>
-          <div className="quick-links">
-            <Link to="/admin/learners">Register a learner</Link>
-            <Link to="/admin/teachers">Add a teacher</Link>
-            <Link to="/admin/guardians">Link a guardian</Link>
-            <Link to="/admin/classes">Set up subjects</Link>
-            <Link to="/admin/school">Update school profile</Link>
-            <Link to="/admin/institutions">Manage institutions</Link>
-            <Link to="/admin/communications">Publish an announcement</Link>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

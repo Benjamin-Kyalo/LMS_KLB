@@ -1,45 +1,74 @@
-/* Design tokens: one place for the visual identity.
+/* Runtime design tokens.
  *
- * Hierarchy: green is primary, blue is secondary, warm paper is the
- * background and white is reserved for surfaces (cards, tables, modals).
- * Contrast ratios were checked with WCAG maths; see docs/DESIGN_SYSTEM.md.
+ * These are fallback values only. ThemeProvider applies the active palette
+ * from /api/theming/active/ as --ramp-* custom properties on :root at startup,
+ * so every semantic alias below follows the selected palette automatically.
+ * Semantic states continue to use wording plus border weight/style rather than
+ * separate red/amber/green colours.
  */
 :root {
-  /* Neutrals — warm, not stark, to reduce glare in bright classrooms. */
-  --paper: #f7f4ed;
-  --paper-2: #efe9dc;
-  --surface: #fffdf8;
+  /* Nine-step ramp. Overwritten at runtime from the server catalogue. */
+  --ramp-900: #1a0f14;
+  --ramp-800: #291720;
+  --ramp-700: #820263;
+  --ramp-600: #d90368;
+  --ramp-500: #04a777;
+  --ramp-400: #fb8b24;
+  --ramp-300: #ffb067;
+  --ramp-200: #ffd9b8;
+  --ramp-100: #fff3e8;
   --white: #ffffff;
-  --ink: #16211d;
-  --ink-soft: #4a5550;
-  /* Muted text: 5.56:1 on white, 4.60:1 on the darkest tint. */
-  --ink-faint: #5f6b65;
-  --line: #d9d2c2;
-  --line-strong: #b9b09c;
 
-  /* Primary: deep forest green. 12.2:1 on white. */
-  --forest: #0b3d2e;
-  --forest-2: #14563f;
-  --green-tint: #e3efe9;
+  /* Surfaces: white-dominant. Pale tints are accents, not page backgrounds. */
+  --paper: var(--white);
+  --surface: var(--white);
+  --tint: var(--ramp-100);
+  --tint-strong: var(--ramp-200);
+  --tint-mid: var(--ramp-300);
+  --tint-accent: var(--ramp-400);
 
-  /* Secondary: slate blue for links, info and digital/learning cues. 7.2:1. */
-  --blue: #1c5d7e;
-  --blue-2: #165e83;
-  --blue-tint: #e8f0f6;
+  /* Text: the three darkest ramp steps must reach AA contrast on white. */
+  --ink: var(--ramp-900);
+  --ink-soft: var(--ramp-800);
+  --ink-faint: var(--ramp-700);
 
-  /* Accent: ochre is decorative only (2.9:1, fails as text).
-     Use amber when the accent must be read as words (5.9:1). */
-  --ochre: #c98a2b;
-  --amber-text: #8a5a15;
-  --clay: #b4552d;
+  /* Lines and focus. */
+  --line: var(--ramp-100);
+  --line-strong: var(--ramp-400);
 
-  /* Semantic states. */
-  --good: #2e6b4f;
-  --warn: #8a5a15;
-  --bad: #a13b2e;
+  /* Actions and interactive cues. */
+  --primary: var(--ramp-800);
+  --primary-dark: var(--ramp-900);
+  --primary-hover: var(--ramp-700);
+  --link: var(--ramp-700);
+
+  /* Semantic states use familiar fixed colours so success, warning and error
+     are recognised instantly. These are independent of the active palette;
+     brand colours still come entirely from the ramp above. */
+  --good: #067647;
+  --good-bg: #ecfdf3;
+  --good-ink: #054f31;
+  --warn: #b54708;
+  --warn-bg: #fffaeb;
+  --warn-ink: #7a2e0e;
+  --bad: #b42318;
+  --bad-bg: #fff1f0;
+  --bad-ink: #7a271a;
+  --info: #175cd3;
+  --info-bg: #eff8ff;
+  --info-ink: #0b3a8a;
+  --success-bg: var(--good-bg);
+  --warning-bg: var(--warn-bg);
+  --error-bg: var(--bad-bg);
+
+  /* Translucent values derived from the ramp at runtime. */
+  --modal-scrim: rgba(26, 15, 20, 0.55);
+  --index-tag: rgba(41, 23, 32, 0.92);
 
   --radius: 6px;
-  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --font-body: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  /* Century Gothic is the preferred face. The fallbacks keep the same calm,
+     geometric feel where the font is not installed. */
+  --font-display: "Century Gothic", "Tw Cen MT", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Century Gothic", "Tw Cen MT", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Code", "Consolas", "Courier New", monospace;
 }

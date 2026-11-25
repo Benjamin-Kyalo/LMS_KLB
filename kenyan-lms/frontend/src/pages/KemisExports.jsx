@@ -5,6 +5,7 @@ import { api } from "../services/api";
 import { useToast } from "../context/ToastContext";
 import DataTable from "../components/DataTable";
 import FormField from "../components/FormField";
+import RollingLabel from "../components/RollingLabel";
 import { statusTag } from "../utilities/format";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -52,7 +53,9 @@ export default function KemisExports() {
           <h1>KEMIS exports</h1>
         </div>
         <div className="actions">
-          <Link className="button secondary" to="/admin/kemis/mappings">Field mappings</Link>
+          <Link className="button-link secondary" to="/admin/kemis/mappings">
+            <RollingLabel>Field mappings</RollingLabel>
+          </Link>
         </div>
       </div>
 
@@ -87,13 +90,15 @@ export default function KemisExports() {
             </FormField>
           </div>
           <div className="form-actions">
-            <button type="submit" disabled={busy}>{busy ? "Generating…" : "Generate export"}</button>
+            <button type="submit" disabled={busy} aria-busy={busy || undefined}>
+              {busy ? "Generating…" : <RollingLabel>Generate export</RollingLabel>}
+            </button>
           </div>
         </form>
 
         {result && (
           <div style={{ marginTop: "1rem" }}>
-            <div className="notice success">
+            <div className="notice success" role="status">
               {result.record_count ?? 0} records staged.
               {result.id && (
                 <> <a href={`${API_BASE}/kemis/exports/${result.id}/download/`}>Download {format}</a></>
@@ -126,7 +131,12 @@ export default function KemisExports() {
             { key: "status", label: "Status", render: (r) => statusTag(r.status) },
             {
               key: "_download", label: "File", render: (row) => (
-                <a href={`${API_BASE}/kemis/exports/${row.id}/download/`}>Download</a>
+                <a
+                  href={`${API_BASE}/kemis/exports/${row.id}/download/`}
+                  aria-label={`Download ${row.format || "export"} ${row.reference || ""}`.trim()}
+                >
+                  Download {row.format || "file"}
+                </a>
               ),
             },
           ]}

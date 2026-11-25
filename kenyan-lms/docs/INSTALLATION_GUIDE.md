@@ -40,7 +40,12 @@ Copy-Item .env.example .env
 notepad .env
 ```
 
-Set `DB_PASSWORD` to your local password. `.env` is Git-ignored — never commit it.
+Set `DB_PASSWORD` to your local password. `.env` is Git-ignored — never commit
+it. Local secrets are owner-managed; no real credential belongs in source control.
+Dumps under `backups/` are also Git-ignored because they contain hashes/PII.
+
+This installation is a **normal web app**. There is no service worker, PWA,
+offline queue or native wrapper to install or configure.
 
 ## 3. Backend
 
@@ -66,8 +71,8 @@ npm install
 npm run dev
 ```
 
-Open <http://127.0.0.1:5173>. If you ran `seed_demo`, the school administrator
-username is `demo_admin`. Set or reset its password locally with
+Open <http://127.0.0.1:5173>. If you ran `seed_demo`, the institution
+administrator (`ADMIN`) username is `demo_admin`. Set or reset its password locally with
 `python manage.py changepassword demo_admin` from `backend/`; see
 `ADMIN_ACCESS.md`.
 
@@ -93,11 +98,15 @@ npm run build
 ## 7. Production
 
 The steps above are for local development. Before public exposure, follow
-`PRODUCTION_CONFIGURATION.md`. It selects `config.settings_prod`, requires
-explicit hosts and CORS origins, enables TLS/security headers and configures
-the Django 6 `MAILERS` SMTP backend. Run
-`python manage.py check --deploy` with that settings module and record the
-result before deployment.
+`PRODUCTION_CONFIGURATION.md`. It selects `config.settings_prod`, which fails
+closed without a separate `PRODUCTION_SECRET_KEY`, SMTP host, explicit hosts and
+CORS origins. It enables TLS/security headers and a production CSP, configures
+the Django 6 `MAILERS` SMTP backend, and uses session-cookie authentication.
+Run `python manage.py check --deploy` with final production values and record
+the result. This is **not production-ready** until proxy headers, TLS, media
+permissions, least-privilege DB, a shared throttle cache, SMTP and
+assistive-technology checks are verified; reduced-motion browser checks have
+already passed. See `SECURITY_AUDIT.md`.
 
 ## Common setup mistakes
 

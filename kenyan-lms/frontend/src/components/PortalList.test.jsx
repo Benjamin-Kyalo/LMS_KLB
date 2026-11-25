@@ -15,7 +15,7 @@ vi.mock("../hooks/useApi", () => ({
 const columns = [
   { key: "title", label: "Resource" },
   { key: "resource_type", label: "Type" },
-  { key: "offline_available", label: "Offline", render: (r) => (r.offline_available ? "Yes" : "No") },
+  { key: "offline_available", label: "Downloadable", render: (r) => (r.offline_available ? "Yes" : "No") },
 ];
 
 describe("PortalList", () => {
@@ -27,7 +27,7 @@ describe("PortalList", () => {
     expect(screen.getByText("Introduction to Fractions")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "View" }));
+    await user.click(screen.getByRole("button", { name: "View Introduction to Fractions" }));
     expect(screen.getByRole("dialog", { name: /Learning resources details/i })).toBeTruthy();
   });
 });

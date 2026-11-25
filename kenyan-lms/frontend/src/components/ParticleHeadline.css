@@ -1,0 +1,51 @@
+/* Decorative enhancement only: the h1 remains the real, accessible text. */
+
+.particle-headline {
+  position: relative;
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  /* Keep touch scrolling intact; pointer events are passive in JS too. */
+  touch-action: pan-y;
+  /* Contained stacking context: canvas stays well below the modal layer (50). */
+  isolation: isolate;
+  z-index: 1;
+}
+
+.particle-headline-text {
+  position: relative;
+  z-index: 1;
+  /* Opacity only — never visibility/display — so the text stays in the
+     accessibility tree and keeps its exact layout box (no layout shift). */
+  transition: opacity 420ms ease;
+}
+
+/* Keep a legible text base beneath the particles. This is the same accessible
+   <h1>, so hover repulsion can never make the heading vanish; the particles
+   remain a decorative overlay that settles back onto an already-readable
+   word shape. */
+.particle-headline-text.is-canvas-active {
+  opacity: var(--particle-headline-base-opacity, 0.56);
+}
+
+.particle-headline-canvas {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  pointer-events: none;
+  /* left/top/width/height are measured from the live text box in JS. */
+}
+
+/* Belt-and-braces: even if JS state is stale, reduced motion always shows
+   the plain headline and never shows the animated canvas. */
+@media (prefers-reduced-motion: reduce) {
+  .particle-headline-text,
+  .particle-headline-text.is-canvas-active {
+    opacity: 1;
+    transition: none;
+  }
+
+  .particle-headline-canvas {
+    display: none;
+  }
+}

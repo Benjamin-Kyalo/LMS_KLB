@@ -6,16 +6,32 @@
 
 This is the consolidated report for the whole delivered application, with emphasis on the final bundle: the public Zeraki-inspired homepage, hidden internal administration entry point, role-based public authentication, shared data tools for admin lists, invitation-only administrator access, labelled sample data and the final automated/browser verification.
 
+> **Historical document — superseded in part (24 November 2026).** This record
+> describes a milestone that included PWA/offline and Capacitor work. That
+> product direction was later reversed: this is now a **normal web app only**.
+> The IndexedDB mutation queue, sync/conflict pages and banners, service
+> worker, PWA manifest, workbox precache, Capacitor config and
+> `frontend/android` / `frontend/ios` were removed. Failed mutations surface an
+> error and remain unsaved; uploads require a live connection. Authentication
+> is session-cookie based with CSRF and `/api/auth/me/` identity reads. The
+> numbers below are historical results, not current test totals; see
+> `README.md`, `TESTING_CHECKLIST.md` and `SECURITY_AUDIT.md`. Role names below
+> are also historical: `PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `SCHOOL_ADMIN` and
+> `CONTENT_MANAGER` are retired and mapped to `ADMIN`, while `SUPER_ADMIN` is
+> unchanged. Current custom roles carry picked capabilities and enter `/admin`
+> only with `admin.access`; see `USER_ROLES_JOURNEYS.md`. No password was changed
+> or printed by that migration.
+
 `https://www.zeraki.app/` was used only as a general UI/UX and information-hierarchy reference. No Zeraki logo, copy, images, layout assets or code were copied. The KLB palette, wording, routes and original SVG illustration remain distinctive to this project.
 
-**Final observed results:** backend `manage.py check` clean; `makemigrations --check --dry-run` → `No changes detected`; backend `pytest -q` → **95 passed**; frontend `npm test -- --run` → **52 passed across 19 files**; `npm run build` succeeded with one non-fatal >500 kB chunk warning and **7** PWA precache entries; `npm audit --audit-level=moderate` → **0 vulnerabilities**; production `check --deploy` → no issues; sample seeder → all categories `[OK]`, **0** new records on the final rerun; 10 desktop/emulated-mobile CDP browser checks passed with no console errors or horizontal overflow. A later homepage refactor added local photographs, an original insights section and fewer repeated links; it was rechecked in-app at 1000×700 and with a credential-free CDP pass at 390×844 with 0 overflow, 0 admin links and no console errors.
+**Final observed results at that milestone (historical; superseded counts):** backend `manage.py check` clean; `makemigrations --check --dry-run` → `No changes detected`; backend `pytest -q` → **95 passed**; frontend `npm test -- --run` → **52 passed across 19 files**; `npm run build` succeeded with one non-fatal >500 kB chunk warning and **7** PWA precache entries *(historical; PWA later removed)*; `npm audit --audit-level=moderate` → **0 vulnerabilities**; production `check --deploy` → no issues; sample seeder → all categories `[OK]`, **0** new records on the final rerun; 10 desktop/emulated-mobile CDP browser checks passed with no console errors or horizontal overflow. A later homepage refactor added local photographs, an original insights section and fewer repeated links; it was rechecked in-app at 1000×700 and with a credential-free CDP pass at 390×844 with 0 overflow, 0 admin links and no console errors.
 
 ---
 
 ## A. What
 
 1. **One integrated platform.** React + Vite consumes one Django/DRF backend and one PostgreSQL `lms` database. There are no duplicated datasets for the public site, admin portal or learner/guardian portal.
-2. **Public website at `/`.** A clean homepage with a locally hosted hero photograph, three photographed workspace cards, a facts strip, an original progress/insights section with a KLB SVG, an interactive role selector and a professional footer. Choosing a role reveals that role's rights and content. Repeated quick-access, workspace, section-anchor and footer authentication links were removed.
+2. **Public website at `/`.** A clean homepage with a locally hosted hero photograph, three photographed workspace cards, a facts strip (removed later at the user's request), an original progress/insights section with a KLB SVG, an interactive role selector and a professional footer. Choosing a role reveals that role's rights and content. Repeated quick-access, workspace, section-anchor and footer authentication links were removed.
 3. **Role-based public entry.** `/login` and `/register` support learner, guardian and teacher accounts with role-specific fields and validation. Administrator access is not advertised in public navigation or general registration.
 4. **Dedicated administration portal.** `/admin`, `/admin/login` and invitation-only `/admin/signup` are the internal entry points. `/admin/...` provides management pages for people, structure, academics, courses, assessment, curriculum, publishing, communication and reports.
 5. **Role-specific portal.** `/portal/...` gives learners and guardians their own navigation, home, courses, textbooks, resources, reports, messages and profile. Assignments and quizzes are learner-only.
@@ -29,7 +45,7 @@ This is the consolidated report for the whole delivered application, with emphas
 
 - The user asked for one centralised platform, not separate public and admin systems or static mockups.
 - The homepage should guide visitors to the right role without overwhelming them or exposing internal administration.
-- Zeraki demonstrates a professional education-site rhythm: strong hero, clear product areas, facts and visible progress. The project needed that hierarchy without copying its identity, and duplicate role links were deliberately avoided.
+- Zeraki demonstrates a professional education-site rhythm: strong hero, clear product areas, facts and visible progress. The project needed that hierarchy without copying its identity, and duplicate role links were deliberately avoided. The facts strip was later removed at the user's request.
 - Ordinary signup must not grant administrator privileges; administrator creation needs an authorised, auditable path.
 - Students, parents, teachers and admins need different views of the same underlying records, with permissions enforced on the server.
 - Development and testing need believable, internally consistent data that is unmistakably fictional.
@@ -39,31 +55,31 @@ This is the consolidated report for the whole delivered application, with emphas
 
 - **Shared architecture:** Django apps expose one REST API; DRF serializers and viewsets own validation, scoping and permissions; React services call that API through `frontend/src/services/api.js`.
 - **Public/home:** `Home.jsx` renders original copy, four locally hosted Unsplash photographs and a local `/hero-learning.svg`. Four role buttons drive an access preview with rights and content lists and one workspace link for the selected role; one generic `/register` and one generic `/login` link are also rendered. No `/admin` link, no “Quick access” block and no repeated section anchors are rendered. Footer content and role previews come from `frontend/src/config/publicSite.js`.
-- **Auth:** TokenAuthentication and SessionAuthentication; custom `accounts.User` with `role` and `institution`. Login and registration redirect by role. Admin creation is gated by `AdminInvitation`.
+- **Auth:** TokenAuthentication and SessionAuthentication at that milestone; custom `accounts.User` with `role` and `institution`. Login and registration redirect by role. Admin creation is gated by `AdminInvitation`. **Current:** Django session cookies with CSRF and `/api/auth/me/` identity reads; no `klb_token`/`klb_user` in `localStorage`.
 - **Integration:** admin-created learners, teachers, guardians and academic records are ordinary API records; portal pages query the same endpoints with tighter scoping. Deactivation and deletion therefore apply everywhere.
 - **RBAC:** `InstitutionScopedQuerysetMixin` scopes lists and forces `institution` on writes; `can_assign_role()` prevents role escalation; `AdminWriteMixin`, `StaffWriteMixin`, `PlatformWriteMixin` and `ContentWriteMixin` enforce write permissions. `ManagedResourcePage` derives UI action flags from endpoint scope and fails closed for unknown endpoints.
 - **Codes:** `apps/core/codes.py` generates references with PostgreSQL advisory locks. Official supplied codes are preserved when unique.
 - **Data tools:** `useTableControls.js` holds query/page/page-size state; `TableTools.jsx` renders the toolbar and pagination; list components pass institution-scoped rows into them.
-- **Offline:** service worker, cached reads, network-first API reads and an IndexedDB mutation queue exist. Logo upload deliberately requires a live connection. A stale write is rebased once against the server's current version; unresolved conflicts keep the local details for manual retry/discard.
+- **Offline (historical, superseded/removed):** service worker, cached reads, network-first API reads and an IndexedDB mutation queue existed at this milestone. Logo upload deliberately required a live connection. A stale write was rebased once against the server's current version; unresolved conflicts kept local details for manual retry/discard. **None of this exists now**: failed mutations show an error and remain unsaved.
 - **Sample data:** the seeder checks and creates labelled records add-only. Its output reports every category and enforces a minimum of 10.
 
 ## D. Files and their responsibilities
 
 | Area | File(s) | Responsibility |
 |---|---|---|
-| Public site | `frontend/src/pages/Home.jsx`, `frontend/src/pages/Home.test.jsx` | Original KLB homepage; sparse auth links, photographed workspaces, facts, insights, interactive role access preview; tests assert no admin link, no repeated auth links, no public sample-data notice and no removed taglines |
+| Public site | `frontend/src/pages/Home.jsx`, `frontend/src/pages/Home.test.jsx` | Original KLB homepage; sparse auth links, photographed workspaces, insights, interactive role access preview; facts were later removed; tests assert no admin link, no repeated auth links, no public sample-data notice and no removed taglines |
 | Public content config | `frontend/src/config/publicSite.js`, `docs/PUBLIC_SITE_CONTENT.md` | Editable footer and role rights/content previews with optional runtime override |
 | Original artwork | `frontend/public/hero-learning.svg` | Locally authored illustration of books, profiles and charts used in the insights section |
 | Photography | `frontend/public/images/*.jpg`, `docs/ASSET_CREDITS.md` | Four locally hosted Unsplash photos with source URLs and licence reference |
 | Public auth | `frontend/src/pages/Login.jsx`, `Register.jsx`, `AdminSignup.jsx`, `Login.test.jsx`, `Register.test.jsx`, `AdminSignup.test.jsx` | Role-aware sign-in/registration; teacher approval notice; invitation redemption; tests keep admin access out of public navigation |
 | Routing/guards | `frontend/src/App.jsx`, `components/RoleHome.jsx`, `ProtectedRoute.jsx`, `ProtectedRoute.test.jsx`, `RoleHome.test.jsx`, `utilities/roles.js` | Public routes, `/admin`, `/portal`, legacy redirects, role sets and hierarchy helpers |
 | Layouts | `frontend/src/layouts/DashboardLayout.jsx`, `PortalLayout.jsx` | Distinct staff/portal navigation, school identity, mobile menu toggles |
-| Styling | `frontend/src/styles/tokens.css`, `global.css` | Exact required palette, shared cards/tables/nav rhythm, responsive and small-screen rules |
+| Styling | `frontend/src/styles/tokens.css`, `global.css`, `palette.js` | Approved Ocean Blue Serenity palette, shared cards/tables/nav rhythm, responsive and small-screen rules; see `docs/OCEAN_PALETTE.md` |
 | Admin lists | `frontend/src/components/ResourcePage.jsx`, `ManagedResourcePage.jsx`, `hooks/useTableControls.js`, `components/TableTools.jsx`, related tests | CRUD modals, endpoint-derived permissions, search/page-size/refresh/pagination |
 | Custom admin pages | `frontend/src/pages/Users.jsx`, `Learners.jsx`, `AdminInvitations.jsx` | Specialised management pages with the same data tools and their own filters |
 | Dashboards/reports | `frontend/src/pages/Dashboard.jsx`, `Reports.jsx`, `components/ChartCard.jsx` | Recharts visuals, scoped figures, clickable dashboard actions |
 | Portal pages | `frontend/src/pages/PortalHome.jsx`, `PortalCourses.jsx`, `PortalAssignments.jsx`, `PortalQuizzes.jsx`, `PortalCommunications.jsx`, `PortalResources.jsx`, `components/PortalList.jsx` | Learner/guardian views over shared API records |
-| API client/offline | `frontend/src/services/api.js`, `offlineQueue.js`, `registerSW.js` | One HTTP boundary, pagination fix, mutation queue, PWA registration |
+| API client/offline | `frontend/src/services/api.js` (historically `offlineQueue.js`, `registerSW.js`) | One HTTP boundary and pagination fix. Mutation queue and PWA registration were removed; failed writes now surface an error |
 | Auth backend | `backend/apps/accounts/{models,serializers,views,urls}.py` | User model, public registration, invitations, login/profile/password endpoints |
 | Permissions | `backend/apps/core/{permissions,viewsets,codes}.py` | Role hierarchy, write mixins, institution scoping, reference numbers |
 | Sample data | `backend/apps/core/management/commands/seed_sample_data.py`, `docs/SAMPLE_DATA.md` | Add-only labelled seeder and its category/count documentation |
@@ -73,10 +89,10 @@ This is the consolidated report for the whole delivered application, with emphas
 
 ## E. Implementation summary
 
-- The public homepage has six purposeful sections: a sparse topbar, hero photograph, three photographed workspaces, four facts, an original progress/insights panel, an interactive role selector and a professional footer. Selecting a role reveals its rights and content from `publicSite.js`. The three static taglines and the public sample-data notice were removed at the user's request; sample records remain labelled inside the authenticated applications. Repeated feature lists and duplicate links were avoided.
+- The public homepage has a sparse topbar, hero photograph, three photographed workspaces, an original progress/insights panel, an interactive role selector and a professional footer. The former four-facts strip was removed at the user's request. Selecting a role reveals its rights and content from `publicSite.js`. The three static taglines and the public sample-data notice were removed at the user's request; sample records remain labelled inside the authenticated applications. Repeated feature lists and duplicate links were avoided.
 - Public registration exposes only `LEARNER`, `GUARDIAN` and `TEACHER`. Required fields change with the role. Teacher accounts start inactive pending school approval.
 - The internal admin portal is reachable at its prescribed `/admin` route. `/admin/login` and `/admin/signup` exist, but neither appears on the public homepage, in the role selector or its preview, in registration fields or in standard `/login`/`/register` navigation.
-- Admin and portal shells use the same palette and section rhythm but different density. Active navigation now uses a clear forest fill with an ochre rule; cards have strong top rules; tables have tinted headers and compact rows. Ochre remains decorative; readable amber text uses `--amber-text`.
+- Admin and portal shells use the same palette and section rhythm but different density. Active navigation uses a primary-blue fill; cards have strong blue top rules; tables have pale-blue tinted headers and compact rows. Errors, warnings and success stay inside the blue ramp and are distinguished by border weight/style plus the message wording.
 - Admin lists share table controls. `ResourcePage` covers the many standard resources; Users, Learners and Invitations use the same hook/components with their own filters.
 - Backend rules remain authoritative. Hiding a button never substitutes for a serializer/permission check. Self-deletion and self role escalation are blocked.
 - The admin invitation token is stored server-side so authorised administrators can copy it later. It is high-entropy, expiring, single-use and revocable, but **not** HMAC-signed or hashed; treat it as a credential.
@@ -122,13 +138,13 @@ Full command reference: `docs/COMMANDS.md`. Backup before any future schema work
 2. `makemigrations --check --dry-run` → **No changes detected**.
 3. `python -m pytest -q` → **95 passed**.
 4. `npm test -- --run` → **52 passed across 19 files**.
-5. `npm run build` → success; 2619 modules transformed; one >500 kB chunk warning; PWA precache **7 entries**.
+5. `npm run build` → success; 2619 modules transformed; one >500 kB chunk warning; PWA precache **7 entries** *(historical; current build has no PWA files)*.
 6. `npm audit --audit-level=moderate` → **found 0 vulnerabilities**.
 7. `check --deploy` with `config.settings_prod` → **no issues**.
 8. `seed_sample_data` → **0 new records**; every listed category `[OK]`.
 9. `GET /api/health/` → HTTP 200, `{"status":"ok","service":"KLB Digital Learning Ecosystem","database":"connected","error":null}`; `GET http://127.0.0.1:5173/` → HTTP 200.
 10. CDP browser harness at **1440×900** and **390×844** → all 10 checks passed:
-    - desktop and mobile homepage: hero, illustration, three workspaces, facts, four role cards, 0 overflow;
+    - desktop and mobile homepage: hero, illustration, three workspaces, four role cards, 0 overflow (facts strip shown in this historical check was later removed);
     - public `/login` and `/register`: 0 `/admin` links; `/admin/login` still rendered the dedicated form;
     - admin dashboard: shells, KPI cards and charts rendered; mobile menu opens;
     - `/admin/users`: search, filter, row-size, refresh and pagination controls present; search changed visible rows;
@@ -140,22 +156,30 @@ Full command reference: `docs/COMMANDS.md`. Backup before any future schema work
 12. After the final homepage refactor, an in-app Chromium check at **1000×700** and a credential-free CDP check at **390×844** confirmed: four headings, all five images loaded, three single-column workspace cards on mobile, single-column insights on mobile, **0** horizontal overflow, **0** `/admin` links, **1** `/login` link, **1** `/register` link, **3** unique section anchors, no “Quick access” text and no console errors.
 13. After the role-selector/footer-config change, an in-app Chromium check confirmed the default learner preview, and clicking “Parents & guardians” switched `aria-pressed`, the rights/content lists and the workspace link to `/login?role=GUARDIAN`. A credential-free CDP check at **390×844** then showed single-column selector, preview and detail grids, all five images loaded, and a “Teachers” click switching the link to `/login?role=TEACHER`. The three removed taglines and the sample notice were absent, footer values came from `publicSite.js`, and there were **0** admin links, **1** `/login`, **1** `/register`, **3** unique anchors, **0** overflow and no console errors. Lighthouse then scored the public homepage **1.00** for accessibility, best practices and SEO after contrast, meta-description and robots.txt fixes.
 
-14. A final module sweep at **390×844** rendered admin fees, approval, KEMIS, tutor, analytics and sync, plus portal home, fees, remediation, tutor and sync: **0** horizontal overflow and **0** console errors. Role gates redirected a learner from `/admin` to `/portal` and a guardian from `/portal/remediation` to `/portal`. Public `/`, `/login` and `/register` each had **0** `/admin` links. Three real defects found during this sweep were fixed and rechecked: paginated tutor messages, duplicate React keys in cohort tables, and the portal report chart's exam-label field.
+14. A final module sweep at **390×844** rendered admin fees, approval, KEMIS, tutor, analytics and *(historical)* sync, plus portal home, fees, remediation, tutor and *(historical)* sync: **0** horizontal overflow and **0** console errors. The sync pages were removed with the offline queue. Role gates redirected a learner from `/admin` to `/portal` and a guardian from `/portal/remediation` to `/portal`. Public `/`, `/login` and `/register` each had **0** `/admin` links. Three real defects found during this sweep were fixed and rechecked: paginated tutor messages, duplicate React keys in cohort tables, and the portal report chart's exam-label field.
 
-The first CDP harness used short-lived, server-issued API tokens for existing demo accounts. No password was typed, printed or stored. Temporary token, harness, result log and screenshot files were removed after capture. The second harness used no credentials; its script and browser profile were also deleted. The final module harness used short-lived server-issued tokens again; its loader, token files, script, browser profile and verification tab were all removed afterwards.
+15. After the user approved the attached Ocean Blue Serenity image, the exact nine blue values plus white were applied to CSS, charts, *(historical)* PWA metadata and the two original SVGs. An in-app Chromium check on `/` showed white page/card backgrounds, `rgb(2,62,138)` hero/footer, **0** horizontal overflow, **0** `/admin` links and no console errors. `/login`, `/register` and the `/portal` redirect were also clean. Lighthouse again scored **1.00** for accessibility, Best Practices and SEO. Frontend tests (**52**), backend tests (**95**), build (7 PWA precache entries), `npm audit` (0 vulnerabilities), `manage.py check` and *(historical, removed)* `npm run mobile:sync` all passed.
+
+16. A fresh backup (`backups\lms_20261124_101534.sql`) preceded the theming migration. Ocean Blue Serenity and Sage Green were seeded with Ocean Blue active, and the runtime theme manager was added at `/admin/theme`. An in-app Chromium check signed in as `demo_admin` confirmed that **Theme & colours** now appears in the admin navigation, the route loads the catalogue and onboarding form, and there are no console errors. Backend tests (**100**), frontend tests (**62** across 22 files), build (7 PWA precache entries — historical), `npm audit` (0 vulnerabilities) and `manage.py check` all passed. No palette was activated during verification, so Ocean Blue remains the active selection. School administrators were granted catalogue access alongside platform administrators after the user selected that scope.
+
+17. Five more palettes were added to the admin catalogue from the supplied swatch images: Blue Coral Daylight, Forest Green, Citrus Bloom, Heritage Spice and Bright Horizon. Their exact source colours were extracted from the PNG pixels and retained in each nine-step ramp; derived text shades pass the admin 4.5:1 contrast check. The idempotent `theming.0003_seed_swatch_palettes` migration was applied locally, all seven built-in palettes are visible in `/admin/theme`, and Ocean Blue Serenity remains active. Focused theming tests pass **15** tests.
+
+**Current palette status — 25 November 2026:** items 16–17 remain an accurate record of the state at those milestones. Since then, `theming.0004_seed_and_activate_plum_harvest` was applied locally: the catalogue has eight built-in palettes, including Plum Harvest (`plum-harvest`, from `color 7.png`), and Plum Harvest is the active palette and the fresh-install default. Ocean Blue Serenity's active state above is historical, not current.
+
+The first CDP harness used short-lived, server-issued API tokens for existing demo accounts *(historical verification method; current authentication uses session cookies)*. No password was typed, printed or stored. Temporary token, harness, result log and screenshot files were removed after capture. The second harness used no credentials; its script and browser profile were also deleted. The final module harness used short-lived server-issued tokens again; its loader, token files, script, browser profile and verification tab were all removed afterwards.
 
 ## H. Expected result and what was actually observed
 
 - **Expected:** a polished public entry point, internal admin portal, role-specific portal, shared records, enforced permissions, labelled data and responsive pages.
 - **Observed:** all of the above are implemented locally. The public homepage contains no admin navigation, no repeated quick-access block and only one generic registration/sign-in link each; admin and portal records come from the same API; role gates and institution scoping are enforced in code and tested; all automated and selected browser checks passed.
 - **Automated audit:** Lighthouse on the public homepage scored accessibility **1.00**, best practices **1.00** and SEO **1.00** after contrast, meta-description and robots.txt fixes.
-- **Not claimed:** a physical-device audit, human visual design review of the captured screenshots, destructive CRUD browser replay after the last UI change, logo-upload replay, fresh offline mutation replay, deployment, load testing, third-party security review, accessibility audit with assistive technology, or completion of Phases 7–9.
+- **Not claimed then (and still relevant):** a physical-device audit, human visual design review of the captured screenshots after the palette change, destructive CRUD browser replay after the last UI change, logo-upload replay, *fresh offline mutation replay (feature now removed)*, deployment, load testing, third-party security review, accessibility audit with assistive technology, or completion of Phases 7–9. Current checks have covered the canvas hero's real `<h1>` and reduced-motion fallback under forced media at desktop and 390 px; assistive-technology review and production readiness are still not claimed.
 
 ## I. Common errors and fixes
 
 | Symptom | Likely cause | Check / fix |
 |---|---|---|
-| Public homepage shows an admin link | Old cached bundle or stale service worker | Hard refresh; unregister service worker; `Home.test.jsx` asserts 0 `/admin` links |
+| Public homepage shows an admin link | Old cached bundle or stale **pre-removal** service worker | Hard refresh; deployment must serve the one-release `/sw.js` kill-switch (or clear site data); `Home.test.jsx` asserts 0 `/admin` links |
 | Learner visiting `/admin` is redirected | Correct role gate | Use `/portal`; inspect `/api/auth/me/` role |
 | Admin visiting `/portal` is redirected | Correct role gate | Use `/admin` |
 | Teacher cannot sign in after registering | Teacher accounts start inactive by design | A school administrator must approve the account |
@@ -163,7 +187,7 @@ The first CDP harness used short-lived, server-issued API tokens for existing de
 | Cross-school detail returns 404 | Institution scoping is working | Do not try to bypass with a client-side `institution` value |
 | Table shows no rows after search | Search term does not match displayed fields | Clear the search box or refresh |
 | Pagination buttons are absent | Only one page or no filtered rows | Expected; the control hides when `totalPages <= 1` |
-| Logo upload fails offline | Uploads deliberately bypass the JSON queue | Reconnect and retry |
+| Logo upload fails with no connection | Uploads require a live connection; no JSON queue exists | Reconnect and retry; the failed change is not saved |
 | `makemigrations --check` reports changes | Model changed without a migration | Back up, review and generate a migration before applying |
 | Vite warns about a large chunk | Bundle-size advisory | Not a failure; consider code splitting later |
 
@@ -172,5 +196,5 @@ The first CDP harness used short-lived, server-issued API tokens for existing de
 - New/rewritten: `docs/MILESTONES_AJ.md`, `docs/SAMPLE_DATA.md`, `docs/ADMIN_ACCESS.md`, `docs/COMMANDS.md`, `docs/REFERENCE_MODELS.md`, `docs/ASSET_CREDITS.md`, `docs/PUBLIC_SITE_CONTENT.md`.
 - Updated with final counts, invitation/RBAC details, public homepage behaviour and API endpoints: root `README.md`, `docs/README.md`, `docs/TESTING_CHECKLIST.md`, `docs/HANDOVER_REPORT.md`, `docs/IMPLEMENTATION_CHECKLIST.md`, `docs/API_DOCUMENTATION.md`, `docs/ADMIN_GUIDE.md`, `docs/USER_GUIDE.md`, `docs/SYSTEM_OVERVIEW.md`, `docs/DESIGN_SYSTEM.md`.
 - Related background: `docs/DATABASE_GUIDE.md`, `docs/BACKUP_AND_RESTORE.md`, `docs/PRODUCTION_CONFIGURATION.md`, `docs/TROUBLESHOOTING.md`, `docs/FILE_STRUCTURE_GUIDE.md`, `docs/REFERENCE_NUMBERING.md`.
-- Status wording to preserve everywhere: **Phase 0–6 mostly implemented; Phase 7 foundation only; Phase 8 partial; Phase 9 incomplete. This project is not 100% complete.**
+- Status wording from that milestone: **Phase 0–6 mostly implemented; Phase 7 foundation only; Phase 8 partial; Phase 9 incomplete. This project is not 100% complete.** Current wording: the old Phase 7 offline/native work was **removed** by the web-only direction change; Phase 9 verification and deployment are still incomplete, and production readiness is not claimed.
 - No commit or push was performed. GitHub Desktop sync remains for the user to approve.

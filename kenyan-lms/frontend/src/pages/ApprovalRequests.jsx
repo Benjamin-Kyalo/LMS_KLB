@@ -8,6 +8,7 @@ import { canWriteContent } from "../utilities/roles";
 import DataTable from "../components/DataTable";
 import Modal from "../components/Modal";
 import FormField from "../components/FormField";
+import RollingLabel from "../components/RollingLabel";
 import { statusTag } from "../utilities/format";
 
 const REVIEWABLE = new Set(["SUBMITTED", "UNDER_REVIEW"]);
@@ -29,8 +30,8 @@ export default function ApprovalRequests() {
   async function act(row, action, body) {
     setBusy(true);
     try {
-      const result = await api.post(`/approval/requests/${row.id}/${action}/`, body || {});
-      push(result?.queued ? "Queued offline; it will sync when connected." : `Request ${action}ed.`, "success");
+      await api.post(`/approval/requests/${row.id}/${action}/`, body || {});
+      push(`Request ${action}ed.`, "success");
       setReview(null);
       setNotes("");
       reload();
@@ -50,9 +51,9 @@ export default function ApprovalRequests() {
     {
       key: "_actions", label: "Actions", render: (row) => (
         <div className="row-actions">
-          {SUBMITTABLE.has(row.status) && <button className="ghost small" disabled={busy} onClick={() => act(row, "submit")}>Submit</button>}
-          {curator && REVIEWABLE.has(row.status) && <button className="ghost small" disabled={busy} onClick={() => { setReview(row); setDecision("APPROVE"); setNotes(""); }}>Review</button>}
-          {curator && PUBLISHABLE.has(row.status) && <button className="ghost small" disabled={busy} onClick={() => act(row, "publish")}>Publish</button>}
+          {SUBMITTABLE.has(row.status) && <button className="ghost small" aria-label={`Submit ${row.title || row.reference || "request"}`} disabled={busy} onClick={() => act(row, "submit")}><RollingLabel>Submit</RollingLabel></button>}
+          {curator && REVIEWABLE.has(row.status) && <button className="ghost small" aria-label={`Review ${row.title || row.reference || "request"}`} disabled={busy} onClick={() => { setReview(row); setDecision("APPROVE"); setNotes(""); }}><RollingLabel>Review</RollingLabel></button>}
+          {curator && PUBLISHABLE.has(row.status) && <button className="ghost small" aria-label={`Publish ${row.title || row.reference || "request"}`} disabled={busy} onClick={() => act(row, "publish")}><RollingLabel>Publish</RollingLabel></button>}
           {!SUBMITTABLE.has(row.status) && !REVIEWABLE.has(row.status) && !PUBLISHABLE.has(row.status) && <span className="muted">—</span>}
         </div>
       ),
@@ -67,8 +68,8 @@ export default function ApprovalRequests() {
           <h1>Approval requests</h1>
         </div>
         <div className="actions">
-          <Link className="button secondary" to="/admin/approval/checklist">Checklist items</Link>
-          <Link className="button secondary" to="/admin/approval/decisions">Decisions</Link>
+          <Link className="button-link secondary" to="/admin/approval/checklist">Checklist items</Link>
+          <Link className="button-link secondary" to="/admin/approval/decisions">Decisions</Link>
         </div>
       </div>
 
@@ -98,7 +99,7 @@ export default function ApprovalRequests() {
       {review && (
         <Modal title={`Review ${review.reference}`} onClose={() => setReview(null)}>
           <form onSubmit={(e) => { e.preventDefault(); act(review, "review", { decision, notes }); }}>
-            {review.error && <div className="notice error">{review.error}</div>}
+            {review.error && <div className="notice error" role="alert">{review.error}</div>}
             <div className="form-grid">
               <FormField label="Decision">
                 <select value={decision} onChange={(e) => setDecision(e.target.value)}>
@@ -112,8 +113,8 @@ export default function ApprovalRequests() {
               </FormField>
             </div>
             <div className="form-actions">
-              <button type="button" className="ghost" onClick={() => setReview(null)}>Cancel</button>
-              <button type="submit" disabled={busy}>{busy ? "Saving…" : "Record decision"}</button>
+              <button type="button" className="ghost" onClick={() => setReview(null)}><RollingLabel>Cancel</RollingLabel></button>
+              <button type="submit" disabled={busy}>{busy ? "Saving…" : <RollingLabel>Record decision</RollingLabel>}</button>
             </div>
           </form>
         </Modal>

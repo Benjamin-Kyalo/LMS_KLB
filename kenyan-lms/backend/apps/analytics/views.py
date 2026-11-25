@@ -26,6 +26,7 @@ from apps.core.constants import Roles
 from apps.core.permissions import IsInstitutionAdmin, IsStaff
 from apps.core.viewsets import AdminWriteMixin, InstitutionScopedQuerysetMixin, StaffWriteMixin
 from apps.learners.models import Learner
+from apps.learners.scoping import FamilyScopedReadMixin
 from apps.reports.scoping import dashboard_viewer
 
 
@@ -163,13 +164,19 @@ class RemediationRuleViewSet(AdminWriteMixin, InstitutionScopedQuerysetMixin, vi
         return Response(self.get_serializer(rule).data)
 
 
-class RemediationTaskViewSet(StaffWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
+class RemediationTaskViewSet(
+    FamilyScopedReadMixin, StaffWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet
+):
     queryset = RemediationTask.objects.select_related(
         "learner", "rule", "competency", "assigned_to"
     )
     serializer_class = RemediationTaskSerializer
     filterset_fields = ["status", "learner", "rule", "competency", "assigned_to", "due_date"]
     search_fields = ["reference"]
+    # Support tasks are academic records: verified guardians only see tasks
+    # for children whose link grants academic access.
+    learner_path = "learner"
+    guardian_permission = "can_view_academics"
 
     @action(detail=True, methods=["post"], url_path="assign")
     def assign(self, request, pk=None):

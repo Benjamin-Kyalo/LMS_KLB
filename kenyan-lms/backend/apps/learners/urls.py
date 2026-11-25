@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from apps.learners import views
 
 router = DefaultRouter()
+router.register("link-requests", views.GuardianLinkRequestViewSet, basename="guardianlinkrequest")
 router.register("guardian-links", views.LearnerGuardianViewSet, basename="learnerguardian")
 router.register("transfers", views.TransferRecordViewSet, basename="transferrecord")
 router.register("", views.LearnerViewSet, basename="learner")

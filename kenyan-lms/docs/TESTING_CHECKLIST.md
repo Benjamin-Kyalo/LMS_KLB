@@ -1,6 +1,112 @@
 # Testing checklist
 
-## Latest verification round — 23 November 2026 (final consolidated pass)
+## Current verification — library and appearance round, 25 November 2026
+
+| Check | Command / method | Result |
+|---|---|---|
+| Frontend suite | `npx vitest run --testTimeout=20000` from `frontend/` | **101 tests across 32 files** |
+| Library and photo checks | `npx vitest run src/components/ResourceCatalogue.test.jsx src/pages/SiteContentManager.test.jsx src/pages/AppearanceManager.test.jsx src/pages/ThemeManager.test.jsx src/services/api.test.js` | Passed; cover/thumbnail fallbacks, unique action names, photo CRUD, client-side dimension blocking, field-level API error messages, unified Appearance tabs and school-admin photo access are covered |
+| Full backend suite | `python -m pytest --durations=5` from `backend/` | **221 passed, 107 subtests passed** in 65.15s; no failures or errors. `backend/conftest.py` uses a test-only fast password hasher; the PBKDF2 assertion explicitly overrides it |
+| Focused backend photo/library suite | `python -m pytest apps/theming/tests apps/content/tests` | **44 passed**; artwork serialization, photo remove/reset endpoints and school-admin photo permissions are covered |
+| Library migration/data | `python manage.py migrate content`, then a Django shell check | `content.0003_public_library_thumbnails` applied; public books use verified OER titles and local covers, public resources use curated links and local thumbnails |
+| Shared photo migration/data | `python manage.py migrate theming`, then a Django shell check | `theming.0005_set_shared_hero_photo` applied; stored and public `hero.imageSrc` both resolve to `/images/hero-community.png` |
+| Active palette/data | Django shell check after final verification | Eight built-ins remain; Plum Harvest (`plum-harvest`) is the single active palette, matching the fresh-install default |
+| Frontend production build | `npm run build` from `frontend/` | Success; `dist` contains `hero-community.png` and no service worker, PWA manifest, workbox or precache files. The existing main JS chunk-size warning remains non-blocking |
+| Dependency audit | `npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Django checks | `python manage.py check`, `python manage.py makemigrations --check --dry-run` | No issues; `No changes detected` |
+| Photo upload 400 reproduction | Django APIClient with a `success.jpg` (1200×1200) and a `skill 2.jpg` (236×314) against `/api/theming/site-content/image/`, rolled back after the request | Valid file returned `201`; the undersized file returned `400` with `image: Use a photo at least 640×360 pixels.`. The Photos card now blocks that file before the request and shows the reason inline |
+| Button interaction sweep | Full frontend suite plus a source grep for plain action labels | Common visible action labels use `RollingLabel`; destructive actions use `HoldToConfirmButton`; busy labels stay plain; accessible names, focus rings, reduced motion and dialog semantics are preserved |
+
+Deployment/runtime and assistive-technology checks are still required. The
+project is **not production-ready**; see `SECURITY_AUDIT.md`.
+
+**Current-state note — role-model simplification:** the built-ins are
+`SUPER_ADMIN`, `ADMIN`, `CUSTOM`, `TEACHER`, `LEARNER` and `GUARDIAN`. Retired
+`PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `SCHOOL_ADMIN` and `CONTENT_MANAGER`
+accounts migrate to `ADMIN`; `SUPER_ADMIN` is unchanged and no password is
+changed or printed. Custom roles pick from the documented capability allowlist,
+enter `/admin` only with `admin.access`, and are enforced by the backend. API
+coverage to add for this model: `/api/auth/roles/` CRUD, role options from
+`/api/auth/users/roles/`, `{role:"CUSTOM", custom_role:<id>}` payloads, response
+fields (`custom_role`, `custom_role_name`, `capabilities`), the
+`SUPER_ADMIN`-only grant/institution boundary, and capability denial. The
+historical rows below still use earlier role names and result counts; they are
+retained for traceability, not presented as current test totals.
+
+## Historical — web-only security round, 24 November 2026
+
+| Check | Command / method | Result |
+|---|---|---|
+| Frontend suite | `npm test` from `frontend/` | **97 tests across 32 files** |
+| Frontend production build | `npm run build` from `frontend/` | Success. Output contains only `index.html`, hashed CSS/JS assets, `robots.txt`, SVG marks and local images; **no service worker, PWA manifest, workbox or precache files** |
+| Dependency audit | `npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Focused backend suite | auth/account/core/tutor/KEMIS/security tests | Passing (**71 tests**) |
+| Full backend suite | `DJANGO_SETTINGS_MODULE=config.settings python manage.py test apps` | **215 passed in 862.901s**; `OK`; system check clean |
+| Django checks | `manage.py check`, `makemigrations --check --dry-run` | No issues; `No changes detected` |
+| Production deploy check | `manage.py check --deploy` | Passed with placeholder production values; final values pending |
+| Git/secrets | history and `.env` review | No credentials in source control; local `.env` secrets rotated; `backups/` Git-ignored (hashes/PII) |
+| Auth animation / session browser pass | In-app Chromium against rebuilt preview and Django | `/login` and `/register` text visible before/during/after click; pressed class clears; live login succeeds; `/portal` loads under session cookie; no `klb_token`/`klb_user` in `localStorage`; 390 px form has no overflow |
+| `ParticleHeadline` reduced motion | Focused Vitest component test plus in-app Chromium harness forcing `matchMedia` and reduced-motion CSS | Passed: no animation frames or canvas context in the unit test; in the browser at desktop and 390 px the real `<h1>` stayed visible with opacity `1`, the canvas stayed `display: none`, `requestAnimationFrame` was never called, and the accessibility tree exposed the heading. Assistive-technology review still pending |
+
+Proxy-header, TLS, media-permission, shared-cache, SMTP and assistive-technology
+checks are still required. Static and forced-reduced-motion browser checks
+already confirmed the canvas hero's real `<h1>`, one `aria-hidden` canvas and no
+horizontal overflow at desktop and 390 px. The project is **not
+production-ready**. See `SECURITY_AUDIT.md`.
+
+**Supersession notice:** every round below is historical. PWA precache entries,
+service-worker builds, offline queue replay, sync pages/banners, Capacitor
+config and `npm run mobile:sync` were later **removed** by the web-only product
+direction change. They are retained for traceability only and are **not**
+current capabilities or claims. A one-release `/sw.js` kill-switch (or site-data
+clear) remains a manual deployment step for previously installed clients.
+
+## Historical — Public library and quiet status polish — 24 November 2026
+
+| Check | Command / method | Result |
+|---|---|---|
+| Focused backend tests | `python -m pytest apps/content/tests/test_resources.py apps/theming/tests/test_theming.py -q` | **19 passed** |
+| Full backend suite | `python -m pytest -q` | **134 passed** |
+| Full frontend suite | `npm test -- --run` from `frontend/` | **93 passed across 32 files**; the previously hanging site content manager test was fixed by stabilising its content effect |
+| Frontend production build | `npm run build` from `frontend/` | Success; **7** PWA precache entries; one existing Vite chunk >500 kB warning |
+| Dependency audit | `npm audit --audit-level=moderate` from `frontend/` | **0 vulnerabilities** |
+| Django checks | `python manage.py check`, `python manage.py makemigrations --check --dry-run` | No issues; no changes detected |
+| Live API | `GET /api/content/public/books/`, `GET /api/theming/site-content/` | **13** published books; role cards `learners, guardians, teachers` |
+| Desktop browser check | In-app Chromium at 1000 px | `/library` showed 13 book cards and the resource catalogue; `/` had only three role previews and **0** `/admin` links; `/admin` had no idle offline panel; **0 console errors**, **0 horizontal overflow** |
+| 390 px browser check | Temporary same-origin 390×844 harness | `/library` and `/admin` rendered with **0 horizontal overflow**; no retired Content managers preview and no idle offline panel; harness file and tab removed |
+
+At that historical point the PWA write queue and dedicated sync page still
+existed; only the always-visible, empty “Offline changes / 0 pending /
+0 conflicts” block had been removed from the shells. **Both the queue and sync
+page were removed later.** Today a failed mutation shows an error and remains
+unsaved.
+
+## Historical — Phase 1 + Phase 2 closeout — 24 November 2026
+
+| Check | Command / method | Result |
+|---|---|---|
+| Pre-migration backup | `scripts\backup_database.ps1` | `backups\lms_20261124_105943.sql` written before the Phase 2 structural migration |
+| Applied migration | `python manage.py migrate` | `content.0002_resource_taxonomy` applied locally |
+| Focused content tests | `python -m pytest apps/content/tests -q` | **9 passed** |
+| Full backend suite | `python -m pytest -q` | **133 passed** |
+| Django system check | `python manage.py check` | No issues |
+| Migration drift | `python manage.py makemigrations --check --dry-run` | No changes detected |
+| Frontend unit/component tests | `npm test -- --run` from `frontend/` | **82 passed across 28 files**; a transient timeout while the backend suite ran concurrently cleared on an isolated rerun |
+| Frontend production build | `npm run build` from `frontend/` | Success; **7** PWA precache entries; one existing Vite chunk >500 kB warning |
+| Dependency audit | `npm audit --audit-level=moderate` from `frontend/` | **0 vulnerabilities** |
+| Live API | `GET /api/health/`, `/api/content/facets/`, `/api/content/public/resources/`, `/api/content/collections/`, `/api/content/embed-providers/` | HTTP 200 with valid JSON after restarting the dev server against current code |
+| Desktop browser sweep | In-app Chromium, 1000 px wide, server-issued tokens | `/`, `/library`, `/register`, `/login`, learner `/portal`, `/portal/resources`, guardian `/portal/documents`, teacher `/admin`, school-admin `/admin/theme`, `/admin/teacher-approvals`, `/admin/guardian-links`, platform `/admin/resources`, `/admin/resource-collections`, `/admin/embed-providers` all rendered the expected heading; **0 horizontal overflow**, **0 console errors** |
+| 390 px browser sweep | Same-origin temporary 390×844 iframe harness | All 14 routes above rendered the expected heading; **0 horizontal overflow**, **0 console errors**; public pages had **0** `/admin` links |
+| Temporary harness cleanup | File deletion and tab close | `frontend/public/mobile-check.html` and both temporary browser tabs removed |
+
+Not claimed in this round: fresh browser-level offline replay, physical-device
+testing, signed native build, deployment/load test, third-party security review,
+assistive-technology audit, official KICD/KEMIS submission, or human visual
+design review. Local uploads, private media serving in production, large video
+hosting and external embeds beyond the active allowlist remain explicit
+operational decisions. No commit or push was made.
+
+## Earlier verification round — 23 November 2026 (final consolidated pass)
 
 | Check | Command / action | Result |
 |---|---|---|
@@ -29,8 +135,8 @@ photo/insights refactor; its script and browser profile were also deleted.
 
 | Check | Result |
 |---|---|
-| Public homepage, desktop and mobile | Rendered the hero, original SVG illustration, three workspaces, facts strip and four role cards; **0 horizontal overflow**, **0 admin links**, no console errors |
-| Public homepage after the photo/insights refactor | In-app Chromium at 1000×700 and a temporary CDP check at 390×844: hero photo, three workspace photos, original insights SVG, facts strip and four role cards rendered; **0 horizontal overflow**, **0 admin links**, **1** `/login` link, **1** `/register` link, **0** “Quick access” links, **3** unique section anchors; all five images loaded; no console errors |
+| Public homepage, desktop and mobile | Rendered the hero, original SVG illustration, three workspaces, facts strip and four role cards (the facts strip was removed later); **0 horizontal overflow**, **0 admin links**, no console errors |
+| Public homepage after the photo/insights refactor | In-app Chromium at 1000×700 and a temporary CDP check at 390×844: hero photo, three workspace photos, original insights SVG, four role cards rendered and the later-removed facts strip still present; **0 horizontal overflow**, **0 admin links**, **1** `/login` link, **1** `/register` link, **0** “Quick access” links, **3** unique section anchors; all five images loaded; no console errors |
 | Public homepage after role-selector/footer-config change | In-app Chromium plus a credential-free CDP check at **390×844**: four role buttons, selected role's rights/content and one matching workspace link; clicking “Parents & guardians” in-app switched the preview/link to `/login?role=GUARDIAN`, and clicking “Teachers” at 390×844 switched to `/login?role=TEACHER`; selector, preview and detail columns all single-column on mobile; all three removed taglines and the sample notice absent; footer renders `publicSite.js` values; all five images loaded; **0 admin links**, **1** `/login`, **1** `/register`, **3** unique anchors, **0 overflow**, no console errors |
 | Lighthouse on public homepage | Accessibility **1.00**, Best Practices **1.00**, SEO **1.00**. Contrast, meta description and robots.txt issues found in the first run were fixed by darkening `--ink-faint`, adding a meta description and adding `frontend/public/robots.txt` |
 | Public registration, mobile | Role-based form rendered at 390 px with no horizontal overflow |
@@ -68,6 +174,61 @@ external review in this final round: destructive CRUD submissions, school-logo
 upload, assistive-technology testing, physical-device testing and a fresh
 offline mutation replay. Those remain limitations, not claimed passes.
 
+## Final palette-change round — 24 November 2026
+
+After the approved Ocean Blue Serenity palette was applied:
+
+| Check | Command / method | Result |
+|---|---|---|
+| Frontend unit tests | `npm test -- --run` | **52 passed across 19 files** |
+| Production build | `npm run build` | Successful; **7** PWA precache entries |
+| Dependency audit | `npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Capacitor sync | `npm run mobile:sync` | Build plus `cap sync` succeeded for Android and iOS projects |
+| Backend tests | `python -m pytest -q` | **95 passed** |
+| Django system check | `python manage.py check` | No issues |
+| Browser palette check | In-app Chromium on `/` | Body/card backgrounds `rgb(255,255,255)`; hero/footer `rgb(2,62,138)`; computed colours limited to the extracted blue ramp plus transparent/root defaults; **0** horizontal overflow, **0** `/admin` links, no console errors |
+| Browser auth/public routes | In-app Chromium on `/login`, `/register`, `/admin/login`, `/portal` | White backgrounds; `/login`, `/register` and redirected `/portal` had **0** `/admin` links; **0** horizontal overflow; no console errors |
+| Lighthouse after palette | In-app Chromium on `/` | Accessibility **1.00**, Best Practices **1.00**, SEO **1.00**; no failures |
+
+The offline queue tests in `frontend/src/services/conflictResolution.test.js`
+and `offlineQueue.test.js` were included in the 52 passing frontend tests. A
+fresh browser-level offline replay, physical-device test and human visual design
+review were not repeated in this round; the palette change did not alter layout
+structure. See `docs/OCEAN_PALETTE.md` for the exact colour values and semantic
+decision.
+
+## Theme manager round — 24 November 2026
+
+| Check | Command / method | Result |
+|---|---|---|
+| Pre-migration backup | `scripts\backup_database.ps1` | `backups\lms_20261124_101534.sql` written before applying the structural migration |
+| Migration | `python manage.py migrate` | `theming.0001_initial` applied; Ocean Blue Serenity active, Sage Green available |
+| Backend tests | `python -m pytest -q` | **100 passed** |
+| Frontend unit tests | `npm test -- --run` | **62 passed across 22 files** |
+| Production build | `npm run build` | Successful; **7** PWA precache entries |
+| Dependency audit | `npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Django system check | `python manage.py check` | No issues |
+| Browser theme route | In-app Chromium signed in as `demo_admin` | `Theme & colours` visible in admin navigation; `/admin/theme` loads catalogue, active palette and onboarding form; no console errors |
+| Access rules | Backend/frontend tests | School, institution and platform admins can manage palettes, shared photos, wording and section styles; learners/guardians/teachers receive HTTP 403 or a UI denial |
+
+The verification did not activate a different palette: Ocean Blue Serenity remains
+the active selection. Runtime palette helpers, CSS injection, contrast feedback
+and school-admin access have automated coverage.
+
+**Later palette addition (25 November 2026):** `theming.0003_seed_swatch_palettes`
+adds Blue Coral Daylight, Forest Green, Citrus Bloom, Heritage Spice and Bright
+Horizon. It is idempotent and leaves the active palette untouched. The focused
+theming suite passes **15 tests**; every new ramp passes the same WCAG text
+contrast validator used by the admin form. `makemigrations --check --dry-run`
+reports no changes.
+
+**Current palette status (25 November 2026):** the historical rounds above left
+Ocean Blue Serenity active. The local `theming.0004_seed_and_activate_plum_harvest`
+migration has since been applied: eight built-in palettes are seeded, including
+Plum Harvest (`plum-harvest`, from `color 7.png`), and Plum Harvest is verified
+active and is the fresh-install default. Full re-verification is being run
+separately; the recorded result numbers above are unchanged.
+
 ## Earlier results — 23 November 2026
 
 | Check | Command | Result |
@@ -78,7 +239,7 @@ offline mutation replay. Those remain limitations, not claimed passes.
 | Frontend unit tests | `npm test` | **8 passed** (3 files) |
 | Frontend production build | `npm run build` | Success; PWA service worker generated |
 | Health endpoint | `GET /api/health/` | `status: ok`, `database: connected` |
-| Login | `POST /api/auth/login/` | Token returned, `role: SCHOOL_ADMIN` |
+| Login | `POST /api/auth/login/` | Historical legacy token auth: token returned, `role: SCHOOL_ADMIN`. Login now sets a session cookie instead |
 | Learner list | `GET /api/learners/` | `count: 1` (demo admin) |
 | Dashboard | `GET /api/reports/dashboard/` | 1 learner, 5 attendance records, 80% attendance |
 | Frontend dev server | `GET http://127.0.0.1:5173/` | HTTP 200, manifest served |
@@ -116,47 +277,52 @@ offline mutation replay. Those remain limitations, not claimed passes.
 ## Backend tests by purpose
 
 - **Authentication** — login success/failure, protected profile, teacher
-  cannot create users, role list.
-- **Institution isolation** — school admin sees only own institution;
-  platform admin sees all; school admin cannot create institutions.
+  cannot create users, role list (built-ins plus custom options from
+  `/api/auth/users/roles/`).
+- **Institution isolation** — `ADMIN` sees only its own institution;
+  `SUPER_ADMIN` sees all; `ADMIN` cannot create global institutions.
 - **Learners** — account + profile created together, cross-school invisibility,
   duplicate admission number rejected.
 - **Courses** — cross-school list/detail blocked, progress marking idempotent.
 - **Assessment** — correct answer earns marks, wrong answer earns zero.
 - **Helpers** — date formatting, role identification.
-- **Endpoint smoke** — every list endpoint returns < 500 for a school admin.
+- **Endpoint smoke** — every list endpoint returns < 500 for an institution
+  administrator (`ADMIN`).
 - **Reference codes** — generated admission/staff/course codes, per-school
   sequences, institution abbreviations and API creation without a code.
 - **School profile** — `GET/PATCH /api/institutions/mine/` is limited to the caller's
-  own school; school admins can update phone/email/website/motto; a valid PNG
+  own school; `ADMIN` can update phone/email/website/motto; a valid PNG
   logo is accepted, a text file is rejected; learners get HTTP 403 on PATCH;
   `GET /api/auth/me/` includes `institution_logo`.
 - **Two sides** — `RoleHome` and `ProtectedRoute` unit tests cover role-based
   redirects and guards for `/admin` and `/portal`.
 - **Production config** — `check --deploy` with `config.settings_prod`.
 
-## Pending (honest limitations)
+## Current limitations (honest, web-only product)
 
-- Native-device testing: the final pass used Chrome's 390×844 emulation, not a
-  physical phone or tablet.
-- Destructive CRUD submissions and logo upload were not replayed in this final
+- No native-device testing was performed. The 390×844 checks used browser
+  emulation, and there is no native app to test: the Capacitor wrapper was
+  removed (`docs/NATIVE_WRAPPER.md`).
+- Destructive CRUD submissions and logo upload were not replayed in the last
   browser round; the underlying API and earlier browser replay are covered by
   tests and previous notes.
-- Automated end-to-end login test with a real password; the final portal check
-  used short-lived server-generated API tokens instead.
-- Fresh offline mutation and forced-conflict replay on a physical device; unit
-  tests cover the first-pass rebase and manual fallback, but no device replay
-  was performed.
-- Signed native APK/IPA and store submission; only Capacitor wrapper scaffolding
-  exists (`docs/NATIVE_WRAPPER.md`).
-- Official KICD submission and KEMIS transmission/template validation; the
-  implemented workflows are internal/local only.
-- Hosted AI provider configuration and load testing; the tutor is local and
-  deterministic by default.
-- Deployment, load testing and monitoring (Phase 9 — not complete).
-- Third-party security review.
-- Accessibility audit with assistive technology (WCAG 2.2 AA is guidance,
-  not a completed audit).
+- No automated end-to-end login test with a real password for the current
+  session-cookie flow; historical portal checks used short-lived server-generated
+  tokens. Current auth uses the HttpOnly session cookie and `X-CSRFToken`.
+- No offline/queue testing applies: the mutation queue, sync/conflict UI and
+  service worker were removed. Failed writes show an error and stay unsaved;
+  browser and assistive-technology checks now cover that path instead.
+- Official KICD submission and KEMIS transmission/template validation are not
+  implemented; the workflows are internal/local only.
+- Hosted AI provider configuration and load testing are outstanding; the tutor
+  is local and deterministic by default.
+- Deployment, runtime verification, load testing and monitoring are incomplete
+  (Phase 9). Proxy headers, TLS, media permissions, least-privilege DB, a shared
+  throttle cache, SMTP and final `check --deploy` still need verification.
+- Third-party security review is outstanding (see `SECURITY_AUDIT.md`).
+- Accessibility audit with assistive technology is outstanding (WCAG 2.2 AA is
+  guidance, not a completed audit). The canvas hero's real `<h1>` and
+  reduced-motion fallback must be included.
 
 ## Rule
 

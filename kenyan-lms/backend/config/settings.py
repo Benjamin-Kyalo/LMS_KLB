@@ -56,6 +56,7 @@ LOCAL_APPS = [
     "apps.kemis",
     "apps.tutor",
     "apps.analytics",
+    "apps.theming",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -69,6 +70,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.core.middleware.SecurityHeadersMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -104,12 +106,36 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "accounts.User"
+# Django's default PBKDF2 hasher is deliberately retained. It is salted,
+# adaptive and requires no extra native dependency. Do not weaken it.
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT", default=60 * 60)
+
+# The SPA uses Django's session cookie, which stays HttpOnly. The CSRF cookie
+# is readable by JavaScript so the API layer can echo it in X-CSRFToken.
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 2)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = env.bool("SESSION_EXPIRE_AT_BROWSER_CLOSE", default=True)
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS",
+    default=["http://127.0.0.1:5173", "http://localhost:5173"],
+)
+
+# Brute-force protection: lock an IP/username pair after repeated failures.
+LOGIN_FAIL_MAX = env.int("LOGIN_FAIL_MAX", default=5)
+LOGIN_LOCKOUT_SECONDS = env.int("LOGIN_LOCKOUT_SECONDS", default=15 * 60)
+# Never trust X-Forwarded-For unless the direct peer is a known reverse proxy.
+TRUSTED_PROXY_IPS = env.list("TRUSTED_PROXY_IPS", default=[])
+RESET_REQUEST_MAX = env.int("RESET_REQUEST_MAX", default=5)
+RESET_REQUEST_WINDOW_SECONDS = env.int("RESET_REQUEST_WINDOW_SECONDS", default=60 * 60)
 
 LANGUAGE_CODE = "en-ke"
 TIME_ZONE = "Africa/Nairobi"
@@ -138,14 +164,36 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
-    # Offline replay needs a structured conflict instead of an opaque 500.
+    # Optimistic updates need a structured conflict instead of an opaque 500.
     "EXCEPTION_HANDLER": "apps.core.concurrency.conflict_exception_handler",
 }
+
+# Deliberately generous defaults: these supplement the explicit login and
+# reset lockouts, not replace them. Operators can tighten them per deployment.
+DEFAULT_THROTTLE_RATES = {
+    "auth_login": env("LOGIN_THROTTLE_RATE", default="100/hour"),
+    "auth_register": env("REGISTER_THROTTLE_RATE", default="20/hour"),
+    "auth_reset": env("RESET_THROTTLE_RATE", default="20/hour"),
+    "tutor_ask": env("TUTOR_THROTTLE_RATE", default="120/hour"),
+    "export_generate": env("EXPORT_THROTTLE_RATE", default="60/hour"),
+}
+
+# Production overrides this through config/settings_prod.py. Keeping an empty
+# default means local development is not blocked by an enforce-only policy.
+SECURITY_HEADERS = {}
+
+# Local-first uploads stay modest by default. Deployments handling large local
+# video files must raise this together with DATA_UPLOAD_MAX_MEMORY_SIZE and
+# FILE_UPLOAD_MAX_MEMORY_SIZE in config/settings_prod.py.
+CONTENT_RESOURCE_MAX_UPLOAD_BYTES = env.int(
+    "CONTENT_RESOURCE_MAX_UPLOAD_BYTES", default=5 * 1024 * 1024,
+)
 
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5173",
 ]
+CORS_ALLOW_CREDENTIALS = True
 
 # Django 6.1 uses MAILERS. Defining the old EMAIL_* settings triggers a
 # deprecation warning, so SMTP values are read into neutral variable names.

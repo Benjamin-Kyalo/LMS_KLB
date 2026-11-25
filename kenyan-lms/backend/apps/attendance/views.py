@@ -7,13 +7,20 @@ from rest_framework.response import Response
 
 from apps.attendance.models import AttendanceRecord
 from apps.attendance.serializers import AttendanceRecordSerializer, BulkAttendanceSerializer
+from apps.core.constants import Capabilities
 from apps.core.viewsets import InstitutionScopedQuerysetMixin, StaffWriteMixin
+from apps.learners.scoping import FamilyScopedReadMixin
 
 
-class AttendanceRecordViewSet(StaffWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
+class AttendanceRecordViewSet(
+    FamilyScopedReadMixin, StaffWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet
+):
+    capability = Capabilities.ATTENDANCE_MANAGE
     queryset = AttendanceRecord.objects.select_related("learner__user", "school_class")
     serializer_class = AttendanceRecordSerializer
     filterset_fields = ["learner", "school_class", "term", "date", "status"]
+    learner_path = "learner"
+    guardian_permission = "can_view_attendance"
 
     def perform_create(self, serializer):
         # Use the shared scoping helper so institution is never missing and

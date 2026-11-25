@@ -4,6 +4,9 @@ import { api } from "../services/api";
 import { useToast } from "../context/ToastContext";
 import Loading from "../components/Loading";
 import FormField from "../components/FormField";
+import RollingLabel from "../components/RollingLabel";
+import { useSiteContent } from "../context/SiteContentContext";
+import { useSectionStyle } from "../styles/sectionStyles";
 
 function asText(value) {
   if (value === null || value === undefined || value === "") return "—";
@@ -16,6 +19,8 @@ function asText(value) {
 // Curriculum-grounded assistant. Local and deterministic by default.
 export default function TutorWorkspace({ portal = false }) {
   const { push } = useToast();
+  const { content } = useSiteContent();
+  const sectionStyle = useSectionStyle("tutor");
   const conversations = useList("/tutor/conversations/");
   const health = useResource("/tutor/conversations/health/");
   const [activeId, setActiveId] = useState(null);
@@ -59,6 +64,20 @@ export default function TutorWorkspace({ portal = false }) {
         </div>
       </div>
 
+      <div className="tutor-intro section-styled" style={sectionStyle}>
+        <img
+          src={content.portal?.tutorImageSrc || "/images/tutor-brain.jpg"}
+          alt={content.portal?.tutorImageAlt || ""}
+          className="tutor-intro-photo"
+        />
+        <div>
+          <h2>Learn with a clear next step</h2>
+          <p className="muted">
+            Ask about a topic, outcome or textbook. Answers come from the records your school holds.
+          </p>
+        </div>
+      </div>
+
       <div className="notice" style={{ marginBottom: "1rem" }}>
         This assistant answers only from curriculum and resource records held by your school.
         By default it runs locally and makes no external calls. If it cannot find a record, it
@@ -75,9 +94,10 @@ export default function TutorWorkspace({ portal = false }) {
               <button
                 key={row.id}
                 className={row.id === active ? "button" : "button secondary"}
+                aria-pressed={row.id === active}
                 onClick={() => { setActiveId(row.id); setLast(null); }}
               >
-                {row.title || row.reference || `Conversation ${row.id}`}
+                {row.title || (row.reference ? `Conversation ${row.reference}` : `Conversation ${row.id}`)}
               </button>
             ))}
           </div>
@@ -103,7 +123,7 @@ export default function TutorWorkspace({ portal = false }) {
               />
             </FormField>
             <div className="form-actions">
-              <button type="submit" className="ghost" disabled={!newTitle.trim()}>Start conversation</button>
+              <button type="submit" className="ghost" disabled={!newTitle.trim()}><RollingLabel>Start conversation</RollingLabel></button>
             </div>
           </form>
         </div>
@@ -137,7 +157,7 @@ export default function TutorWorkspace({ portal = false }) {
                   <textarea rows={3} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="e.g. What outcomes cover fractions in Grade 6?" />
                 </FormField>
                 <div className="form-actions">
-                  <button type="submit" disabled={busy || !question.trim()}>{busy ? "Thinking…" : "Ask"}</button>
+                  <button type="submit" disabled={busy || !question.trim()}>{busy ? "Thinking…" : <RollingLabel>Ask</RollingLabel>}</button>
                 </div>
               </form>
             </>

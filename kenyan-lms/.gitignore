@@ -7,6 +7,8 @@
 .env
 .env.*
 !.env.example
+# Database dumps contain password hashes and learner PII.
+backups/
 
 # =================================================================
 # Python / Django
@@ -35,23 +37,8 @@ yarn-debug.log*
 yarn-error.log*
 
 # =================================================================
-# Generated PWA files (rebuilt automatically during a production build)
+# Local signing material (the app is web-only)
 # =================================================================
-frontend/public/sw.js
-frontend/public/workbox-*.js
-
-# =================================================================
-# Native wrapper build output (Capacitor)
-# -----------------------------------------------------------------
-# Native platform projects may be committed, but generated builds and local
-# signing material must not be.
-# =================================================================
-frontend/android/.gradle/
-frontend/android/local.properties
-frontend/android/app/build/
-frontend/ios/App/Pods/
-frontend/ios/App/build/
-frontend/ios/DerivedData/
 *.keystore
 *.jks
 *.p8

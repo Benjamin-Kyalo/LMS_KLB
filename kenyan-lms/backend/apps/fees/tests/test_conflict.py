@@ -23,7 +23,7 @@ class ConflictTests(APITestCase):
         )
         cls.admin = User.objects.create_user(
             username="conflict_admin", password="not-a-real-password",
-            role=Roles.SCHOOL_ADMIN, institution=cls.school,
+            role=Roles.ADMIN, institution=cls.school,
         )
         year = AcademicYear.objects.create(
             institution=cls.school, name="2026", start_date=date(2026, 1, 1),

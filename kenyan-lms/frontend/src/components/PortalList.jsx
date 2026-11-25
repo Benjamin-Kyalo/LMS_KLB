@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useList } from "../hooks/useApi";
 import DataTable from "./DataTable";
 import Modal from "./Modal";
+import RollingLabel from "./RollingLabel";
 
 function display(value) {
   if (value === null || value === undefined || value === "") return "—";
@@ -15,13 +16,28 @@ function display(value) {
 export default function PortalList({ title, overline, endpoint, columns, emptyHint }) {
   const { data, loading, error, reload } = useList(endpoint);
   const [detail, setDetail] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function refresh() {
+    setRefreshing(true);
+    try { await reload(); }
+    finally { setRefreshing(false); }
+  }
 
   const allColumns = [
     ...columns,
     {
       key: "_actions",
       label: "",
-      render: (row) => <button className="ghost small" onClick={() => setDetail(row)}>View</button>,
+      render: (row) => (
+        <button
+          className="ghost small"
+          onClick={() => setDetail(row)}
+          aria-label={`View ${row.title || row.reference || "item"}`}
+        >
+          View
+        </button>
+      ),
     },
   ];
 
@@ -32,7 +48,11 @@ export default function PortalList({ title, overline, endpoint, columns, emptyHi
           <div className="overline">{overline}</div>
           <h1>{title}</h1>
         </div>
-        <div className="actions"><button className="secondary" onClick={reload}>Refresh</button></div>
+        <div className="actions">
+          <button className="secondary" onClick={refresh} aria-busy={refreshing} disabled={refreshing}>
+            {refreshing ? "Refreshing…" : <RollingLabel>Refresh</RollingLabel>}
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -55,7 +75,7 @@ export default function PortalList({ title, overline, endpoint, columns, emptyHi
             ))}
           </dl>
           <div className="form-actions">
-            <button type="button" className="ghost" onClick={() => setDetail(null)}>Close</button>
+            <button type="button" className="ghost" onClick={() => setDetail(null)}><RollingLabel>Close</RollingLabel></button>
           </div>
         </Modal>
       )}

@@ -16,6 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.permissions import is_platform_admin
+from apps.core.throttling import ExportThrottle
 from apps.core.viewsets import InstitutionScopedQuerysetMixin, PlatformWriteMixin, StaffWriteMixin
 from apps.kemis.builders import DATASET_LABELS, build_rows, default_columns
 from apps.kemis.models import KemisExport, KemisFieldMapping
@@ -57,6 +58,7 @@ class KemisExportViewSet(StaffWriteMixin, InstitutionScopedQuerysetMixin, viewse
 
     queryset = KemisExport.objects.select_related("generated_by", "institution")
     serializer_class = KemisExportSerializer
+    throttle_classes = [ExportThrottle]
     filterset_fields = ["dataset", "format", "status"]
     search_fields = ["reference", "notes"]
 

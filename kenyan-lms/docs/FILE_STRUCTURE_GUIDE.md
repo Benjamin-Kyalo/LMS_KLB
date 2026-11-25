@@ -1,5 +1,10 @@
 # File structure guide
 
+**Current direction:** normal web app only. The PWA manifest, service worker,
+Capacitor config and `frontend/android` / `frontend/ios` directories no longer
+exist. `frontend/dist` contains only `index.html`, hashed CSS/JS assets,
+`robots.txt`, SVG marks and local images.
+
 ```text
 kenyan-lms/
 ├── backend/
@@ -22,18 +27,19 @@ kenyan-lms/
 │   ├── manage.py        Django command-line entry point
 │   └── requirements.txt pinned Python packages
 ├── frontend/
-│   ├── public/          manifest.webmanifest, mark.svg
+│   ├── public/          robots.txt, mark.svg, hero-learning.svg, images/
 │   └── src/
 │       ├── components/  reusable UI (ChartCard, DataTable, Modal, PortalList,
-│       │                ProtectedRoute, RoleHome, ResourcePage, ...)
+│       │                ProtectedRoute, RoleHome, ResourcePage,
+│       │                ParticleHeadline — accessible canvas hero, ...)
 │       ├── layouts/     DashboardLayout (staff /admin shell) and
 │       │                PortalLayout (learner/guardian /portal shell)
 │       ├── pages/       one file per screen; Portal*.jsx are portal pages,
 │       │                SchoolProfile.jsx edits the school's own record
-│       ├── services/    api.js (JSON + multipart upload), auth.js,
-│       │                offlineQueue.js — all HTTP lives here
-│       ├── hooks/       useApi, useOnlineStatus, useSyncQueue
-│       ├── context/     AuthContext, ToastContext
+│       ├── services/    api.js (JSON + multipart upload), auth.js — all HTTP
+│       │                lives here; failed mutations surface an error
+│       ├── hooks/       useApi
+│       ├── context/     AuthContext, ThemeContext, ToastContext
 │       ├── utilities/   roles.js, format.jsx
 │       ├── styles/      tokens.css and global.css
 │       └── test/        Vitest setup
@@ -62,6 +68,8 @@ applied after the backup `backups/lms_20261123_134452.sql`.
 |---|---|
 | Add a role | `backend/apps/core/constants.py` + `frontend/src/utilities/roles.js`, then update permission helpers and route guards |
 | Change colours / typography | `frontend/src/styles/tokens.css` |
+| Change the homepage hero headline | `frontend/src/pages/Home.jsx` + `frontend/src/components/ParticleHeadline.jsx` (keep the real `<h1>`) |
+| Change authentication/session handling | `backend/apps/accounts/`, `frontend/src/services/auth.js` and `api.js` (CSRF cookie, `/api/auth/me/`) |
 | Add an API endpoint | the app's `views.py` + `urls.py` |
 | Change a database field | the app's `models.py`, then `makemigrations` (back up first) |
 | Add a staff page | `frontend/src/pages/` + a route under `/admin` in `App.jsx` + nav in `DashboardLayout.jsx` |
@@ -76,4 +84,8 @@ applied after the backup `backups/lms_20261123_134452.sql`.
 - Generated migrations under `apps/*/migrations/`
 - `frontend/dist/`, `frontend/node_modules/`
 - `backend/.venv/`, `backend/logs/`
-- `frontend/public/sw.js` (rebuilt on `npm run build`)
+- `.env` and `backups/` (owner-managed secrets and dumps containing hashes/PII)
+
+There is no `frontend/public/sw.js` to maintain. The old service worker is a
+deployment cleanup item only: `PRODUCTION_CONFIGURATION.md` describes the
+one-release kill-switch.

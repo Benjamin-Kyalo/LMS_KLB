@@ -6,6 +6,8 @@ import { useToast } from "../context/ToastContext";
 import DataTable from "./DataTable";
 import Modal from "./Modal";
 import FormField from "./FormField";
+import RollingLabel from "./RollingLabel";
+import HoldToConfirmButton from "./HoldToConfirmButton";
 import { TablePagination, TableToolbar } from "./TableTools";
 
 // A reusable list + create + detail/edit + delete page for simple resources.
@@ -47,11 +49,18 @@ export default function ResourcePage({
   }, [fields]);
 
   function initialValue(field, row) {
+    // A browser file input cannot be pre-filled; an existing file is shown by
+    // the detail view and left untouched unless a new file is chosen.
+    if (field.type === "file") return null;
     if (row && row[field.name] !== undefined && row[field.name] !== null) {
       return field.type === "json" ? JSON.stringify(row[field.name]) : row[field.name];
     }
     if (typeof field.default === "function") return field.default();
     return field.default ?? (field.type === "checkbox" ? false : "");
+  }
+
+  function visibleFields() {
+    return fields.filter((field) => !field.showWhen || field.showWhen(form));
   }
 
   function startCreate() {
@@ -74,18 +83,41 @@ export default function ResourcePage({
     setSaving(true);
     setFormError(null);
     try {
-      const payload = { ...form };
-      for (const field of fields) {
-        if (field.type === "json" && payload[field.name]) {
-          try { payload[field.name] = JSON.parse(payload[field.name]); }
+      const active = visibleFields();
+      const payload = {};
+      for (const field of active) {
+        if (field.type === "file") continue;
+        let value = form[field.name];
+        if (field.type === "json" && value) {
+          try { value = JSON.parse(value); }
           catch { throw new Error(`Invalid JSON in ${field.label}.`); }
         }
+        if (value !== undefined && value !== null && value !== "") {
+          payload[field.name] = value;
+        }
       }
-      const result = editing
-        ? await api.patch(`${endpoint}${editing.id}/`, payload)
-        : await api.post(endpoint, payload);
-      if (result && result.queued) push("Saved offline — it will sync when connected.", "info");
-      else push(`${title}: ${editing ? "updated" : "created"}.`, "success");
+
+      const uploadFields = active.filter(
+        (field) => field.type === "file" && form[field.name] instanceof File,
+      );
+      if (uploadFields.length > 0) {
+        // Files go through the direct upload path.
+        const formData = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          formData.append(key, typeof value === "object" ? JSON.stringify(value) : String(value));
+        });
+        uploadFields.forEach((field) => formData.append(field.name, form[field.name]));
+        if (editing) {
+          await api.upload(`${endpoint}${editing.id}/`, formData, "PATCH");
+        } else {
+          await api.upload(endpoint, formData, "POST");
+        }
+      } else if (editing) {
+        await api.patch(`${endpoint}${editing.id}/`, payload);
+      } else {
+        await api.post(endpoint, payload);
+      }
+      push(`${title}: ${editing ? "updated" : "created"}.`, "success");
       setOpen(false);
       setEditing(null);
       reload();
@@ -116,12 +148,28 @@ export default function ResourcePage({
 
   const rowActions = (row) => (
     <div className="row-actions">
-      <button className="ghost small" onClick={() => setDetail(row)}>View</button>
-      {canEdit && <button className="ghost small" onClick={() => startEdit(row)}>Edit</button>}
-      {canDelete && <button className="ghost small danger" onClick={() => remove(row)}>Delete</button>}
+      <button className="ghost small" aria-label={`View ${row.name || row.title || row.username || "record"}`} onClick={() => setDetail(row)}><RollingLabel>View</RollingLabel></button>
+      {canEdit && <button className="ghost small" aria-label={`Edit ${row.name || row.title || row.username || "record"}`} onClick={() => startEdit(row)}><RollingLabel>Edit</RollingLabel></button>}
+      {canDelete && (
+        <HoldToConfirmButton
+          className="ghost small danger"
+          aria-label={`Delete ${row.name || row.title || row.username || "record"}`}
+          onConfirm={() => remove(row)}
+        >
+          Delete
+        </HoldToConfirmButton>
+      )}
     </div>
   );
   const allColumns = [...columns, { key: "_actions", label: "Actions", render: rowActions }];
+  const activeFields = visibleFields();
+  const fieldSections = activeFields.reduce((sections, field) => {
+    const name = field.section || "Details";
+    const existing = sections.find((section) => section.name === name);
+    if (existing) existing.fields.push(field);
+    else sections.push({ name, fields: [field] });
+    return sections;
+  }, []);
 
   return (
     <section>
@@ -131,7 +179,7 @@ export default function ResourcePage({
           <h1>{title}</h1>
         </div>
         <div className="actions">
-          {canCreate && <button onClick={startCreate}>New</button>}
+          {canCreate && <button onClick={startCreate}><RollingLabel>New</RollingLabel></button>}
         </div>
       </div>
 
@@ -144,7 +192,7 @@ export default function ResourcePage({
         error={error}
         emptyTitle={controls.query ? "No matching records" : `No ${title.toLowerCase()} yet`}
         emptyHint={controls.query ? "Try a different search term." : emptyHint}
-        emptyAction={!controls.query && canCreate ? <button onClick={startCreate}>Create the first {title.toLowerCase().replace(/s$/, "")}</button> : null}
+        emptyAction={!controls.query && canCreate ? <button onClick={startCreate}><RollingLabel>Create the first {title.toLowerCase().replace(/s$/, "")}</RollingLabel></button> : null}
       />
 
       {!loading && !error && <TablePagination controls={controls} />}
@@ -160,9 +208,18 @@ export default function ResourcePage({
             ))}
           </dl>
           <div className="form-actions">
-            {canEdit && <button type="button" onClick={() => startEdit(detail)}>Edit</button>}
-            {canDelete && <button type="button" className="ghost danger" onClick={() => remove(detail)}>Delete</button>}
-            <button type="button" className="ghost" onClick={() => setDetail(null)}>Close</button>
+            {canEdit && <button type="button" onClick={() => startEdit(detail)}><RollingLabel>Edit</RollingLabel></button>}
+            {canDelete && (
+              <HoldToConfirmButton
+                type="button"
+                className="ghost danger"
+                aria-label={`Delete ${detail.name || detail.title || detail.username || "record"}`}
+                onConfirm={() => remove(detail)}
+              >
+                Delete
+              </HoldToConfirmButton>
+            )}
+            <button type="button" className="ghost" onClick={() => setDetail(null)}><RollingLabel>Close</RollingLabel></button>
           </div>
         </Modal>
       )}
@@ -170,31 +227,38 @@ export default function ResourcePage({
       {open && (
         <Modal title={`${editing ? "Edit" : "New"} ${title.toLowerCase().replace(/s$/, "")}`} onClose={() => { setOpen(false); setEditing(null); }}>
           <form onSubmit={save}>
-            {formError && <div className="notice error" style={{ marginBottom: "0.75rem" }}>{formError}</div>}
-            <div className="form-grid">
-              {fields.map((field) => {
-                const options = field.optionsEndpoint ? (dynamicOptions[field.name] || []) : (field.options || []);
-                return (
-                  <FormField key={field.name} label={field.label} hint={field.hint} full={field.full}>
-                    {field.type === "select" ? (
-                      <select value={form[field.name] ?? ""} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}>
-                        <option value="">— choose —</option>
-                        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    ) : field.type === "textarea" || field.type === "json" ? (
-                      <textarea rows={field.type === "json" ? 4 : 3} value={form[field.name] ?? ""} placeholder={field.type === "json" ? '["option A", "option B"]' : undefined} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })} />
-                    ) : field.type === "checkbox" ? (
-                      <input type="checkbox" checked={Boolean(form[field.name])} onChange={(e) => setForm({ ...form, [field.name]: e.target.checked })} style={{ width: "auto" }} />
-                    ) : (
-                      <input type={field.type || "text"} value={form[field.name] ?? ""} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })} required={field.required} />
-                    )}
-                  </FormField>
-                );
-              })}
-            </div>
+            {formError && <div className="notice error" role="alert" style={{ marginBottom: "0.75rem" }}>{formError}</div>}
+            {fieldSections.map((section) => (
+              <fieldset className="form-section" key={section.name}>
+                <legend>{section.name}</legend>
+                <div className="form-grid">
+                  {section.fields.map((field) => {
+                    const options = field.optionsEndpoint ? (dynamicOptions[field.name] || []) : (field.options || []);
+                    return (
+                      <FormField key={field.name} label={field.label} hint={field.hint} full={field.full}>
+                        {field.type === "select" ? (
+                          <select value={form[field.name] ?? ""} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}>
+                            <option value="">— choose —</option>
+                            {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        ) : field.type === "textarea" || field.type === "json" ? (
+                          <textarea rows={field.type === "json" ? 4 : 3} value={form[field.name] ?? ""} placeholder={field.type === "json" ? '["option A", "option B"]' : undefined} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })} />
+                        ) : field.type === "checkbox" ? (
+                          <input type="checkbox" checked={Boolean(form[field.name])} onChange={(e) => setForm({ ...form, [field.name]: e.target.checked })} style={{ width: "auto" }} />
+                        ) : field.type === "file" ? (
+                          <input type="file" accept={field.accept} onChange={(e) => setForm({ ...form, [field.name]: e.target.files?.[0] || null })} />
+                        ) : (
+                          <input type={field.type || "text"} value={form[field.name] ?? ""} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })} required={field.required} />
+                        )}
+                      </FormField>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ))}
             <div className="form-actions">
-              <button type="button" className="ghost" onClick={() => { setOpen(false); setEditing(null); }}>Cancel</button>
-              <button type="submit" disabled={saving}>{saving ? "Saving…" : editing ? "Save changes" : "Save"}</button>
+              <button type="button" className="ghost" onClick={() => { setOpen(false); setEditing(null); }}><RollingLabel>Cancel</RollingLabel></button>
+              <button type="submit" disabled={saving}>{saving ? "Saving…" : editing ? <RollingLabel>Save changes</RollingLabel> : <RollingLabel>Save</RollingLabel>}</button>
             </div>
           </form>
         </Modal>
