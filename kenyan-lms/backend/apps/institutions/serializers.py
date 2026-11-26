@@ -87,6 +87,7 @@ class TermSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
 
 class SchoolClassSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class_name = serializers.CharField(source="name", read_only=True)
+    display_name = serializers.CharField(read_only=True)
     academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
     class_teacher_name = serializers.SerializerMethodField()
 

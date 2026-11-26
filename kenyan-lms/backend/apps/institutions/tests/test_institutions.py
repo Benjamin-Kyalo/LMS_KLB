@@ -1,4 +1,5 @@
 """Institution isolation and access tests."""
+from datetime import date
 from io import BytesIO
 
 from django.contrib.auth import get_user_model
@@ -9,7 +10,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.core.constants import Roles
-from apps.institutions.models import Institution, InstitutionType
+from apps.institutions.models import AcademicYear, Institution, InstitutionType, SchoolClass
 
 User = get_user_model()
 
@@ -91,3 +92,26 @@ class InstitutionIsolationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.school_a.refresh_from_db()
         self.assertNotEqual(self.school_a.phone, "0700000000")
+
+
+class SchoolClassDisplayTests(APITestCase):
+    def test_display_name_includes_stream(self):
+        kind = InstitutionType.objects.create(name="Primary", code="PRI")
+        school = Institution.objects.create(name="Display School", code="DSP", institution_type=kind)
+        year = AcademicYear.objects.create(
+            institution=school, name="2026",
+            start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        klass = SchoolClass.objects.create(
+            institution=school, academic_year=year, name="Grade 4", stream="A"
+        )
+        self.assertEqual(klass.display_name, "Grade 4 A")
+
+        admin = User.objects.create_user(
+            username="classadmin", password="StrongPass123!",
+            role=Roles.ADMIN, institution=school,
+        )
+        self.client.force_authenticate(user=admin)
+        response = self.client.get(reverse("schoolclass-list"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(rows(response)[0]["display_name"], "Grade 4 A")

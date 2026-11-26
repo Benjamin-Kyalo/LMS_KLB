@@ -93,7 +93,7 @@ export default function ResourceFilters({
             placeholder="All classes"
             options={classes.map((item) => ({
               value: String(item.id),
-              label: [item.name, item.stream].filter(Boolean).join(" "),
+              label: item.display_name || [item.name, item.stream].filter(Boolean).join(" "),
             }))}
             onChange={(value) => onFilter("school_class", value)}
           />

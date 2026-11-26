@@ -2,6 +2,7 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
+from apps.core.audit import record_change, snapshot
 from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
@@ -30,12 +31,23 @@ class TeacherSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        request = self.context.get("request")
         user = instance.user
-        for field in ("username", "first_name", "last_name", "email"):
-            if field in validated_data:
-                setattr(user, field, validated_data.pop(field))
-        user.save()
-        return super().update(instance, validated_data)
+        identity_fields = ("username", "first_name", "last_name", "email")
+        before = snapshot(instance, {field: getattr(user, field) for field in identity_fields})
+        user_data = validated_data.pop("user", {})
+        for field in identity_fields:
+            if field in user_data:
+                setattr(user, field, user_data[field])
+        if user_data:
+            user.save()
+        updated = super().update(instance, validated_data)
+        after = snapshot(instance, {field: getattr(user, field) for field in identity_fields})
+        record_change(
+            getattr(request, "user", None), instance, before, after,
+            action="teacher.updated", request=request,
+        )
+        return updated
 
 
 class TeacherCreateSerializer(serializers.Serializer):

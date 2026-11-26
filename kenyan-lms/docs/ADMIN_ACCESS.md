@@ -11,8 +11,11 @@ Sign-in uses an HttpOnly Django session cookie with a readable CSRF cookie
 echoed as `X-CSRFToken`. Identity and roles are re-read from
 `/api/auth/me/`; no `klb_token` or `klb_user` lives in `localStorage`.
 Password changes/resets invalidate active sessions, and reset links expire
-after one hour. The frontend calls `/api` through the Vite proxy; the backend
-allows credentialed CORS from its configured origins. See `SECURITY_AUDIT.md`.
+after one hour. A normal sign-in lasts one hour of inactivity; activity moves
+the expiry forward, and closing the browser does not end it early. Set
+`SESSION_COOKIE_AGE=1800` for a 30-minute session. The frontend calls `/api`
+through the Vite proxy; the backend allows credentialed CORS from its configured
+origins. See `SECURITY_AUDIT.md`.
 
 ## 1. Sign in and you land on the right side
 
@@ -157,9 +160,28 @@ identifiers appear in the Users, Learners, Teachers and Guardians tables. See
 
 Links are managed from both sides: **Link guardian** on Learners and
 **Link learner** on Guardians both post to `/api/learners/guardian-links/`, and
-search options show the person's name plus their unique identifier. The
-**Guardian links** page lists pending, verified and rejected requests for an
-administrator to decide.
+search options show the person's name plus their unique identifier. The dialogs
+show existing links, require confirmation before adding another person, and
+store academic/attendance/fee access on the link. A pending request for the
+selected pair can be verified or rejected inline; all requests are also listed
+on the **Guardian links** page. Exactly one guardian can be primary per learner.
+
+### Cross-system tools and capabilities
+
+| Sidebar item | Route | Required backend permission |
+|---|---|---|
+| Notifications | `/admin/notifications`, `/portal/notifications` | Authenticated; inbox is filtered to the recipient |
+| Early warning | `/admin/early-warning` | `reports.view` (built-in staff) or custom role with that capability |
+| Fee ledger & receipts | `/admin/fees/ledger` | `fees.manage`; school office only |
+| Data quality | `/admin/data-quality` | Institution admin or platform admin; `admin.access` on the route |
+| Audit history | `/admin/audit` | Institution admin or platform admin; `admin.access` on the route |
+
+The notification API is deliberately read-only except for explicit mark-read
+actions and the user's own preference record. Early-warning tasks can be
+assigned only to a user from the same institution. Fee reconciliation uses no
+payment-gateway credentials. Data-quality fixes are allowlisted, previewed and
+audited; no endpoint deletes a record. Audit rows cannot be created, changed or
+deleted through the API.
 
 ## 5. Where permissions are configured
 

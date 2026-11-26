@@ -7,8 +7,12 @@ import { isAdmin, isTeacher } from "../utilities/roles";
 import DataTable from "../components/DataTable";
 import Modal from "../components/Modal";
 import FormField from "../components/FormField";
+import LinkConfirmation from "../components/LinkConfirmation";
+import LinkPermissions from "../components/LinkPermissions";
+import PersonSearchSelect from "../components/PersonSearchSelect";
 import RollingLabel from "../components/RollingLabel";
 import { TablePagination, TableToolbar } from "../components/TableTools";
+import usePendingLinkRequest from "../hooks/usePendingLinkRequest";
 import useTableControls from "../hooks/useTableControls";
 import { statusTag } from "../utilities/format";
 
@@ -17,7 +21,6 @@ export default function Learners() {
   const canWrite = isAdmin(user) || isTeacher(user);
   const { data, loading, error, reload } = useList("/learners/");
   const { data: classes } = useList("/institutions/classes/");
-  const { data: guardians } = useList("/guardians/");
   const { push } = useToast();
   const controls = useTableControls(data);
   const [open, setOpen] = useState(false);
@@ -27,10 +30,45 @@ export default function Learners() {
   const [formError, setFormError] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [linkTarget, setLinkTarget] = useState(null);
-  const [linkForm, setLinkForm] = useState({ guardian: "", relationship: "Parent", is_primary: true });
+  const [linkForm, setLinkForm] = useState({
+    guardian: null,
+    relationship: "Parent",
+    is_primary: true,
+    can_view_academics: true,
+    can_view_attendance: true,
+    can_view_fees: false,
+  });
   const [linkSaving, setLinkSaving] = useState(false);
   const [linkError, setLinkError] = useState(null);
-  const [guardianSearch, setGuardianSearch] = useState("");
+  const [linkConfirmed, setLinkConfirmed] = useState(false);
+
+  const selectedGuardian = linkForm.guardian;
+  const { request: pendingRequest, clear: clearPendingRequest } = usePendingLinkRequest(
+    selectedGuardian?.id, linkTarget?.id
+  );
+  const existingGuardians = linkTarget?.guardian_names || [];
+  const guardianAlreadyLinked = Boolean(selectedGuardian && (
+    (linkTarget?.guardian_ids || []).some((id) => String(id) === String(selectedGuardian.id))
+    || existingGuardians.some(
+      (name) => String(name).toLowerCase() === String(selectedGuardian.guardian_name || "").toLowerCase()
+    )
+  ));
+  const otherLearners = selectedGuardian?.learner_names || [];
+  const linkNeedsConfirmation = !guardianAlreadyLinked && Boolean(
+    existingGuardians.length || otherLearners.length || pendingRequest
+  );
+  const linkPermissionFields = {
+    can_view_academics: linkForm.can_view_academics,
+    can_view_attendance: linkForm.can_view_attendance,
+    can_view_fees: linkForm.can_view_fees,
+  };
+
+  function requestDecided() {
+    clearPendingRequest();
+    setLinkConfirmed(false);
+    setLinkTarget(null);
+    reload();
+  }
 
   function startCreate() {
     setEditing(null);
@@ -108,15 +146,18 @@ export default function Learners() {
           { key: "admission_number", label: "Admission no.", render: (r) => <span className="mono">{r.admission_number}</span> },
           { key: "institution_code", label: "School code", render: (r) => r.institution_code || "—" },
           { key: "class_name", label: "Class", render: (r) => r.class_name || "—" },
-          { key: "guardian_names", label: "Guardians", render: (r) => (r.guardian_names || []).join(", ") || "—" },
+          { key: "guardian_names", label: "Guardians", render: (r) => {
+            const names = r.guardian_names || [];
+            return names.length
+              ? <><span className="tag good">Linked</span> {names.join(", ")}</>
+              : <span className="tag warn">Not linked</span>;
+          } },
           { key: "status", label: "Status", render: (r) => statusTag(r.status) },
           { key: "_actions", label: "Actions", render: (r) => canWrite && (
             <div className="row-actions">
-              {!(r.guardian_names || []).length && (
-                <button className="small" onClick={() => { setLinkTarget(r); setLinkForm({ guardian: "", relationship: "Parent", is_primary: true }); setGuardianSearch(""); setLinkError(null); }}>
-                  <RollingLabel>Link guardian</RollingLabel>
-                </button>
-              )}
+              <button className="small" onClick={() => { setLinkTarget(r); setLinkForm({ guardian: null, relationship: "Parent", is_primary: true, can_view_academics: true, can_view_attendance: true, can_view_fees: false }); setLinkError(null); setLinkConfirmed(false); }}>
+                <RollingLabel>{(r.guardian_names || []).length ? "Add guardian" : "Link guardian"}</RollingLabel>
+              </button>
               <button className="ghost small" onClick={() => startEdit(r)}><RollingLabel>Edit</RollingLabel></button>
               <button className="ghost small danger" onClick={() => setDeleteTarget(r)}><RollingLabel>Delete</RollingLabel></button>
             </div>
@@ -143,7 +184,11 @@ export default function Learners() {
               <FormField label="Class">
                 <select value={form.class_room || ""} onChange={(e) => setForm({ ...form, class_room: e.target.value })}>
                   <option value="">— choose —</option>
-                  {(classes || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  {(classes || []).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.display_name || [item.name, item.stream].filter(Boolean).join(" ")}
+                    </option>
+                  ))}
                 </select>
               </FormField>
               <FormField label="Date of birth"><input type="date" value={form.date_of_birth || ""} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} /></FormField>
@@ -178,16 +223,25 @@ export default function Learners() {
         <Modal title="Link guardian to learner" onClose={() => setLinkTarget(null)}>
           <form onSubmit={async (e) => {
             e.preventDefault();
+            if (guardianAlreadyLinked) {
+              setLinkError("This guardian is already linked to this learner. No change was made.");
+              return;
+            }
+            if (linkNeedsConfirmation && !linkConfirmed) {
+              setLinkError("Confirm the existing links before continuing.");
+              return;
+            }
             setLinkSaving(true);
             setLinkError(null);
             try {
               await api.post("/learners/guardian-links/", {
                 learner: linkTarget.id,
-                guardian: linkForm.guardian,
+                guardian: linkForm.guardian?.id,
                 relationship: linkForm.relationship,
                 is_primary: linkForm.is_primary,
+                ...linkPermissionFields,
               });
-              push("Guardian linked to learner.", "success");
+              push(`Guardian ${selectedGuardian.guardian_name} linked to ${linkTarget.learner_name}.`, "success");
               setLinkTarget(null);
               reload();
             } catch (err) {
@@ -197,33 +251,67 @@ export default function Learners() {
             }
           }}>
             {linkError && <div className="notice error" role="alert" style={{ marginBottom: "0.75rem" }}>{linkError}</div>}
+            <p className="muted" style={{ marginBottom: "0.75rem" }}>
+              Linking a guardian to <strong>{linkTarget.learner_name || linkTarget.username}</strong>.
+            </p>
             <div className="form-grid">
-              <FormField label="Search guardian">
-                <input value={guardianSearch} onChange={(e) => setGuardianSearch(e.target.value)} placeholder="Type name or guardian number" />
-              </FormField>
-              <FormField label="Guardian">
-                <select value={linkForm.guardian} onChange={(e) => setLinkForm({ ...linkForm, guardian: e.target.value })} required>
-                  <option value="">— choose guardian —</option>
-                  {(guardians || [])
-                    .filter((item) => {
-                      const needle = guardianSearch.trim().toLowerCase();
-                      if (!needle) return true;
-                      return `${item.guardian_name || ""} ${item.guardian_number || ""} ${item.username || ""}`.toLowerCase().includes(needle);
-                    })
-                    .map((item) => <option key={item.id} value={item.id}>{item.guardian_name || item.username} ({item.guardian_number || "no number"})</option>)}
-                </select>
-              </FormField>
+              <div className="full">
+                <PersonSearchSelect
+                  label="Guardian"
+                  endpoint="/guardians/"
+                  placeholder="Type a name, username, guardian number or phone"
+                  hint="Matches load as you type. Choose one to fill in the guardian details below."
+                  nameKey="guardian_name"
+                  identifierKey="guardian_number"
+                  identifierLabel="Guardian number"
+                  extraDetails={[
+                    { label: "Username", key: "username" },
+                    { label: "Phone", key: "phone" },
+                    { label: "Email", key: "email" },
+                  ]}
+                  selected={linkForm.guardian}
+                  onSelect={(guardian) => setLinkForm((form) => ({
+                    ...form,
+                    guardian,
+                    relationship: guardian?.relationship_to_learner || form.relationship,
+                  }))}
+                />
+              </div>
+              {selectedGuardian && (
+                <div className="full">
+                  <LinkConfirmation
+                    personLabel="guardian"
+                    existingLabel="learner"
+                    existingNames={existingGuardians}
+                    otherNames={otherLearners}
+                    pendingRequest={pendingRequest}
+                    requestDetails={{
+                      relationship: linkForm.relationship,
+                      is_primary: linkForm.is_primary,
+                      ...linkPermissionFields,
+                    }}
+                    onRequestDecided={requestDecided}
+                    duplicate={guardianAlreadyLinked}
+                    confirmed={linkConfirmed}
+                    onConfirmedChange={setLinkConfirmed}
+                  />
+                </div>
+              )}
               <FormField label="Relationship"><input value={linkForm.relationship} onChange={(e) => setLinkForm({ ...linkForm, relationship: e.target.value })} required /></FormField>
-              <FormField label="Primary link">
+              <FormField label="Primary link" hint="Only one guardian can be primary. Choosing Yes replaces the earlier primary link.">
                 <select value={linkForm.is_primary ? "yes" : "no"} onChange={(e) => setLinkForm({ ...linkForm, is_primary: e.target.value === "yes" })}>
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
                 </select>
               </FormField>
+              <LinkPermissions
+                value={linkForm}
+                onChange={(key, checked) => setLinkForm((form) => ({ ...form, [key]: checked }))}
+              />
             </div>
             <div className="form-actions">
               <button type="button" className="ghost" onClick={() => setLinkTarget(null)}><RollingLabel>Cancel</RollingLabel></button>
-              <button type="submit" disabled={linkSaving}>{linkSaving ? "Linking…" : <RollingLabel>Link guardian</RollingLabel>}</button>
+              <button type="submit" disabled={linkSaving || !linkForm.guardian || guardianAlreadyLinked || (linkNeedsConfirmation && !linkConfirmed)}>{linkSaving ? "Linking…" : <RollingLabel>Link guardian</RollingLabel>}</button>
             </div>
           </form>
         </Modal>

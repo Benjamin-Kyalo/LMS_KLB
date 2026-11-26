@@ -121,8 +121,12 @@ PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT", default=60 * 60)
 # is readable by JavaScript so the API layer can echo it in X-CSRFToken.
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 2)
-SESSION_EXPIRE_AT_BROWSER_CLOSE = env.bool("SESSION_EXPIRE_AT_BROWSER_CLOSE", default=True)
+# A short, predictable working session. Activity slides the expiry forward, so
+# an active user is not cut off mid-task; idle sessions end after one hour.
+# Set SESSION_COOKIE_AGE=1800 for a 30-minute session instead.
+SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = env.bool("SESSION_EXPIRE_AT_BROWSER_CLOSE", default=False)
+SESSION_SAVE_EVERY_REQUEST = env.bool("SESSION_SAVE_EVERY_REQUEST", default=True)
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_TRUSTED_ORIGINS = env.list(

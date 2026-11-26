@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
+  Activity,
   Building2,
   ChevronDown,
   GraduationCap,
@@ -22,6 +23,7 @@ const GROUP_ICONS = {
   people: Users,
   learning: GraduationCap,
   operations: Building2,
+  insights: Activity,
   system: SlidersHorizontal,
 };
 
@@ -78,7 +80,10 @@ export default function DashboardLayout() {
     {
       id: "overview",
       label: "Overview",
-      items: [{ to: "/admin", label: "Dashboard", end: true }],
+      items: [
+        { to: "/admin", label: "Dashboard", end: true },
+        { to: "/admin/notifications", label: "Notifications" },
+      ],
     },
     {
       id: "people",
@@ -129,6 +134,16 @@ export default function DashboardLayout() {
         { to: "/admin/communications", label: "Messages", show: staff || allows(CAPABILITIES.COMMUNICATIONS_MANAGE) },
         { to: "/admin/reports", label: "Reports", show: staff || allows(CAPABILITIES.REPORTS_VIEW) },
         { to: "/admin/analytics", label: "Analytics", show: staff || allows(CAPABILITIES.REPORTS_VIEW) },
+      ],
+    },
+    {
+      id: "insights",
+      label: "Insights & quality",
+      items: [
+        { to: "/admin/early-warning", label: "Early warning", show: staff || allows(CAPABILITIES.REPORTS_VIEW) },
+        { to: "/admin/fees/ledger", label: "Fee ledger & receipts", show: staff || allows(CAPABILITIES.FEES_MANAGE) },
+        { to: "/admin/data-quality", label: "Data quality", show: admin || allows(CAPABILITIES.ADMIN_ACCESS) },
+        { to: "/admin/audit", label: "Audit history", show: admin || allows(CAPABILITIES.ADMIN_ACCESS) },
       ],
     },
     {

@@ -90,10 +90,31 @@ class Payment(AutoReferenceModelMixin, InstitutionScopedModel):
         "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="recorded_payments",
     )
+    # M-Pesa readiness: the office records the transaction code and payer
+    # number after confirming the message. No API credential or PIN is stored.
+    transaction_reference = models.CharField(max_length=100, blank=True, db_index=True)
+    payer_phone = models.CharField(max_length=30, blank=True)
+    reconciliation_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("PENDING", "Awaiting confirmation"),
+            ("RECONCILED", "Reconciled"),
+            ("EXCEPTION", "Needs review"),
+        ],
+        default="PENDING",
+        db_index=True,
+    )
     notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-paid_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["institution", "transaction_reference"],
+                condition=models.Q(transaction_reference__gt=""),
+                name="unique_payment_transaction_reference",
+            )
+        ]
 
     @transaction.atomic
     def save(self, *args, **kwargs):

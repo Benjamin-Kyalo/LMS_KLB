@@ -156,8 +156,12 @@ identifier or linking request.
 link → guardian signs in → `/portal` guardian dashboard. Staff can also link
 from either side: **Link guardian** on Learners and **Link learner** on
 Guardians both use `POST /api/learners/guardian-links/`; search options show a
-name plus the unique identifier. The **Guardian links** page tracks pending,
-verified and rejected requests.
+name plus the unique identifier. The dialog shows existing links, blocks exact
+duplicates, asks for confirmation before adding another person, and lets the
+administrator set academic/attendance/fee access and one primary guardian. A
+pending request for the selected pair can be verified or rejected inline, or
+from the **Guardian links** page; rejection requires a reason and verification
+is audit logged.
 
 **First dashboard:** linked learners, recent progress, upcoming work, school
 announcements, messages.
@@ -194,8 +198,12 @@ page's **Forgot your password?** link and the `/reset-password` route.
   palette controls remain editable, while the retired `content` / “Content
   managers” cards stay retired.
 - Publish announcements; review messages and reports.
+- Recalculate early warnings, review evidence and assign or complete intervention tasks.
+- Review fee reconciliation exceptions and print receipts from the fee ledger.
+- Run data-quality scans and apply only the two allowlisted fixes after preview.
+- Review field-level audit history.
 - Change branding or active palette.
-- Review audit log and system health (there is no queue/sync health view).
+- Review system health (there is no queue/sync health view).
 
 ### Teacher
 
@@ -204,6 +212,7 @@ page's **Forgot your password?** link and the `/reset-password` route.
 - Set assignments/assessments and record progress.
 - Message learners or guardians within assigned scope.
 - Review their profile and responsibilities.
+- Open the notification inbox and adjust which event types reach them.
 
 ### Learner
 
@@ -211,6 +220,7 @@ page's **Forgot your password?** link and the `/reset-password` route.
 - Find a resource by subject or class.
 - Read/view resource or open assignment.
 - Check progress and feedback.
+- Open the notification inbox for workflow alerts.
 - Update own profile.
 
 ### Guardian
@@ -219,7 +229,22 @@ page's **Forgot your password?** link and the `/reset-password` route.
 - Review progress, attendance and reports.
 - Read targeted announcements.
 - Reply to or read school communication.
+- Open the notification inbox for link, fee and school alerts.
 - Update own contact details.
+
+## Cross-system tools by role
+
+| Tool | Routes | Who can open it |
+|---|---|---|
+| Notification centre | `/admin/notifications`, `/portal/notifications` | Every signed-in user; only their own alerts and preferences |
+| Early warning | `/admin/early-warning` | Staff with `reports.view`; backend enforces the same capability |
+| Fee ledger and receipts | `/admin/fees/ledger` | Staff with `fees.manage`; no family or learner access |
+| Data quality | `/admin/data-quality` | Administrators with `admin.access`; read-only for non-admins is not offered |
+| Audit history | `/admin/audit` | Administrators with `admin.access`; platform admins see all schools |
+
+Every tool keeps the signed-in session on the public site and uses the same
+institution scoping as the rest of the API. Empty states explain the next step
+instead of showing raw JSON. Errors are field-prefixed, plain-language messages.
 
 ## Onboarding checklist ownership
 

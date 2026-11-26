@@ -404,7 +404,7 @@ class ContentResourcePortalSerializer(_SafeResourceFieldsMixin, serializers.Mode
 
     external_url = serializers.SerializerMethodField()
     subject_name = serializers.CharField(source="subject.name", read_only=True)
-    class_name = serializers.CharField(source="school_class.name", read_only=True)
+    class_name = serializers.CharField(source="school_class.display_name", read_only=True)
 
     class Meta:
         model = ContentResource

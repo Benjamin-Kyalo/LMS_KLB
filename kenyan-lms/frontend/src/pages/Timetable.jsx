@@ -25,7 +25,7 @@ export default function Timetable() {
         { name: "day_of_week", label: "Day", type: "select", options: DAYS, required: true },
         { name: "start_time", label: "Start time", type: "time", required: true },
         { name: "end_time", label: "End time", type: "time", required: true },
-        { name: "school_class", label: "Class", type: "select", optionsEndpoint: "/institutions/classes/", labelKey: "name", required: true },
+        { name: "school_class", label: "Class", type: "select", optionsEndpoint: "/institutions/classes/", labelKey: "display_name", required: true },
         { name: "term", label: "Term", type: "select", optionsEndpoint: "/institutions/terms/", labelKey: "name", required: true },
         { name: "subject", label: "Subject", type: "select", optionsEndpoint: "/institutions/subjects/", labelKey: "name", required: true },
         { name: "teacher", label: "Teacher", type: "select", optionsEndpoint: "/teachers/", labelKey: "teacher_name" },

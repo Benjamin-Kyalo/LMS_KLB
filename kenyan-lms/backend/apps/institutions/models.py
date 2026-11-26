@@ -138,6 +138,11 @@ class SchoolClass(TimeStampedModel):
     def __str__(self):
         return f"{self.name} {self.stream}".strip()
 
+    @property
+    def display_name(self):
+        """Unique, readable label for dropdowns and table cells."""
+        return self.__str__()
+
 
 class Subject(AutoReferenceModelMixin, TimeStampedModel):
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name="subjects")

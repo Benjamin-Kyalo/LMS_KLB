@@ -10,7 +10,7 @@ from apps.guardians.serializers import GuardianCreateSerializer, GuardianSeriali
 
 class GuardianViewSet(AdminWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
     capability = Capabilities.GUARDIANS_MANAGE
-    search_fields = ["user__first_name", "user__last_name", "phone"]
+    search_fields = ["user__first_name", "user__last_name", "user__username", "guardian_number", "phone"]
 
     def get_queryset(self):
         return super().get_queryset().select_related("user", "institution")

@@ -18,7 +18,9 @@ class NotificationSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = "__all__"
-        read_only_fields = ["recipient", "created_at"]
+        # Notifications are created only by server-side event handlers; the
+        # API is read-only apart from explicit mark-read actions.
+        read_only_fields = ["id", "recipient", "created_at", "title", "body", "notification_type", "link", "is_read"]
 
 
 class MessageSerializer(InstitutionCodeMixin, serializers.ModelSerializer):

@@ -16,13 +16,17 @@ from apps.analytics.engine import (
     refresh_snapshot as build_snapshot,
     remediation_summary,
 )
-from apps.analytics.models import AnalyticsSnapshot, RemediationRule, RemediationTask
+from apps.analytics.early_warning import build_early_warning, refresh_early_warning
+from apps.analytics.models import (
+    AnalyticsSnapshot, InterventionTask, RemediationRule, RemediationTask,
+)
 from apps.analytics.serializers import (
     AnalyticsSnapshotSerializer,
+    InterventionTaskSerializer,
     RemediationRuleSerializer,
     RemediationTaskSerializer,
 )
-from apps.core.constants import Roles
+from apps.core.constants import Capabilities, Roles
 from apps.core.permissions import IsInstitutionAdmin, IsStaff
 from apps.core.viewsets import AdminWriteMixin, InstitutionScopedQuerysetMixin, StaffWriteMixin
 from apps.learners.models import Learner
@@ -124,6 +128,22 @@ def evaluate_remediation_endpoint(request):
     return Response(evaluate_rules(_scope_institution(request.user)))
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def early_warning(request):
+    """Rule-based learner risk flags with the evidence behind each flag."""
+    institution = _scope_staff_institution(request.user)
+    return Response(build_early_warning(institution, request.query_params.dict()))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsStaff])
+def refresh_early_warning_endpoint(request):
+    """Recalculate flags and raise intervention tasks for medium/high risk."""
+    institution = _scope_institution(request.user)
+    return Response(refresh_early_warning(institution, request.user, request))
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated, IsInstitutionAdmin])
 def refresh_snapshot_endpoint(request):
@@ -211,4 +231,49 @@ class RemediationTaskViewSet(
         task.status = RemediationTask.DISMISSED
         task.resolved_at = timezone.now()
         task.save()
+        return Response(self.get_serializer(task).data)
+
+
+class InterventionTaskViewSet(StaffWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
+    capability = Capabilities.REPORTS_VIEW
+    queryset = InterventionTask.objects.select_related(
+        "learner__user", "learner__class_room", "assigned_to"
+    )
+    serializer_class = InterventionTaskSerializer
+    filterset_fields = ["status", "risk_level", "learner", "assigned_to"]
+    search_fields = ["reference", "notes"]
+
+    def _same_institution_user(self, request, task):
+        user_id = request.data.get("user_id")
+        User = get_user_model()
+        try:
+            assignee = User.objects.get(pk=user_id)
+        except (User.DoesNotExist, DjangoValidationError, ValueError, TypeError) as exc:
+            raise ValidationError({"user_id": "Choose a valid user."}) from exc
+        if assignee.institution_id != task.institution_id:
+            raise ValidationError({"user_id": "Choose a user from this institution."})
+        return assignee
+
+    @action(detail=True, methods=["post"], url_path="assign")
+    def assign(self, request, pk=None):
+        task = self.get_object()
+        task.assigned_to = self._same_institution_user(request, task)
+        task.status = InterventionTask.ASSIGNED
+        task.save(update_fields=["assigned_to", "status", "updated_at"])
+        return Response(self.get_serializer(task).data)
+
+    @action(detail=True, methods=["post"], url_path="complete")
+    def complete(self, request, pk=None):
+        task = self.get_object()
+        task.status = InterventionTask.COMPLETED
+        task.resolved_at = timezone.now()
+        task.save(update_fields=["status", "resolved_at", "updated_at"])
+        return Response(self.get_serializer(task).data)
+
+    @action(detail=True, methods=["post"], url_path="dismiss")
+    def dismiss(self, request, pk=None):
+        task = self.get_object()
+        task.status = InterventionTask.DISMISSED
+        task.resolved_at = timezone.now()
+        task.save(update_fields=["status", "resolved_at", "updated_at"])
         return Response(self.get_serializer(task).data)

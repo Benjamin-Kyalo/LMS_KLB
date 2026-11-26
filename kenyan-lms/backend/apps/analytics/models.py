@@ -127,3 +127,41 @@ class RemediationTask(AutoReferenceModelMixin, InstitutionScopedModel):
 
     def __str__(self):
         return f"{self.reference or self.pk} - {self.get_status_display()}"
+
+
+class InterventionTask(AutoReferenceModelMixin, InstitutionScopedModel):
+    """A staff-owned follow-up raised by the transparent early-warning rules."""
+
+    OPEN = "OPEN"
+    ASSIGNED = "ASSIGNED"
+    COMPLETED = "COMPLETED"
+    DISMISSED = "DISMISSED"
+    STATUSES = [
+        (OPEN, "Open"),
+        (ASSIGNED, "Assigned"),
+        (COMPLETED, "Completed"),
+        (DISMISSED, "Dismissed"),
+    ]
+
+    reference = models.CharField(max_length=50, blank=True, unique=True)
+    learner = models.ForeignKey(
+        "learners.Learner", on_delete=models.CASCADE, related_name="intervention_tasks"
+    )
+    risk_level = models.CharField(max_length=10, default="MEDIUM")
+    risk_score = models.PositiveIntegerField(default=0)
+    signals = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=20, choices=STATUSES, default=OPEN, db_index=True)
+    assigned_to = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="assigned_intervention_tasks",
+    )
+    due_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["institution", "status"])]
+
+    def __str__(self):
+        return f"{self.reference or self.pk} - {self.get_status_display()}"

@@ -3,6 +3,7 @@ import re
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from apps.core.audit import record_change, snapshot
 from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
@@ -34,18 +35,33 @@ class GuardianSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email")
     institution_code = serializers.CharField(source="institution.code", read_only=True)
     learner_names = serializers.SerializerMethodField()
+    learner_ids = serializers.SerializerMethodField()
 
     def get_learner_names(self, obj):
         return [link.learner.user.full_name for link in obj.learner_links.select_related("learner__user").all()]
 
+    def get_learner_ids(self, obj):
+        return [link.learner_id for link in obj.learner_links.all()]
+
     @transaction.atomic
     def update(self, instance, validated_data):
+        request = self.context.get("request")
         user = instance.user
-        for field in ("username", "first_name", "last_name", "email"):
-            if field in validated_data:
-                setattr(user, field, validated_data.pop(field))
-        user.save()
-        return super().update(instance, validated_data)
+        identity_fields = ("username", "first_name", "last_name", "email")
+        before = snapshot(instance, {field: getattr(user, field) for field in identity_fields})
+        user_data = validated_data.pop("user", {})
+        for field in identity_fields:
+            if field in user_data:
+                setattr(user, field, user_data[field])
+        if user_data:
+            user.save()
+        updated = super().update(instance, validated_data)
+        after = snapshot(instance, {field: getattr(user, field) for field in identity_fields})
+        record_change(
+            getattr(request, "user", None), instance, before, after,
+            action="guardian.updated", request=request,
+        )
+        return updated
 
     class Meta:
         model = Guardian

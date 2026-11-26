@@ -12,7 +12,10 @@ as the `X-CSRFToken` header on state-changing requests. Identity and roles are
 always re-read from `/api/auth/me/` (the `/auth/me/` endpoint). No bearer token
 is issued at login, and no `klb_token` or `klb_user` is kept in `localStorage`.
 Legacy token authentication remains only for compatibility; those tokens are
-revoked on logout, password change and reset.
+revoked on logout, password change and reset. The session expires after one hour
+of inactivity (`SESSION_COOKIE_AGE=3600`, overridable to `1800` for 30 minutes);
+authenticated requests refresh that window in line with
+`SESSION_SAVE_EVERY_REQUEST`.
 
 This is a **normal web app**: there is no offline queue, service worker, PWA
 manifest or native wrapper. Failed mutations return an error and remain
@@ -88,10 +91,10 @@ options.
 | GET | `/api/teachers/approvals/` | Pending and decided teacher approvals (institution/admin scoped) |
 | POST | `/api/teachers/approvals/{id}/approve/` | Activate a teacher and optionally assign a class, subject and year |
 | POST | `/api/teachers/approvals/{id}/reject/` | Reject with a required short reason |
-| GET, POST | `/api/learners/link-requests/` | Guardian link requests (`GLR` reference prefix) |
-| POST | `/api/learners/link-requests/{id}/verify/` | Verify a link; creates or confirms the `LearnerGuardian` grant |
-| POST | `/api/learners/link-requests/{id}/reject/` | Reject a link request |
-| GET, POST | `/api/learners/guardian-links/` | Admin-managed learner↔guardian links, created from the Learners (**Link guardian**) and Guardians (**Link learner**) modals; search options show name plus unique identifier |
+| GET, POST | `/api/learners/link-requests/` | Guardian link requests (`GLR` reference prefix); filter by `guardian`, `learner` and `status` |
+| POST | `/api/learners/link-requests/{id}/verify/` | Verify a link; creates or confirms the `LearnerGuardian` grant and accepts access flags (`can_view_academics`, `can_view_attendance`, `can_view_fees`) and `is_primary` |
+| POST | `/api/learners/link-requests/{id}/reject/` | Reject a link request with a required short reason |
+| GET, POST | `/api/learners/guardian-links/` | Admin-managed learner↔guardian links, created from the Learners (**Link guardian**) and Guardians (**Link learner**) modals; search options show name plus unique identifier; duplicates and cross-school links are rejected |
 
 Teacher approval references use the `TAP` prefix. Link requests move through
 `PENDING`, `VERIFIED` and `REJECTED`; the **Guardian links** page shows all three
@@ -298,13 +301,67 @@ serving is not a deployment plan.
 | GET, POST | `/api/communications/announcements/` | Announcements |
 | POST | `/api/communications/announcements/{id}/publish/` | Publish |
 | GET | `/api/communications/notifications/` | Own notifications |
-| POST | `/api/communications/notifications/mark-all-read/` | Mark read |
+| GET | `/api/communications/notifications/unread-count/` | `{ "count": n }` for the signed-in user |
+| POST | `/api/communications/notifications/{id}/mark-read/` | Mark one notification read |
+| POST | `/api/communications/notifications/mark-all-read/` | Mark own notifications read |
+| GET, POST, PATCH | `/api/communications/preferences/` | Own `in_app`, `email`, `sms` and `types` preferences |
 | GET, POST | `/api/communications/messages/` | Direct messages |
 | GET | `/api/reports/dashboard/` | School dashboard figures (staff only) |
 | GET | `/api/reports/analytics/` | Chart-ready attendance, exam and learner status data (staff only) |
 | GET | `/api/reports/my-learners/` | Learners the caller may open (for report pickers and portal home) |
 | GET | `/api/reports/learner/{id}/` | Learner report (scoped by institution, link and guardian permissions) |
 | GET, POST | `/api/reports/snapshots/` | Saved reports |
+
+## Cross-system workflows
+
+These endpoints reuse the shared notification, audit and fee-ledger records.
+They do not introduce a second inbox, audit store or receipt model.
+
+### Early warning
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/analytics/early-warning/` | Risk alerts, exact signals, rule descriptions and summary for the caller's school |
+| POST | `/api/analytics/early-warning/refresh/` | Recalculate and create intervention tasks for medium/high learners without an open task |
+| GET | `/api/analytics/interventions/` | Intervention tasks for the caller's school |
+| POST | `/api/analytics/interventions/{id}/assign/` | Assign with `{ "user_id": n }` from the same institution |
+| POST | `/api/analytics/interventions/{id}/complete/` | Mark completed |
+| POST | `/api/analytics/interventions/{id}/dismiss/` | Dismiss without deleting evidence |
+
+Rules are additive: attendance 3, assessment 3, submission 2, progress 2 and
+fees 1 point. Levels are `HIGH` at 6+, `MEDIUM` at 3–5, `LOW` at 1–2 and `NONE`
+at zero. The report response includes a `rules` object whose descriptions are
+safe to show to staff and families.
+
+### Fee ledger and receipts
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/fees/invoices/summary/` | Invoice count and billed, recorded and outstanding totals |
+| GET | `/api/fees/reconciliation/` | `{ "exceptions": [...], "counts": {...} }` for mobile payments needing office review |
+| GET | `/api/fees/payments/{id}/receipt/` | Printable receipt data derived from the payment |
+| POST | `/api/fees/payments/{id}/reconcile/` | Confirm a transaction code and clear the exception |
+
+`POST` reconciliation accepts `{ "transaction_reference": "CODE", "notes": "..." }`.
+Mobile payments require a code; the same code cannot be used twice in one
+school. Cash, bank and other methods are considered reconciled when recorded.
+The app has no M-Pesa credentials, PINs, card fields or live gateway calls.
+
+### Data quality and audit
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/core/data-quality/?institution=<id>` | Read-only issue counts and samples |
+| POST | `/api/core/data-quality/fix/` | Preview by default; apply with `confirm: true` |
+| GET | `/api/core/audit/` | Read-only, institution-scoped history |
+
+The fix body uses `{ "issue_type": "identifier_whitespace" }` for preview and
+adds `"confirm": true` to apply. Only `identifier_whitespace` and
+`learner_admitted_date` are allowlisted. Applied fixes are transactional and
+audited; no record is deleted. `GET /api/core/audit/` accepts `action`,
+`entity_type`, `entity_id`, `user`, `search` and `ordering`. Platform
+administrators may pass `institution=<id>` to the data-quality scan; other
+administrators are silently scoped to their own school.
 
 ## School profile and logo upload
 

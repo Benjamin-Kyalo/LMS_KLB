@@ -8,12 +8,15 @@ router = DefaultRouter()
 router.register("snapshots", views.AnalyticsSnapshotViewSet, basename="analyticssnapshot")
 router.register("rules", views.RemediationRuleViewSet, basename="remediationrule")
 router.register("tasks", views.RemediationTaskViewSet, basename="remediationtask")
+router.register("interventions", views.InterventionTaskViewSet, basename="interventiontask")
 
 # Explicit routes come first so "snapshots/refresh/" is not treated as a
 # router detail lookup for a snapshot whose primary key is "refresh".
 urlpatterns = [
     path("dashboard/", views.dashboard, name="analytics-dashboard"),
     path("cohorts/", views.cohorts, name="analytics-cohorts"),
+    path("early-warning/", views.early_warning, name="analytics-early-warning"),
+    path("early-warning/refresh/", views.refresh_early_warning_endpoint, name="analytics-early-warning-refresh"),
     path("remediation/summary/", views.remediation_summary_endpoint, name="analytics-remediation-summary"),
     path("remediation/evaluate/", views.evaluate_remediation_endpoint, name="analytics-remediation-evaluate"),
     path("my-tasks/", views.my_remediation_tasks, name="analytics-my-tasks"),

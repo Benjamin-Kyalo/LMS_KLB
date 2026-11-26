@@ -40,7 +40,7 @@ export default function Resources() {
         { name: "education_level", label: "Education level", type: "select", optionsEndpoint: "/curriculum/levels/" },
         { name: "learning_area", label: "Learning area", type: "select", optionsEndpoint: "/curriculum/learning-areas/" },
         { name: "subject", label: "School subject", type: "select", optionsEndpoint: "/institutions/subjects/" },
-        { name: "school_class", label: "School class", type: "select", optionsEndpoint: "/institutions/classes/", labelKey: "name" },
+        { name: "school_class", label: "School class", type: "select", optionsEndpoint: "/institutions/classes/", labelKey: "display_name" },
         { name: "collection", label: "Collection", type: "select", optionsEndpoint: "/content/collections/" },
         { name: "keywords", label: "Keywords (JSON list)", type: "json", full: true, default: '["revision"]' },
         { name: "access_scope", label: "Access scope", type: "select", default: "PUBLIC", options: [

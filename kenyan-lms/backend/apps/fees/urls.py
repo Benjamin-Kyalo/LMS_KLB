@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 
 from apps.fees.views import (
     FeeInvoiceViewSet, FeeStructureViewSet, PaymentViewSet, my_invoices,
+    reconciliation_exceptions,
 )
 
 router = DefaultRouter()
@@ -13,5 +14,6 @@ router.register("payments", PaymentViewSet, basename="payment")
 
 urlpatterns = [
     path("my-invoices/", my_invoices, name="fee-my-invoices"),
+    path("reconciliation/", reconciliation_exceptions, name="fee-reconciliation"),
     path("", include(router.urls)),
 ]

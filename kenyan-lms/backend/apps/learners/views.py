@@ -7,7 +7,8 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.accounts.models import OnboardingProfile
+from apps.accounts.models import OnboardingProfile, User
+from apps.communications.services import notify_user, notify_users
 from apps.core.audit import log_audit
 from apps.core.constants import Capabilities, Roles
 from apps.core.permissions import capability_permission, is_institution_admin, is_platform_admin
@@ -29,7 +30,7 @@ class LearnerViewSet(
     queryset = Learner.objects.select_related("user", "institution", "class_room")
     serializer_class = LearnerSerializer
     filterset_fields = ["institution", "class_room", "status", "gender"]
-    search_fields = ["user__first_name", "user__last_name", "admission_number", "assessment_number"]
+    search_fields = ["user__first_name", "user__last_name", "user__username", "admission_number", "assessment_number"]
     # The read serializer contains PII; a guardian only gets it for a child
     # linked by a verified record that allows academic/profile access.
     guardian_permission = "can_view_academics"
@@ -75,18 +76,44 @@ class LearnerGuardianViewSet(AdminWriteMixin, InstitutionScopedQuerysetMixin, vi
 
     def get_queryset(self):
         from apps.core.permissions import is_platform_admin
-        qs = LearnerGuardian.objects.select_related("learner", "guardian__user")
+        qs = LearnerGuardian.objects.select_related("learner__user", "guardian__user")
         if is_platform_admin(self.request.user):
             return qs
         if self.request.user.institution_id:
             return qs.filter(learner__institution_id=self.request.user.institution_id)
         return qs.none()
 
+    def perform_create(self, serializer):
+        link = serializer.save()
+        notify_user(
+            link.guardian.user,
+            "A learner was linked to your account",
+            f"{link.learner.user.full_name} is now linked to your guardian portal.",
+            "GENERAL",
+            "/portal",
+        )
+        log_audit(
+            self.request.user, "link.created", "LearnerGuardian", link.pk,
+            {
+                "learner": link.learner_id,
+                "guardian": link.guardian_id,
+                "is_primary": link.is_primary,
+                "can_view_academics": link.can_view_academics,
+                "can_view_attendance": link.can_view_attendance,
+                "can_view_fees": link.can_view_fees,
+            },
+            institution=link.learner.institution_id,
+            request=self.request,
+        )
+
 
 class GuardianLinkRequestViewSet(viewsets.ModelViewSet):
     """Guardian-submitted links; only verified links grant report access."""
 
     serializer_class = GuardianLinkRequestSerializer
+    # Admins check for a pending request for a specific pair before creating a
+    # direct link, so the two link paths cannot quietly duplicate each other.
+    filterset_fields = ["status", "guardian", "learner"]
     # Requests move through create/verify/reject only. Generic PATCH/DELETE
     # would let a caller flip status without creating the verified grant.
     http_method_names = ["get", "post", "head", "options"]
@@ -168,6 +195,25 @@ class GuardianLinkRequestViewSet(viewsets.ModelViewSet):
             relationship=payload.validated_data.get("relationship", ""),
             status="PENDING",
         )
+        notify_user(
+            guardian.user,
+            "Link request submitted",
+            f"Your request to link {learner.user.full_name} is waiting for school approval.",
+            "GENERAL",
+            "/portal",
+        )
+        notify_users(
+            User.objects.filter(institution=request.user.institution, role=Roles.ADMIN),
+            "New guardian link request",
+            f"{guardian.user.full_name} asked to be linked to {learner.user.full_name}.",
+            "GENERAL",
+            "/admin/guardian-links",
+        )
+        log_audit(
+            guardian.user, "request.created", "GuardianLinkRequest", link_request.pk,
+            {"guardian": guardian.pk, "learner": learner.pk},
+            institution=request.user.institution, request=request,
+        )
         return Response(
             GuardianLinkRequestSerializer(link_request).data,
             status=status.HTTP_201_CREATED,
@@ -184,20 +230,41 @@ class GuardianLinkRequestViewSet(viewsets.ModelViewSet):
         payload.is_valid(raise_exception=True)
         data = payload.validated_data
 
+        permission_fields = ("can_view_academics", "can_view_attendance", "can_view_fees")
+        permission_updates = {
+            field: data[field] for field in permission_fields if field in data
+        }
+        defaults = {
+            "relationship": data.get("relationship") or link_request.relationship,
+            "is_verified": True,
+            "is_primary": data.get("is_primary", False),
+        }
+        defaults.update(permission_updates)
         link, _ = LearnerGuardian.objects.get_or_create(
             learner=link_request.learner,
             guardian=link_request.guardian,
-            defaults={
-                "relationship": data.get("relationship") or link_request.relationship,
-                "is_verified": True,
-                "is_primary": data.get("is_primary", False),
-            },
+            defaults=defaults,
         )
+        changed = []
         if not link.is_verified:
             # An older or manually stubbed link must not stay invisible to the
             # report scoping queries after this explicit verification.
             link.is_verified = True
-            link.save(update_fields=["is_verified"])
+            changed.append("is_verified")
+        for field, value in permission_updates.items():
+            if getattr(link, field) != value:
+                setattr(link, field, value)
+                changed.append(field)
+        if data.get("is_primary") and not link.is_primary:
+            link.is_primary = True
+            changed.append("is_primary")
+        if changed:
+            link.save(update_fields=changed)
+        if data.get("is_primary"):
+            # One primary guardian per learner, including on the request path.
+            LearnerGuardian.objects.filter(learner=link_request.learner).exclude(
+                pk=link.pk
+            ).update(is_primary=False)
         link_request.status = "VERIFIED"
         link_request.verified_link = link
         link_request.notes = data.get("notes", "")
@@ -214,8 +281,22 @@ class GuardianLinkRequestViewSet(viewsets.ModelViewSet):
 
         log_audit(
             request.user, "verify", "GuardianLinkRequest", link_request.pk,
-            {"guardian": link_request.guardian_id, "learner": link_request.learner_id},
+            {
+                "guardian": link_request.guardian_id,
+                "learner": link_request.learner_id,
+                "is_primary": link.is_primary,
+                "can_view_academics": link.can_view_academics,
+                "can_view_attendance": link.can_view_attendance,
+                "can_view_fees": link.can_view_fees,
+            },
             institution=link_request.institution, request=request,
+        )
+        notify_user(
+            link_request.guardian.user,
+            "Guardian link approved",
+            f"You can now see {link_request.learner.user.full_name} in your portal.",
+            "GENERAL",
+            "/portal",
         )
         return Response(GuardianLinkRequestSerializer(link_request).data)
 
@@ -237,8 +318,19 @@ class GuardianLinkRequestViewSet(viewsets.ModelViewSet):
 
         log_audit(
             request.user, "reject", "GuardianLinkRequest", link_request.pk,
-            {"guardian": link_request.guardian_id, "learner": link_request.learner_id},
+            {
+                "guardian": link_request.guardian_id,
+                "learner": link_request.learner_id,
+                "reason": notes,
+            },
             institution=link_request.institution, request=request,
+        )
+        notify_user(
+            link_request.guardian.user,
+            "Guardian link request not approved",
+            f"Your request for {link_request.learner.user.full_name} was not approved. Reason: {notes}",
+            "GENERAL",
+            "/portal",
         )
         return Response(GuardianLinkRequestSerializer(link_request).data)
 

@@ -192,7 +192,7 @@ def learner_lookup(request):
             "full_name": learner.user.full_name,
             "admission_number": learner.admission_number,
             "assessment_number": learner.assessment_number,
-            "class_name": getattr(learner.class_room, "name", ""),
+            "class_name": getattr(learner.class_room, "display_name", ""),
         },
     })
 

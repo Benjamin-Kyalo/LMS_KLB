@@ -351,7 +351,7 @@ def build_cohorts(institution, filters=None):
     class_labels = {
         learner.pk: (
             learner.class_room_id,
-            getattr(learner.class_room, "name", None) or "Unassigned",
+            getattr(learner.class_room, "display_name", None) or "Unassigned",
         )
         for learner in learners
     }

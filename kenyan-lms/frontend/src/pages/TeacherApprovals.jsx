@@ -137,7 +137,11 @@ export default function TeacherApprovals() {
                   <FormField label="Class (optional)">
                     <select value={form.school_class} onChange={(event) => update("school_class", event.target.value)}>
                       <option value="">— no assignment now —</option>
-                      {options.classes.map((item) => <option key={item.id} value={item.id}>{item.name} {item.stream}</option>)}
+                      {options.classes.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.display_name || [item.name, item.stream].filter(Boolean).join(" ")}
+                        </option>
+                      ))}
                     </select>
                   </FormField>
                   <FormField label="Subject (optional)">

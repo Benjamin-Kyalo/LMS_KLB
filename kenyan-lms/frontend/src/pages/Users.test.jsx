@@ -91,4 +91,69 @@ describe("Users custom role assignment", () => {
     await waitFor(() => expect(within(screen.getByLabelText("Institution")).getByRole("option", { name: "Main school" })).toBeTruthy());
     expect(within(screen.getByLabelText("Role")).getByRole("option", { name: "Platform Super Administrator" })).toBeTruthy();
   });
+
+  it("uses a security dialog before generating a temporary password", async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn(async () => {}) } });
+    mocks.post.mockResolvedValueOnce({ temporary_password: "TempPass123!" });
+    render(<Users />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset password for Amina Yusuf" }));
+    const confirmDialog = screen.getByRole("dialog");
+    expect(within(confirmDialog).getByText(/signs the person out of every device/)).toBeTruthy();
+    expect(within(confirmDialog).getByText(/Office manager/)).toBeTruthy();
+
+    fireEvent.click(within(confirmDialog).getByRole("button", { name: /Generate temporary password/ }), { detail: 0 });
+
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(
+      "/auth/users/5/reset_password/", {},
+    ));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Temporary password ready" })).toBeTruthy());
+    const resultDialog = screen.getByRole("dialog");
+    expect(within(resultDialog).getByText("TempPass123!")).toBeTruthy();
+    expect(within(resultDialog).getByText(/shown only in this window/)).toBeTruthy();
+  });
+
+  it("copies the temporary password from the result dialog", async () => {
+    const writeText = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+    mocks.post.mockResolvedValueOnce({ temporary_password: "CopyMe123!" });
+    render(<Users />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset password for Amina Yusuf" }));
+    fireEvent.click(screen.getByRole("button", { name: /Generate temporary password/ }), { detail: 0 });
+    await waitFor(() => expect(screen.getByText("CopyMe123!")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy password" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("CopyMe123!"));
+    expect(mocks.push).toHaveBeenCalledWith("Temporary password copied.", "success");
+  });
+
+  it("confirms status changes in a dialog instead of a browser prompt", async () => {
+    render(<Users />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Deactivate Amina Yusuf" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/unable to sign in until the account is reactivated/)).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /Deactivate account/ }), { detail: 0 });
+
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(
+      "/auth/users/5/set_active/", { is_active: false },
+    ));
+    expect(mocks.reload).toHaveBeenCalled();
+  });
+
+  it("uses a hold-confirmed deletion dialog", async () => {
+    render(<Users />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Amina Yusuf" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/reserved for duplicate or mistaken accounts/)).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /Delete account/ }), { detail: 0 });
+
+    await waitFor(() => expect(mocks.del).toHaveBeenCalledWith("/auth/users/5/"));
+    expect(mocks.reload).toHaveBeenCalled();
+  });
 });

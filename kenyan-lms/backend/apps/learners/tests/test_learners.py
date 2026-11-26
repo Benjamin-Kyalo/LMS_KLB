@@ -62,3 +62,33 @@ class LearnerTests(APITestCase):
         payload["username"] = "l2"
         response = self.client.post(reverse("learner-list"), payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_updates_learner_and_nested_user_fields(self):
+        self.client.force_authenticate(user=self.admin)
+        create = self.client.post(reverse("learner-list"), {
+            "username": "learner1", "first_name": "Amina", "last_name": "Otieno",
+            "admission_number": "ADM001",
+        })
+        learner_id = create.data["id"]
+        response = self.client.patch(reverse("learner-detail", args=[learner_id]), {
+            "username": "learner1", "first_name": "Amina", "last_name": "Otieno",
+            "email": "amina@example.com", "admission_number": "ADM001",
+            "class_room": None, "assessment_number": "", "gender": "F",
+            "status": "ACTIVE", "date_of_birth": "2010-01-01",
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        learner = Learner.objects.get(pk=learner_id)
+        learner.user.refresh_from_db()
+        self.assertEqual(learner.user.email, "amina@example.com")
+        self.assertEqual(learner.gender, "F")
+
+    def test_search_by_username_for_link_picker(self):
+        self.client.force_authenticate(user=self.admin)
+        self.client.post(reverse("learner-list"), {
+            "username": "amina_otieno", "first_name": "Amina", "last_name": "Otieno",
+            "admission_number": "LR_T001_001",
+        })
+        response = self.client.get(reverse("learner-list"), {"search": "amina_otieno"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(rows(response)), 1)
+        self.assertEqual(rows(response)[0]["username"], "amina_otieno")

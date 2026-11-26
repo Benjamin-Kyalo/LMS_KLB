@@ -119,10 +119,22 @@ the login page's **Forgot your password?** link and the `/reset-password` route.
 
 Links can be made from either side. **Link guardian** on Learners and
 **Link learner** on Guardians both post to `/api/learners/guardian-links/`;
-search options show a name plus the unique identifier. The **Guardian links**
-page lists requests as pending, verified or rejected, and an administrator can
-verify or reject pending links. A guardian sees linked learners only after
-verification.
+search options show a name plus the unique identifier. The Learners and
+Guardians tables show a `Linked` or `Not linked` badge; where a link already
+exists, the action becomes **Add guardian** or **Add learner**.
+
+After a person is selected, the dialog shows their identifying details and any
+other learners/guardians already linked on either side. An exact duplicate is
+blocked with a clear message. Otherwise, an administrator must tick **I have
+reviewed the existing links above and want to continue** before saving. Choose
+access to academic records, attendance and fee information; fee access is off by
+default. Only one guardian can be primary for a learner — choosing **Yes** for
+**Primary link** replaces the earlier primary link.
+
+A pending request for the exact pair can be verified or rejected inline in the
+same dialog, or from the **Guardian links** page. Rejection requires a short
+reason. Verification creates or confirms the grant, records the decision in the
+audit log, and only then does the guardian see the learner in the portal.
 
 ## Bulk learner import
 
@@ -148,7 +160,62 @@ Public-site wording, photos and theme palettes remain editable from
 `/admin/appearance`; the retired public-site `content` / “Content managers”
 cards stay retired and cannot be restored from cached overrides.
 
+## Cross-system tools
+
+The **Insights & quality** sidebar group holds four staff tools. Notification
+inbox links appear in **Overview** for staff and in the learner/guardian portal
+navigation.
+
+### Notification centre
+
+`/admin/notifications` and `/portal/notifications` show only the signed-in
+user's alerts. Unread counts, **Mark read** and **Mark all as read** are the only
+writes; users cannot invent, edit or delete notifications. The preferences
+panel saves `in_app`, `email`, `sms` and an optional list of allowed types. An
+empty type list means every event is allowed. Notifications are emitted by
+server workflows such as guardian links, fee payments and early-warning
+refreshes.
+
+### Early warning
+
+`/admin/early-warning` recalculates transparent, additive rules over existing
+records. Attendance over 20% absent in 30 days scores 3, a result below 50%
+scores 3, one overdue assignment scores 2, low lesson completion scores 2 and an
+invoice more than 7 days overdue scores 1. Scores of 6+, 3–5 and 1–2 are high,
+medium and low. Open **Evidence** to see the exact threshold, each signal's
+points and the suggested action. **Recalculate warnings** creates one
+intervention task per medium/high learner who does not already have an open
+task; staff can assign it to themselves, complete it or dismiss it. Dismissing
+never deletes the evidence.
+
+### Fee ledger and receipts
+
+The school office uses `/admin/fees/ledger`. It reads the same invoices and
+payments as the existing fee pages, shows totals and reconciliation exceptions,
+and opens a printable receipt derived from a recorded payment. Receipt numbers
+are the payment `reference`; no separate receipt table was added. Mobile-money
+payments recorded without a transaction code stay in an exception state until
+an office user checks the message and enters the code in **Reconcile**. A code
+can only be used once per school. This application never stores M-Pesa
+credentials, PINs or card data and does not call a payment gateway.
+
+### Data quality
+
+`/admin/data-quality` runs read-only scans for duplicate or missing
+identifiers, learner accounts without learner records, stale guardian requests,
+learners without a primary guardian, overdue invoices and mobile payments
+without a transaction code. Only two fixes are offered: trimming identifier
+whitespace and filling a missing admission date from the record's creation
+date. **Preview fix** always runs first and shows each before/after value. The
+fix is applied only after an explicit hold/Enter confirmation, in one
+transaction, with an audit entry per change. Nothing is deleted.
+
 ## Audit trail
 
-Important actions are recorded in `core_auditlog` (user, action, entity,
-IP, timestamp). Never delete audit rows.
+`/admin/audit` shows a read-only, institution-scoped history. Each row names
+the actor, action, record, time and changed fields; opening a row shows the
+field-level before/after values. Platform administrators may review all
+schools; other users see only their own school. Passwords and other sensitive
+fields are never captured. Important actions are recorded in `core_auditlog`
+(user, action, entity, IP, timestamp). Never delete audit rows or add a client
+write path to this API.

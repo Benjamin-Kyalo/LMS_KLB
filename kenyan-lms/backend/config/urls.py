@@ -9,6 +9,7 @@ from apps.core import views as core_views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", core_views.health_check, name="health-check"),
+    path("api/core/", include("apps.core.urls")),
     path("api/auth/", include("apps.accounts.urls")),
     path("api/institutions/", include("apps.institutions.urls")),
     path("api/learners/", include("apps.learners.urls")),

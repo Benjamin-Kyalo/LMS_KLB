@@ -1,6 +1,10 @@
 """Tests for login, registration and permission rules."""
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -21,6 +25,20 @@ class AuthenticationTests(APITestCase):
         self.assertIn("csrfToken", response.data)
         self.assertEqual(response.data["user"]["role"], Roles.ADMIN)
         self.assertEqual(self.client.get(reverse("me")).status_code, status.HTTP_200_OK)
+
+    def test_login_session_uses_the_configured_one_hour_window(self):
+        User.objects.create_user(username="sessionuser", password="StrongPass123!", role=Roles.ADMIN)
+        response = self.client.post(
+            reverse("login"), {"username": "sessionuser", "password": "StrongPass123!"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        now = timezone.now()
+        expiry = self.client.session.get_expiry_date()
+        self.assertGreater(expiry, now + timedelta(seconds=settings.SESSION_COOKIE_AGE - 60))
+        self.assertLess(expiry, now + timedelta(seconds=settings.SESSION_COOKIE_AGE + 60))
+        self.assertFalse(settings.SESSION_EXPIRE_AT_BROWSER_CLOSE)
+        self.assertTrue(settings.SESSION_SAVE_EVERY_REQUEST)
 
     def test_login_rejects_bad_password(self):
         User.objects.create_user(username="admin", password="StrongPass123!")

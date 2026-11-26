@@ -2,7 +2,7 @@
 from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
-from apps.analytics.models import AnalyticsSnapshot, RemediationRule, RemediationTask
+from apps.analytics.models import AnalyticsSnapshot, InterventionTask, RemediationRule, RemediationTask
 
 
 class AnalyticsSnapshotSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
@@ -32,3 +32,20 @@ class RemediationTaskSerializer(InstitutionCodeMixin, serializers.ModelSerialize
         model = RemediationTask
         fields = "__all__"
         read_only_fields = ["institution", "reference", "resolved_at"]
+
+
+class InterventionTaskSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
+    learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
+    admission_number = serializers.CharField(source="learner.admission_number", read_only=True)
+    class_name = serializers.CharField(source="learner.class_room.display_name", read_only=True, allow_null=True)
+    assigned_to_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InterventionTask
+        fields = "__all__"
+        read_only_fields = [
+            "institution", "reference", "resolved_at", "risk_level", "risk_score", "signals"
+        ]
+
+    def get_assigned_to_name(self, obj):
+        return obj.assigned_to.full_name if obj.assigned_to_id else ""

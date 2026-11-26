@@ -7,6 +7,7 @@ from itertools import islice
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from apps.core.audit import record_change, snapshot
 from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
@@ -42,10 +43,11 @@ def _csv_limit(names, default):
 class LearnerSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     learner_name = serializers.CharField(source="user.full_name", read_only=True)
     admission_number_value = serializers.CharField(source="admission_number", read_only=True)
-    class_name = serializers.CharField(source="class_room.name", read_only=True)
+    class_name = serializers.CharField(source="class_room.display_name", read_only=True)
     institution_name = serializers.CharField(source="institution.name", read_only=True)
     institution_code = serializers.CharField(source="institution.code", read_only=True)
     guardian_names = serializers.SerializerMethodField()
+    guardian_ids = serializers.SerializerMethodField()
     username = serializers.CharField(source="user.username")
     first_name = serializers.CharField(source="user.first_name")
     last_name = serializers.CharField(source="user.last_name")
@@ -54,14 +56,28 @@ class LearnerSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     def get_guardian_names(self, obj):
         return [link.guardian.user.full_name for link in obj.guardian_links.select_related("guardian__user").all()]
 
+    def get_guardian_ids(self, obj):
+        return [link.guardian_id for link in obj.guardian_links.all()]
+
     @transaction.atomic
     def update(self, instance, validated_data):
+        request = self.context.get("request")
         user = instance.user
-        for field in ("username", "first_name", "last_name", "email"):
-            if field in validated_data:
-                setattr(user, field, validated_data.pop(field))
-        user.save()
-        return super().update(instance, validated_data)
+        identity_fields = ("username", "first_name", "last_name", "email")
+        before = snapshot(instance, {field: getattr(user, field) for field in identity_fields})
+        user_data = validated_data.pop("user", {})
+        for field in identity_fields:
+            if field in user_data:
+                setattr(user, field, user_data[field])
+        if user_data:
+            user.save()
+        updated = super().update(instance, validated_data)
+        after = snapshot(instance, {field: getattr(user, field) for field in identity_fields})
+        record_change(
+            getattr(request, "user", None), instance, before, after,
+            action="learner.updated", request=request,
+        )
+        return updated
 
     class Meta:
         model = Learner
@@ -188,6 +204,46 @@ class LearnerGuardianSerializer(InstitutionCodeMixin, serializers.ModelSerialize
     class Meta:
         model = LearnerGuardian
         fields = "__all__"
+        # Our validate() supplies a clearer duplicate message than DRF's
+        # generated UniqueTogetherValidator, and also checks school matching.
+        validators = []
+
+    def validate(self, attrs):
+        """Stop duplicate or cross-school links before they reach the database."""
+        learner = attrs.get("learner") or (self.instance.learner if self.instance else None)
+        guardian = attrs.get("guardian") or (self.instance.guardian if self.instance else None)
+        if learner and guardian:
+            duplicate = LearnerGuardian.objects.filter(learner=learner, guardian=guardian)
+            if self.instance:
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                raise serializers.ValidationError(
+                    "This guardian is already linked to this learner. No change was made."
+                )
+            if guardian.institution_id != learner.institution_id:
+                raise serializers.ValidationError(
+                    "The guardian and learner must belong to the same school."
+                )
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        link = super().create(validated_data)
+        self._enforce_single_primary(link)
+        return link
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        link = super().update(instance, validated_data)
+        self._enforce_single_primary(link)
+        return link
+
+    @staticmethod
+    def _enforce_single_primary(link):
+        if link.is_primary:
+            LearnerGuardian.objects.filter(learner=link.learner).exclude(pk=link.pk).update(
+                is_primary=False
+            )
 
 
 class TransferRecordSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
@@ -226,3 +282,8 @@ class GuardianLinkDecisionSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True)
     relationship = serializers.CharField(max_length=50, required=False, allow_blank=True)
     is_primary = serializers.BooleanField(required=False, default=False)
+    # Omitted flags keep an existing link's current permissions; new links take
+    # the model defaults (academics and attendance on, fees off).
+    can_view_academics = serializers.BooleanField(required=False)
+    can_view_attendance = serializers.BooleanField(required=False)
+    can_view_fees = serializers.BooleanField(required=False)
