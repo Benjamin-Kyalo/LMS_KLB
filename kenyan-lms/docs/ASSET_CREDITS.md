@@ -46,9 +46,38 @@ metadata was checked against the [Open Textbook Library](https://open.umn.edu/op
 API, and resource records point to public pages from OpenStax, Open Book
 Publishers, Portland Community College, the Kenya Institute of Curriculum
 Development and the Kenya Education Cloud. The resource pages are links only;
-their text, logos and images are not republished here. Licence terms should be
-rechecked before any text or media is copied into the platform, especially for
-OpenStax titles released or updated after its 2026 licensing change.
+their text, logos and images are not republished here.
+
+### OpenStax licensing (rechecked 26 November 2026)
+
+OpenStax changed its default licence in April 2026: newly released and updated
+titles are generally **CC BY-NC-SA 4.0 International**, with limited exceptions.
+Check the licence on each individual book page before copying anything. Key
+points from the [OpenStax licence page](https://openstax.org/license/) and
+[licensing announcement](https://openstax.org/blog/openstax-licensing):
+
+- Attribution: reproduce the book's own **Citation/Attribution** block, which
+  includes the "Access for free at …" link. Credit OpenStax, the title and the
+  free version on every page or digital equivalent where content is reused.
+- OpenStax-owned images, activities and assessments carry the same CC BY-NC-SA
+  terms; third-party media may have its own caption credits, which must be kept.
+  Uncredited OpenStax art uses "Copyright Rice University, OpenStax, under CC
+  BY-NC-SA 4.0 license."
+- Noncommercial reuse, adaptation, remixing and translation are allowed if
+  derivatives use the same licence. Commercial redistribution and AI/LLM
+  training require permission through the
+  [OpenStax reuse request form](https://riceuniversity.tfaforms.net/52).
+- OpenStax logos, covers and the Rice/OpenStax names are excluded and need
+  written consent. No Kenya-specific exception was found; 4.0 International
+  applies.
+
+Further references: [OpenStax FAQ](https://openstax.org/faq),
+[Terms of Use](https://openstax.org/tos),
+[Licensing information help article](https://help.openstax.org/s/article/Licensing-information-of-OpenStax-textbooks),
+[Commercial use guidance](https://help.openstax.org/s/article/Commercial-use-under-the-Creative-Commons-License),
+and the [licence deed](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+Nothing has been copied into the platform yet, so no new attribution notices are
+required at this time.
 
 ## Illustration
 

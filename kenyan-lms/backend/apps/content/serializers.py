@@ -10,6 +10,7 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.content.models import (
@@ -169,14 +170,14 @@ def _validate_image_upload(value):
     return value
 
 
-class PublisherSerializer(serializers.ModelSerializer):
+class PublisherSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Publisher
         fields = ["id", "name", "code", "website", "created_at", "updated_at"]
         read_only_fields = ["created_at", "updated_at"]
 
 
-class ResourceCollectionSerializer(serializers.ModelSerializer):
+class ResourceCollectionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     resource_count = serializers.IntegerField(source="resources.count", read_only=True)
 
     class Meta:
@@ -185,7 +186,7 @@ class ResourceCollectionSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at"]
 
 
-class EmbedProviderSerializer(serializers.ModelSerializer):
+class EmbedProviderSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = EmbedProvider
         fields = ["id", "name", "host", "kind", "is_active", "created_at", "updated_at"]
@@ -204,7 +205,7 @@ class EmbedProviderSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class ChapterSerializer(serializers.ModelSerializer):
+class ChapterSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Chapter
         fields = [
@@ -214,7 +215,7 @@ class ChapterSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at"]
 
 
-class ContentResourceSerializer(serializers.ModelSerializer):
+class ContentResourceSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     """Curator-facing resource form. Never use this for public/portal reads."""
 
     file_url = serializers.SerializerMethodField()
@@ -413,7 +414,7 @@ class ContentResourcePortalSerializer(_SafeResourceFieldsMixin, serializers.Mode
         read_only_fields = fields
 
 
-class ExerciseSerializer(serializers.ModelSerializer):
+class ExerciseSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     attempt_count = serializers.IntegerField(source="attempts.count", read_only=True)
 
     class Meta:
@@ -425,7 +426,7 @@ class ExerciseSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at"]
 
 
-class DigitalTextbookSerializer(serializers.ModelSerializer):
+class DigitalTextbookSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     publisher_name = serializers.CharField(source="publisher.name", read_only=True)
     chapter_count = serializers.IntegerField(source="chapters.count", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True)
@@ -441,7 +442,7 @@ class DigitalTextbookSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at"]
 
 
-class PublicTextbookSerializer(serializers.ModelSerializer):
+class PublicTextbookSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     """Anonymous catalogue preview. Full book access stays licence controlled."""
 
     publisher_name = serializers.CharField(source="publisher.name", read_only=True)
@@ -509,7 +510,7 @@ class CurrentLearnerDefault:
         return getattr(user, "learner_profile", None)
 
 
-class ExerciseAttemptSerializer(serializers.ModelSerializer):
+class ExerciseAttemptSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
     exercise_title = serializers.CharField(source="exercise.title", read_only=True)
 
@@ -551,7 +552,7 @@ class ExerciseAttemptSerializer(serializers.ModelSerializer):
         return value
 
 
-class ContentAccessSerializer(serializers.ModelSerializer):
+class ContentAccessSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     textbook_title = serializers.CharField(source="textbook.title", read_only=True)
     institution_name = serializers.CharField(source="institution.name", read_only=True)
 

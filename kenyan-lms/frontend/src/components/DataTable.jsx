@@ -9,7 +9,7 @@ export default function DataTable({ columns, rows, loading, error, emptyTitle = 
     <div className="panel" style={{ overflowX: "auto" }}>
       <table className="data">
         <thead>
-          <tr>{columns.map((c) => <th key={c.key}>{c.label}</th>)}</tr>
+          <tr>{columns.map((c) => <th key={c.key} scope="col">{c.label}</th>)}</tr>
         </thead>
         <tbody>
           {rows.map((row, index) => (

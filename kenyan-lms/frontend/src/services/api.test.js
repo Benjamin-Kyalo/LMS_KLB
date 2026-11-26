@@ -99,7 +99,7 @@ describe("API error messages", () => {
     await expect(api.post("/theming/site-content/image/", {}))
       .rejects.toMatchObject({
         status: 400,
-        message: "Use a photo at least 640×360 pixels.",
+        message: "image: Use a photo at least 640×360 pixels.",
       });
   });
 });

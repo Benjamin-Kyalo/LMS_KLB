@@ -2,6 +2,7 @@
 import secrets
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import authenticate, password_validation
 from django.db import IntegrityError, transaction
 from django.contrib.auth.tokens import default_token_generator
@@ -9,6 +10,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 import re
@@ -68,7 +70,7 @@ def _validate_role_assignment(actor, role, institution_id, custom_role):
         raise serializers.ValidationError({"role": "You are not allowed to assign this role."})
 
 
-class OnboardingProfileSerializer(serializers.ModelSerializer):
+class OnboardingProfileSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     role = serializers.CharField(source="user.role", read_only=True)
     is_complete = serializers.BooleanField(read_only=True)
     steps = serializers.SerializerMethodField()
@@ -87,6 +89,7 @@ class OnboardingProfileSerializer(serializers.ModelSerializer):
     def get_steps(self, obj):
         return obj.steps()
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         # The owner may only confirm their own details; workflow flags remain
         # server-controlled.
@@ -99,7 +102,7 @@ class OnboardingProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     institution_name = serializers.CharField(source="institution.name", read_only=True)
     institution_code = serializers.CharField(source="institution.code", read_only=True)
     institution_logo = serializers.SerializerMethodField()
@@ -107,12 +110,14 @@ class UserSerializer(serializers.ModelSerializer):
     relationship_to_learner = serializers.SerializerMethodField()
     custom_role_name = serializers.SerializerMethodField()
     capabilities = serializers.SerializerMethodField()
+    admission_number = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             "id", "username", "email", "first_name", "last_name", "full_name",
             "role", "custom_role", "custom_role_name", "capabilities",
+            "admission_number",
             "institution", "institution_name", "institution_code",
             "institution_logo", "phone", "preferred_language", "is_active",
             "must_change_password", "onboarding", "relationship_to_learner",
@@ -146,6 +151,10 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_capabilities(self, obj):
         return obj.capabilities
+
+    def get_admission_number(self, obj):
+        learner = getattr(obj, "learner_profile", None)
+        return getattr(learner, "admission_number", "") or ""
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -195,7 +204,7 @@ class UserSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class UserProfileUpdateSerializer(serializers.ModelSerializer):
+class UserProfileUpdateSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     """Explicit allowlist for a user editing their own profile."""
 
     class Meta:
@@ -208,7 +217,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         }
 
 
-class UserCreateSerializer(serializers.ModelSerializer):
+class UserCreateSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     # Optional: when omitted the account gets an unusable password and the
     # administrator can issue a reset link. No password is ever generated here.
     username = serializers.CharField(required=False, allow_blank=True, max_length=150)
@@ -265,6 +274,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         _validate_role_assignment(actor, role, institution_id, custom_role)
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         if not (validated_data.get("username") or "").strip():
             validated_data["username"] = _generate_username(
@@ -342,6 +352,7 @@ class PasswordChangeSerializer(serializers.Serializer):
             raise serializers.ValidationError({"old_password": "Incorrect password."})
         return attrs
 
+    @transaction.atomic
     def save(self):
         request = self.context["request"]
         user = request.user
@@ -358,13 +369,20 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     def save(self):
         email = self.validated_data["email"]
         users = User.objects.filter(email__iexact=email, is_active=True)
+        configured_base = (getattr(settings, "FRONTEND_BASE_URL", "") or "").rstrip("/")
+        request = self.context.get("request")
+        base = configured_base
+        if not base and request is not None:
+            base = request.build_absolute_uri("/").rstrip("/")
         for user in users:
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
+            path = f"/reset-password/{uid}/{token}/"
+            link = f"{base}{path}" if base else path
             user.email_user(
                 subject="Reset your KLB LMS password",
                 message=f"Use this link to reset your password:\n\n"
-                        f"/reset-password/{uid}/{token}/\n\n"
+                        f"{link}\n\n"
                         f"If you did not request this, ignore this message.",
             )
         return users.count()
@@ -568,7 +586,7 @@ class PublicRegistrationSerializer(serializers.Serializer):
         return user
 
 
-class AdminInvitationSerializer(serializers.ModelSerializer):
+class AdminInvitationSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = AdminInvitation
         fields = [
@@ -715,7 +733,7 @@ class AdminInvitationAcceptSerializer(serializers.Serializer):
         return user
 
 
-class CustomRoleSerializer(serializers.ModelSerializer):
+class CustomRoleSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     """Create and edit reusable permission sets."""
 
     capabilities = serializers.SerializerMethodField()

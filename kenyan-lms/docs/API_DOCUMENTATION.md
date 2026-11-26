@@ -2,6 +2,10 @@
 
 Base URL: `http://127.0.0.1:8000/api`
 
+The frontend calls `/api` through the Vite dev proxy
+(`frontend/vite.config.js`) and uses `VITE_API_BASE_URL` with `/api` as the
+default. The backend allows credentialed CORS from its configured origins.
+
 **Authentication is Django session-cookie based.** The browser receives an
 HttpOnly session cookie; the CSRF cookie is readable and the frontend echoes it
 as the `X-CSRFToken` header on state-changing requests. Identity and roles are
@@ -39,7 +43,12 @@ old root URLs redirect by role. Examples:
 For create requests, omit business reference fields such as
 `admission_number`, `staff_number`, `code` and `isbn` to have the server
 generate them. Official supplied values are preserved and checked for
-duplicates. See `REFERENCE_NUMBERING.md`.
+duplicates. Visible identifiers are `TR_SCHOOL_YYYY/MM_NNN` (teachers),
+`LR_SCHOOL_YYYY/MM_NNN` (learners), `GD_SCHOOL_YYYY/MM_NNN` (guardians) and
+`INST_YYYY_NNN` (institutions); database primary and foreign keys stay numeric.
+Blank usernames are generated from a sanitized `first_last` and made unique.
+The identifiers appear in the Users, Learners, Teachers and Guardians tables.
+See `REFERENCE_NUMBERING.md`.
 
 ## Public / health
 
@@ -67,7 +76,9 @@ administrator role is rejected by the serializer, not just hidden in the UI.
 A successful response is HTTP 201 with `{"detail", "user"}`. The frontend then
 signs in the new learner or guardian; teacher accounts wait for approval. No
 administrator role can be requested through this endpoint, and no bearer token
-is issued.
+is issued. A signed-in user cannot open another registration: `/register` shows
+an **Already signed in** state with **Sign out** and **Go to workspace**
+options.
 
 ### Identity onboarding and verification
 
@@ -80,8 +91,11 @@ is issued.
 | GET, POST | `/api/learners/link-requests/` | Guardian link requests (`GLR` reference prefix) |
 | POST | `/api/learners/link-requests/{id}/verify/` | Verify a link; creates or confirms the `LearnerGuardian` grant |
 | POST | `/api/learners/link-requests/{id}/reject/` | Reject a link request |
+| GET, POST | `/api/learners/guardian-links/` | Admin-managed learner↔guardian links, created from the Learners (**Link guardian**) and Guardians (**Link learner**) modals; search options show name plus unique identifier |
 
-Teacher approval references use the `TAP` prefix. An institution `ADMIN` may
+Teacher approval references use the `TAP` prefix. Link requests move through
+`PENDING`, `VERIFIED` and `REJECTED`; the **Guardian links** page shows all three
+states and lets staff decide pending requests. An institution `ADMIN` may
 decide approvals or link requests; custom roles may do so only when the relevant
 people capability is picked and enforced by the backend. All decisions are audit
 logged. These mutations require a live connection: there is no offline queue or
@@ -128,6 +142,7 @@ The custom-role capability allowlist is:
 | GET, POST | `/api/auth/roles/` | List / create custom roles (custom-role CRUD) |
 | GET, PATCH, DELETE | `/api/auth/roles/{id}/` | Read / update / delete a custom role |
 | POST | `/api/auth/users/{id}/set_active/` | Activate / deactivate |
+| POST | `/api/auth/users/{id}/reset_password/` | Admin-initiated password reset (needs `users.manage`; not for your own account) |
 | GET, POST | `/api/auth/admin-invitations/` | List / issue administrator invitations (`SUPER_ADMIN` or `ADMIN`) |
 | GET, PATCH, DELETE | `/api/auth/admin-invitations/{id}/` | Inspect, update or revoke an invitation. DELETE sets `revoked=true` |
 | POST | `/api/auth/admin-invitations/accept/` | Public redemption of a valid invitation token; creates the session and returns the user |
@@ -143,6 +158,13 @@ User responses echo `role`, `custom_role`, `custom_role_name` and the effective
 used to grant `SUPER_ADMIN`, and a role without `admin.access` does not enter
 the admin portal. Custom-role CRUD is guarded by the `roles.manage` capability
 and by the same institution scoping as other admin data.
+
+`reset_password` generates a valid temporary password, returns it once in the
+response, sets `must_change_password`, invalidates the user's existing sessions
+and writes a `password_reset` audit entry. The login response carries
+`must_change_password`, and the frontend sends the user to the profile page to
+choose a new password. Users who forget a password can use the login page's
+**Forgot your password?** link and the `/reset-password` route.
 
 Administrator invitations are the only way to create an administrator through
 the application. The issuing admin supplies `email`, `role` and, for institution
@@ -181,6 +203,7 @@ active sessions and legacy tokens. See `SECURITY_AUDIT.md`.
 | GET, POST | `/api/learners/` | Learners |
 | POST | `/api/learners/bulk-import/` | CSV import |
 | GET | `/api/learners/{id}/guardians/` | Linked guardians |
+| GET, POST | `/api/learners/guardian-links/` | Admin-managed guardian links (scoped through the learner); managed from both Learners and Guardians |
 | GET, POST | `/api/teachers/` | Teachers |
 | GET, POST | `/api/guardians/` | Guardians |
 | GET, POST | `/api/attendance/` | Attendance records |
@@ -363,13 +386,17 @@ wording and section styles from the single `/admin/appearance` page.
 tab. There is no
 offline content cache: if the API is unreachable, the page shows an error or the
 built-in defaults, and a failed save remains unsaved. See
-`docs/PUBLIC_SITE_CONTENT.md`.
+`docs/PUBLIC_SITE_CONTENT.md`. The retired public-site `content` / “Content
+managers” cards stay retired; a cached override cannot bring them back. Only
+the learner, guardian and teacher role cards are supported.
 
 ## Response conventions
 
 - List endpoints are paginated: `{"count", "next", "previous", "results"}`.
   Use `listAll()` in the frontend to flatten them.
-- Validation errors return HTTP 400 with field-name keys.
+- Validation errors return HTTP 400 with a professional field-prefixed message
+  such as `email: This field may not be blank.`; the frontend shows the message
+  and never renders raw JSON.
 - Cross-institution detail requests return 404, not 403.
 - Content, assessment, course, learner, fee and attendance reads are scoped
   server-side; ordinary users receive reduced field sets.

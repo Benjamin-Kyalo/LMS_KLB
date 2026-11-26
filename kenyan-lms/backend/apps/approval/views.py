@@ -113,12 +113,13 @@ class ApprovalRequestViewSet(StaffWriteMixin, InstitutionScopedQuerysetMixin, vi
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        textbook = approval_request.textbook
-        if textbook is not None:
-            textbook.status = ContentStatus.PUBLISHED
-            textbook.save(update_fields=["status", "updated_at"])
-        approval_request.status = "PUBLISHED"
-        approval_request.save(update_fields=["status", "updated_at"])
+        with transaction.atomic():
+            textbook = approval_request.textbook
+            if textbook is not None:
+                textbook.status = ContentStatus.PUBLISHED
+                textbook.save(update_fields=["status", "updated_at"])
+            approval_request.status = "PUBLISHED"
+            approval_request.save(update_fields=["status", "updated_at"])
         return Response(self.get_serializer(approval_request).data)
 
     @action(detail=False, methods=["get"])

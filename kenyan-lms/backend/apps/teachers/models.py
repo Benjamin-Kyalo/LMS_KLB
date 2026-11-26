@@ -13,7 +13,9 @@ class Teacher(AutoReferenceModelMixin, InstitutionScopedModel):
     )
     phone = models.CharField(max_length=20, blank=True)
     subjects = models.ManyToManyField("institutions.Subject", blank=True, related_name="teachers")
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    is_archived = models.BooleanField(default=False, db_index=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["user__first_name", "user__last_name"]

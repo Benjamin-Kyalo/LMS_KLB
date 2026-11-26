@@ -1,10 +1,11 @@
 """Fee serializers."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.fees.models import FeeInvoice, FeeStructure, Payment
 
 
-class FeeStructureSerializer(serializers.ModelSerializer):
+class FeeStructureSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     term_name = serializers.CharField(source="term.name", read_only=True)
     school_class_name = serializers.CharField(source="school_class.name", read_only=True, allow_null=True)
 
@@ -14,7 +15,7 @@ class FeeStructureSerializer(serializers.ModelSerializer):
         read_only_fields = ["reference", "institution"]
 
 
-class FeeInvoiceSerializer(serializers.ModelSerializer):
+class FeeInvoiceSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     learner_name = serializers.CharField(source="learner.full_name", read_only=True)
     admission_number = serializers.CharField(source="learner.admission_number", read_only=True)
     balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -26,7 +27,7 @@ class FeeInvoiceSerializer(serializers.ModelSerializer):
         read_only_fields = ["reference", "institution", "amount_paid", "status"]
 
 
-class PaymentSerializer(serializers.ModelSerializer):
+class PaymentSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     invoice_reference = serializers.CharField(source="invoice.reference", read_only=True)
 
     class Meta:

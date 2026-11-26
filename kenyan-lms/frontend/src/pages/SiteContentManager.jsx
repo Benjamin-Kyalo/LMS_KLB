@@ -65,13 +65,16 @@ async function validatePhoto(file) {
   }
 }
 
-function Label({ field }) {
-  return (
-    <label htmlFor={`site-${field.path.replaceAll(".", "-")}`}>
+function Label({ field, group }) {
+  const content = (
+    <>
       {field.label}
       {field.hint && <span className="site-content-hint">{field.hint}</span>}
-    </label>
+    </>
   );
+  // Object lists have no single control for the group label to point at.
+  if (group) return <div className="muted">{content}</div>;
+  return <label htmlFor={`site-${field.path.replaceAll(".", "-")}`}>{content}</label>;
 }
 
 function ObjectListField({ field, value, onChange }) {
@@ -95,7 +98,7 @@ function ObjectListField({ field, value, onChange }) {
 
   return (
     <div>
-      <Label field={field} />
+      <Label field={field} group />
       {rows.map((row, index) => (
         <div className="site-content-row" key={`${field.path}-${index}`}>
           <div className="site-content-row-head">
@@ -225,6 +228,7 @@ function PhotoCard({ field, value, onUpload, onRemove, onReset, busySlot, upload
             Remove
           </HoldToConfirmButton>
         </div>
+        {uploaded && <p role="status" className="muted" style={{ margin: "0.35rem 0 0" }}>Photo published.</p>}
         {fileError && (
           <small id={`${id}-file-error`} className="site-content-error" role="alert">
             {fileError} Choose another file to continue.

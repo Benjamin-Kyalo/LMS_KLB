@@ -65,7 +65,20 @@ function firstMessage(value) {
 }
 
 function apiMessage(data, fallback) {
-  return firstMessage(data) || fallback;
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return firstMessage(data) || fallback;
+  }
+  for (const key of ["detail", "non_field_errors"]) {
+    if (data[key]) {
+      const found = firstMessage(data[key]);
+      if (found) return found;
+    }
+  }
+  for (const [key, value] of Object.entries(data)) {
+    const found = firstMessage(value);
+    if (found) return `${key.replace(/_/g, " ")}: ${found}`;
+  }
+  return fallback;
 }
 
 // Low-level send. Throws ApiError for HTTP failures and TypeError for network

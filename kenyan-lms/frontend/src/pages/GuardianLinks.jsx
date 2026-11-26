@@ -39,7 +39,7 @@ export default function GuardianLinks() {
       setDecision(null);
       reload();
     } catch (err) {
-      setFormError(err.details ? JSON.stringify(err.details) : err.message);
+      setFormError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -65,8 +65,9 @@ export default function GuardianLinks() {
       <DataTable
         columns={[
           { key: "guardian_name", label: "Guardian" },
+          { key: "guardian_number", label: "Guardian no.", render: (r) => <span className="mono">{r.guardian_number || "—"}</span> },
           { key: "learner_name", label: "Learner" },
-          { key: "admission_number", label: "Admission no." },
+          { key: "admission_number", label: "Admission no.", render: (r) => <span className="mono">{r.admission_number || "—"}</span> },
           { key: "relationship", label: "Relationship" },
           { key: "status", label: "Status", render: (r) => <span className={`tag ${r.status === "VERIFIED" ? "good" : r.status === "REJECTED" ? "bad" : ""}`}>{r.status}</span> },
           { key: "created_at", label: "Requested", render: (r) => (r.created_at || "").slice(0, 10) },

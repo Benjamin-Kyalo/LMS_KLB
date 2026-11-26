@@ -52,6 +52,35 @@ $bin="C:\Program Files\PostgreSQL\18\bin"
 - `backend/media/` (uploaded files)
 - The repository itself (GitHub Desktop handles this)
 
+## Current state and pending work
+
+An existing database dump is kept at
+`C:\Users\Admin IT\AppData\Local\Temp\opencode\lms-backup.dump`.
+
+A least-privilege PostgreSQL role named `lms_app` has been created, but the
+application still connects with the owner-managed credentials in `.env`.
+Switching the app over to `lms_app` is **pending**, not done.
+
+Cleanup completed just now, with backups: two unreferenced 800×450 placeholder
+PNGs were moved to
+`C:\Users\Admin IT\AppData\Local\Temp\opencode\orphan-media-backup`; user
+`klb_user` (id 112), its onboarding profile and verified guardian link #33 were
+removed after approval, and a JSON snapshot (password hash omitted) was saved
+to `C:\Users\Admin IT\AppData\Local\Temp\opencode\deleted-records-backup.json`.
+Five teachers with no approval record are pre-existing demo records awaiting
+onboarding and were intentionally left alone.
+
+`scripts/verify_backup.ps1 -Input <dump>` performs a restore test by loading the
+dump into a unique throwaway database, running `manage.py check`, reading record
+counts and dropping the temporary database. It is available now but must be
+scheduled to make the restore test automated. `scripts/reporting_views.sql` and
+the dry-run-by-default `archive_old_records` management command are also ready;
+see `docs/DATA_LIFECYCLE.md`.
+
+Still **pending** (not done): scheduling the restore test, executing an actual
+archive/partition of old academic years, applying and refreshing the reporting
+views in production, and the least-privilege `lms_app` switchover above.
+
 ## Verification after restore
 
 ```powershell

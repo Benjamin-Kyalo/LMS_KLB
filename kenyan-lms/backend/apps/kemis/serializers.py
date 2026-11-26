@@ -2,13 +2,14 @@
 
 Local export staging only. Column names are a local approximation and must be checked against the current official KEMIS template before any submission. This app never transmits data to KEMIS and stores no credentials.
 """
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.institutions.models import Institution
 from apps.kemis.models import DATASET_CHOICES, FORMAT_CHOICES, KemisExport, KemisFieldMapping
 
 
-class KemisExportSerializer(serializers.ModelSerializer):
+class KemisExportSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     """Export representation; the large payload is served by ``download``."""
 
     generated_by_name = serializers.CharField(
@@ -46,7 +47,7 @@ class KemisGenerateSerializer(serializers.Serializer):
     )
 
 
-class KemisFieldMappingSerializer(serializers.ModelSerializer):
+class KemisFieldMappingSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = KemisFieldMapping
         fields = "__all__"

@@ -34,7 +34,7 @@ export default function PasswordReset() {
       setMessage("If the account exists, a reset message has been sent.");
       push("Reset request submitted.", "success");
     } catch (err) {
-      setError(err.details ? JSON.stringify(err.details) : err.message);
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -57,7 +57,7 @@ export default function PasswordReset() {
       push("Password reset. You may now sign in.", "success");
       navigate("/login");
     } catch (err) {
-      setError(err.details ? JSON.stringify(err.details) : err.message);
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }

@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.utils import timezone
 
 from apps.academics.models import SchoolEvent
@@ -34,6 +35,7 @@ DEMO_CODE = "DEMO01"
 class Command(BaseCommand):
     help = "Create demo institution, users and learning data (adds only)."
 
+    @transaction.atomic
     def handle(self, *args, **options):
         if Institution.objects.filter(code=DEMO_CODE).exists():
             self.stdout.write("Demo data already present. Nothing changed.")

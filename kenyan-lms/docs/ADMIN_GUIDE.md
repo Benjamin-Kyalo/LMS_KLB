@@ -10,8 +10,9 @@ sync/conflict UI, service worker, PWA manifest and native wrapper were removed.
 Failed saves show an error and remain unsaved; uploads require a live
 connection. Authentication uses HttpOnly session cookies with `X-CSRFToken`,
 and identity/roles are re-read from `/api/auth/me/`. Content, assessment,
-course, learner, fee and attendance reads are scoped server-side; see
-`SECURITY_AUDIT.md`.
+course, learner, fee and attendance reads are scoped server-side. The frontend
+uses `/api` through the Vite proxy and the backend allows credentialed CORS from
+configured origins. See `SECURITY_AUDIT.md`.
 
 ## Roles and what they can do
 
@@ -37,6 +38,15 @@ printing passwords. `SUPER_ADMIN` is unchanged. Custom roles pick from
 Learners and guardians only see the portal side; `LEARNER` records are their
 own, and `GUARDIAN` records are limited to linked learners. They may read the
 school identity but may not edit the school profile.
+
+People see `TR_SCHOOL_YYYY/MM_NNN` (teacher), `LR_SCHOOL_YYYY/MM_NNN` (learner)
+and `GD_SCHOOL_YYYY/MM_NNN` (guardian) identifiers; institutions use
+`INST_YYYY_NNN`. These are display references, while database primary and
+foreign keys stay numeric. Usernames are sanitized `first_last` values made
+unique with a suffix. The identifiers appear in the Users, Learners, Teachers
+and Guardians tables. See `REFERENCE_NUMBERING.md`. A signed-in user cannot
+create another account: `/register` offers **Sign out** and **Go to workspace**
+instead of a form.
 
 ## Where permissions are configured
 
@@ -86,15 +96,33 @@ it was applied after the backup at `backups/lms_20261123_134452.sql`.
 ## Creating staff and learners
 
 Use **Teachers**, **Guardians** and **Learners** pages. Each create form also
-creates the login account, but no password is generated or displayed. The
-account is created with an unusable password; use the password-reset flow so
-the account owner chooses their own credentials. A local administrator can
+creates the login account, but no password is generated or displayed at that
+point. The account is created with an unusable password; use the password-reset
+flow so the account owner chooses their own credentials. A local administrator can
 also set a password at the keyboard with
 `.\.venv\Scripts\python.exe manage.py changepassword <username>` (run from `backend/`).
 
 Admission numbers are generated automatically when the field is left blank.
 Official numbers may be supplied manually; duplicates within an institution
-return a clear validation message.
+return a clear validation message. Errors are shown as professional,
+field-prefixed messages such as `email: This field may not be blank.`, never raw
+JSON.
+
+An administrator can reset a user from **Users** with
+`POST /api/auth/users/{id}/reset_password/`. It generates one temporary
+password, requires a change at the next sign-in, invalidates the user's old
+sessions and writes an audit entry. Share the temporary password securely; do
+not store it in a document or chat. Users can recover their own account from
+the login page's **Forgot your password?** link and the `/reset-password` route.
+
+## Guardian links
+
+Links can be made from either side. **Link guardian** on Learners and
+**Link learner** on Guardians both post to `/api/learners/guardian-links/`;
+search options show a name plus the unique identifier. The **Guardian links**
+page lists requests as pending, verified or rejected, and an administrator can
+verify or reject pending links. A guardian sees linked learners only after
+verification.
 
 ## Bulk learner import
 
@@ -115,6 +143,10 @@ with status `PUBLISHED` and an active grant appear in
 `GET /api/content/available/`. Staff with `content.manage` (an `ADMIN` or a
 custom role with that capability) publish via
 `POST /api/content/textbooks/{id}/publish/`.
+
+Public-site wording, photos and theme palettes remain editable from
+`/admin/appearance`; the retired public-site `content` / “Content managers”
+cards stay retired and cannot be restored from cached overrides.
 
 ## Audit trail
 

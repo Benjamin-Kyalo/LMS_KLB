@@ -21,6 +21,7 @@ from apps.teachers.serializers import (
 
 class TeacherViewSet(AdminWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
     capability = Capabilities.TEACHERS_MANAGE
+    queryset = Teacher.objects.select_related("user", "institution")
     search_fields = ["user__first_name", "user__last_name", "staff_number"]
     filterset_fields = ["is_active", "employment_type", "institution"]
 

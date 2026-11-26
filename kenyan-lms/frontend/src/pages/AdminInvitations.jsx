@@ -70,7 +70,7 @@ export default function AdminInvitations() {
       push("Invitation created. Copy the token now.", "success");
       reload();
     } catch (err) {
-      setFormError(err.details ? JSON.stringify(err.details) : err.message);
+      setFormError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }

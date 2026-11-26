@@ -8,7 +8,9 @@ retained as history; where they name retired roles, this section supersedes them
 service worker, PWA manifest and native wrapper are removed. Failed mutations
 show an error and remain unsaved, and uploads require a live connection.
 Authentication uses Django session cookies; identity/roles are re-read from
-`/api/auth/me/`. See `README.md` and `SECURITY_AUDIT.md`.
+`/api/auth/me/`. The frontend calls `/api` through the Vite proxy and the
+backend allows credentialed CORS from configured origins. See `README.md` and
+`SECURITY_AUDIT.md`.
 
 ## Role taxonomy
 
@@ -31,6 +33,14 @@ those values are migrated to `ADMIN`; `SUPER_ADMIN` accounts are unchanged. The
 migration changes only the role value — passwords are never changed, generated,
 printed or included in documentation. Check the institution on migrated
 accounts: a user with no institution sees no institution data by design.
+
+**Visible identifiers.** Teachers, learners and guardians carry
+`TR_SCHOOL_YYYY/MM_NNN`, `LR_SCHOOL_YYYY/MM_NNN` and `GD_SCHOOL_YYYY/MM_NNN`
+identifiers; institutions use `INST_YYYY_NNN`. These are display strings, not
+database keys: primary and foreign keys stay numeric. Usernames are sanitized
+`first_last` values made unique with a suffix when needed. The identifiers are
+shown in the Users, Learners, Teachers and Guardians tables. See
+`REFERENCE_NUMBERING.md`.
 
 **Historical decision — 24 November 2026 (superseded):** one primary
 `SUPER_ADMIN` had complete control and delegated platform/school administrators
@@ -110,6 +120,10 @@ needs a separate requirement.
 3. Chooses **Register** and identifies as Student, Teacher or Guardian.
 4. After registration, is routed to the correct onboarding state.
 
+A user who is already signed in cannot create another account: `/register`
+shows an **Already signed in** state with **Sign out** and **Go to workspace**
+options. Sign out first to register someone else.
+
 ### 2. Learner
 
 **Fields:** full name, date of birth or level, school/class where known, contact
@@ -139,7 +153,11 @@ assignments due, messages, profile.
 identifier or linking request.
 
 **Flow:** self-register → learner link proposed → admin/verification confirms
-link → guardian signs in → `/portal` guardian dashboard.
+link → guardian signs in → `/portal` guardian dashboard. Staff can also link
+from either side: **Link guardian** on Learners and **Link learner** on
+Guardians both use `POST /api/learners/guardian-links/`; search options show a
+name plus the unique identifier. The **Guardian links** page tracks pending,
+verified and rejected requests.
 
 **First dashboard:** linked learners, recent progress, upcoming work, school
 announcements, messages.
@@ -159,14 +177,22 @@ create global institutions. Custom roles are created and edited through
 
 No public route offers administrator registration. Account creation and role
 migration never generate, print or store a plain-text password for someone else.
+From **Users**, an administrator can reset an account with
+`POST /api/auth/users/{id}/reset_password/`: one temporary password is returned,
+a change is required at the next sign-in, old sessions are invalidated and the
+action is audit logged. Users can recover their own account from the login
+page's **Forgot your password?** link and the `/reset-password` route.
 
 ## Daily journeys
 
 ### Administrator
 
 - Review pending teacher approvals and guardian links.
-- Manage users, custom roles, classes, subjects and academic years.
-- Add/edit resources and public content.
+- Manage users, custom roles, classes, subjects and academic years; reset a
+  user's password when needed.
+- Add/edit resources and public content. The public-site wording, photos and
+  palette controls remain editable, while the retired `content` / “Content
+  managers” cards stay retired.
 - Publish announcements; review messages and reports.
 - Change branding or active palette.
 - Review audit log and system health (there is no queue/sync health view).
@@ -213,6 +239,8 @@ migration never generate, print or store a plain-text password for someone else.
 - No pending approvals for admin.
 - No search matches in catalogue or managed lists.
 - Permission denied with a plain-language explanation and a safe route home.
+- Validation errors shown as field-prefixed messages such as
+  `email: This field may not be blank.`, never raw JSON.
 
 Each state must offer a next action where one exists, and must never expose
 another user's data.

@@ -5,7 +5,7 @@ No payment credentials or card data are stored here.
 """
 from decimal import Decimal
 
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Sum
 
 from apps.core.models import AutoReferenceModelMixin, InstitutionScopedModel
@@ -95,10 +95,12 @@ class Payment(AutoReferenceModelMixin, InstitutionScopedModel):
     class Meta:
         ordering = ["-paid_at"]
 
+    @transaction.atomic
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         self._refresh_invoice()
 
+    @transaction.atomic
     def delete(self, *args, **kwargs):
         invoice = self.invoice
         result = super().delete(*args, **kwargs)

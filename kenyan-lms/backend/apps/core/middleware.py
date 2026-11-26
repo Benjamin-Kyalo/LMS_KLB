@@ -7,6 +7,24 @@ makes sure authenticated API responses are never stored by shared caches.
 from django.conf import settings
 
 
+class TrustedProxyHeaderMiddleware:
+    """Ignore forwarded HTTPS headers from peers that are not known proxies."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        trusted = set(getattr(settings, "TRUSTED_PROXY_IPS", []) or [])
+        if trusted and request.META.get("REMOTE_ADDR") not in trusted:
+            for header in (
+                "HTTP_X_FORWARDED_PROTO",
+                "HTTP_X_FORWARDED_HOST",
+                "HTTP_X_FORWARDED_PORT",
+            ):
+                request.META.pop(header, None)
+        return self.get_response(request)
+
+
 class SecurityHeadersMiddleware:
     """Apply configured response headers and a strict no-store API policy."""
 

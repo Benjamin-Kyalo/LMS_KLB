@@ -85,7 +85,7 @@ export default function ResourceCatalogue({
         </button>
       </div>
 
-      {facets.error && <div className="notice warn">Filters are unavailable right now: {facets.error}</div>}
+      {facets.error && <div className="notice warn" role="alert">Filters are unavailable right now: {facets.error}</div>}
       <ResourceFilters
         facets={facets.data || {}}
         filters={visibleFilters}
@@ -96,10 +96,10 @@ export default function ResourceCatalogue({
         onSort={catalogue.setSort}
       />
 
-      {catalogue.error && <div className="notice error">{catalogue.error}</div>}
+      {catalogue.error && <div className="notice error" role="alert">{catalogue.error}</div>}
 
       {catalogue.loading ? (
-        <div className="panel panel-pad">Loading resources…</div>
+        <div className="panel panel-pad" role="status">Loading resources…</div>
       ) : catalogue.results.length === 0 ? (
         <div className="panel panel-pad">
           <h2>No matching resources</h2>

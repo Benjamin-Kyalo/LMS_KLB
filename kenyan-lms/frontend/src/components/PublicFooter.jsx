@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useSiteContent } from "../context/SiteContentContext";
 import { useSectionStyle } from "../styles/sectionStyles";
 
@@ -12,6 +13,7 @@ export default function PublicFooter() {
   const { content } = useSiteContent();
   const footer = content.footer;
   const sectionStyle = useSectionStyle("footer");
+  const newTabHintId = useId();
 
   return (
     <footer className="public-footer section-styled" style={sectionStyle}>
@@ -24,10 +26,12 @@ export default function PublicFooter() {
         <a
           href={safeHref(footer.credit.linkHref)}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
+          aria-describedby={newTabHintId}
         >
           {footer.credit.linkLabel}
         </a>
+        <span id={newTabHintId} className="sr-only">Opens in a new tab</span>
         {footer.credit.suffix}
       </span>
     </footer>

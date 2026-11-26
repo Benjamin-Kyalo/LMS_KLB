@@ -62,7 +62,7 @@ export default function TeacherApprovals() {
       setDecision(null);
       reload();
     } catch (err) {
-      setFormError(err.details ? JSON.stringify(err.details) : err.message);
+      setFormError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }

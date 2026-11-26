@@ -55,6 +55,15 @@ export default function DashboardLayout() {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen]);
+
   const admin = isAdmin(user);
   const superAdmin = isSuperAdmin(user);
   const customAdmin = isCustomRole(user) && canUseAdmin(user);
@@ -192,7 +201,7 @@ export default function DashboardLayout() {
   return (
     <div className="app-shell">
       {menuOpen && <button type="button" className="sidebar-backdrop" onClick={closeMenu} aria-label="Close navigation" />}
-      <aside className={`app-sidebar${menuOpen ? " is-open" : ""}`}>
+      <aside id="admin-sidebar" className={`app-sidebar${menuOpen ? " is-open" : ""}`}>
         <div className="admin-brand" style={{ padding: "0 0.9rem 1rem" }}>
           <img
             src={user?.institution_logo || "/mark.svg"}
@@ -234,6 +243,7 @@ export default function DashboardLayout() {
                   type="button"
                   className="admin-nav-group-button"
                   aria-expanded={open}
+                  aria-controls={`admin-nav-${group.id}`}
                   onClick={() => toggleGroup(group.id)}
                 >
                   <Icon size={17} strokeWidth={1.8} aria-hidden="true" />
@@ -246,7 +256,7 @@ export default function DashboardLayout() {
                   />
                 </button>
                 {open && (
-                  <div className="admin-nav-items">
+                  <div id={`admin-nav-${group.id}`} className="admin-nav-items">
                     {group.items.map((item) => (
                       <NavItem
                         key={`${group.id}-${item.to}`}
@@ -266,15 +276,27 @@ export default function DashboardLayout() {
           )}
         </nav>
         <div className="admin-sidebar-footer">
-          <a className="sidebar-live-link" href="/" target="_blank" rel="noopener noreferrer">
+          <a
+            className="sidebar-live-link"
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-describedby="live-link-new-tab"
+          >
             View live site
           </a>
+          <span id="live-link-new-tab" className="sr-only">Opens in a new tab</span>
         </div>
       </aside>
 
       <div className="app-content">
         <header className="admin-topbar">
-          <button className="secondary mobile-nav-toggle" onClick={() => setMenuOpen(!menuOpen)}>
+          <button
+            className="secondary mobile-nav-toggle"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-expanded={menuOpen}
+            aria-controls="admin-sidebar"
+          >
             {menuOpen ? "Hide menu" : "Show menu"}
           </button>
           <nav className="admin-breadcrumb" aria-label="Breadcrumb">
@@ -285,8 +307,7 @@ export default function DashboardLayout() {
           </nav>
           <div className="admin-account">
             <div>
-              <strong>{user?.full_name || user?.username}</strong>
-              <span className="tag">{roleLabel(user)}</span>
+              <strong>{roleLabel(user)}</strong>
             </div>
             <button className="ghost small" onClick={handleLogout}>
               <LogOut size={14} strokeWidth={1.8} aria-hidden="true" /> Sign out

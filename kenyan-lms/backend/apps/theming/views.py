@@ -60,9 +60,12 @@ def active_theme(request):
     return Response(ThemePaletteSerializer(palette).data)
 
 
-def _site_content_object():
-    record, _ = SiteContent.objects.get_or_create(key=PUBLIC_SITE_KEY)
-    return record
+def _site_content_object(create=True):
+    """Read the editable content row without inserting one on public reads."""
+    if create:
+        record, _ = SiteContent.objects.get_or_create(key=PUBLIC_SITE_KEY)
+        return record
+    return SiteContent.objects.filter(key=PUBLIC_SITE_KEY).first()
 
 
 class SiteContentView(APIView):
@@ -76,9 +79,10 @@ class SiteContentView(APIView):
         return [IsAuthenticated(), IsInstitutionAdmin()]
 
     def get(self, request):
-        record = _site_content_object()
-        return Response(public_site_content(record.content))
+        record = _site_content_object(create=False)
+        return Response(public_site_content(record.content if record else None))
 
+    @transaction.atomic
     def patch(self, request):
         record = _site_content_object()
         payload = request.data.get("content", request.data)
@@ -89,17 +93,19 @@ class SiteContentView(APIView):
             record, data={"content": merged}, partial=True,
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save(updated_by=request.user)
-        sections = sorted(payload.keys()) if isinstance(payload, dict) else []
-        AuditLog.objects.create(
-            institution=request.user.institution if request.user.institution_id else None,
-            user=request.user,
-            action="site_content.updated",
-            entity_type="SiteContent",
-            entity_id=str(record.pk),
-            details={"sections": sections},
-            ip_address=request.META.get("REMOTE_ADDR") or None,
-        )
+        with transaction.atomic():
+            serializer.save(updated_by=request.user)
+            sections = sorted(payload.keys()) if isinstance(payload, dict) else []
+            AuditLog.objects.create(
+                institution=request.user.institution if request.user.institution_id else None,
+                user=request.user,
+                action="site_content.updated",
+                entity_type="SiteContent",
+                entity_id=str(record.pk),
+                details={"sections": sections},
+                ip_address=request.META.get("REMOTE_ADDR") or None,
+            )
+        record.refresh_from_db()
         return Response(public_site_content(record.content))
 
 
@@ -150,12 +156,43 @@ def _default_content_path(parts):
     return current if isinstance(current, str) else ""
 
 
+def _managed_image_path(value):
+    """Return the storage path for a managed upload, or None for shipped art."""
+    if not isinstance(value, str):
+        return None
+    marker = "/site-content/"
+    if marker not in value:
+        return None
+    return "site-content/" + value.split(marker, 1)[1].split("?", 1)[0]
+
+
+def _discard_managed_image(value):
+    path = _managed_image_path(value)
+    if path and default_storage.exists(path):
+        default_storage.delete(path)
+
+
+def _current_content_path(content, parts):
+    current = content
+    for part in parts:
+        if isinstance(part, int):
+            if not isinstance(current, list) or len(current) <= part:
+                return ""
+            current = current[part]
+        elif isinstance(current, dict):
+            current = current.get(part, {})
+        else:
+            return ""
+    return current if isinstance(current, str) else ""
+
+
 def _write_content_path(request, slot, value, audit_action):
     """Remove or reset one photo slot without touching any other content."""
     parts = SITE_IMAGE_SLOTS[slot]
     with transaction.atomic():
         record = _site_content_object()
         content = deepcopy(record.content)
+        previous = _current_content_path(content, parts)
         _set_content_path(content, parts, value)
         normalised = normalise_site_content(content)
         locked = SiteContent.objects.select_for_update().get(pk=record.pk)
@@ -171,6 +208,9 @@ def _write_content_path(request, slot, value, audit_action):
             details={"slot": slot},
             ip_address=request.META.get("REMOTE_ADDR") or None,
         )
+    # Only remove the superseded upload after the content change has committed.
+    if previous != value:
+        _discard_managed_image(previous)
     return Response(
         {"slot": slot, "imageSrc": value, "content": public_site_content(normalised)}
     )
@@ -195,6 +235,7 @@ class SiteImageUploadBase(APIView):
                 path = default_storage.save(stored_name, upload)
                 record = _site_content_object()
                 content = deepcopy(record.content)
+                previous = _current_content_path(content, SITE_IMAGE_SLOTS[slot])
                 image_src = default_storage.url(path)
                 _set_content_path(content, SITE_IMAGE_SLOTS[slot], image_src)
                 normalised = normalise_site_content(content)
@@ -216,6 +257,8 @@ class SiteImageUploadBase(APIView):
             if path and default_storage.exists(path):
                 default_storage.delete(path)
             raise
+        if previous != image_src:
+            _discard_managed_image(previous)
         return Response(
             {
                 "slot": slot,
@@ -278,12 +321,14 @@ class ThemePaletteViewSet(viewsets.ModelViewSet):
     ordering = ["name", "id"]
 
     def perform_create(self, serializer):
-        palette = serializer.save(created_by=self.request.user)
-        _audit(self.request, "theme.palette.created", palette, {"name": palette.name})
+        with transaction.atomic():
+            palette = serializer.save(created_by=self.request.user)
+            _audit(self.request, "theme.palette.created", palette, {"name": palette.name})
 
     def perform_update(self, serializer):
-        palette = serializer.save()
-        _audit(self.request, "theme.palette.updated", palette, {"name": palette.name})
+        with transaction.atomic():
+            palette = serializer.save()
+            _audit(self.request, "theme.palette.updated", palette, {"name": palette.name})
 
     def destroy(self, request, *args, **kwargs):
         palette = self.get_object()
@@ -291,8 +336,9 @@ class ThemePaletteViewSet(viewsets.ModelViewSet):
             raise ValidationError({"detail": "Built-in palettes cannot be deleted."})
         if palette.is_active:
             raise ValidationError({"detail": "Activate another palette before deleting this one."})
-        _audit(request, "theme.palette.deleted", palette, {"name": palette.name})
-        return super().destroy(request, *args, **kwargs)
+        with transaction.atomic():
+            _audit(request, "theme.palette.deleted", palette, {"name": palette.name})
+            return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"], url_path="activate")
     def activate(self, request, pk=None):
@@ -307,5 +353,5 @@ class ThemePaletteViewSet(viewsets.ModelViewSet):
                 locked.is_active = True
                 locked.save(update_fields=["is_active", "updated_at"])
             palette.refresh_from_db()
-        _audit(request, "theme.palette.activated", palette, {"name": palette.name})
+            _audit(request, "theme.palette.activated", palette, {"name": palette.name})
         return Response(ThemePaletteSerializer(palette).data)

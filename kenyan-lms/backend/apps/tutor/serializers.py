@@ -1,4 +1,5 @@
 """Curriculum-grounded learning assistant. By default it is fully local and deterministic; an optional HTTP provider can be configured with environment variables, but no credentials are bundled and no external service is contacted unless explicitly configured."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.tutor.models import TutorConversation, TutorMessage
@@ -6,7 +7,7 @@ from apps.tutor.scoping import validate_learner_choice
 from apps.tutor.service import MAX_QUESTION_LENGTH, clean_question, format_source
 
 
-class TutorConversationSerializer(serializers.ModelSerializer):
+class TutorConversationSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     """Conversations expose generated references and ids, never personal data."""
 
     class Meta:
@@ -39,7 +40,7 @@ class TutorConversationSerializer(serializers.ModelSerializer):
         return value
 
 
-class TutorMessageSerializer(serializers.ModelSerializer):
+class TutorMessageSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     """History records with human-readable, label-only source descriptions."""
 
     answer = serializers.CharField(source="body", read_only=True)

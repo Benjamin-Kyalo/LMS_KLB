@@ -1,10 +1,11 @@
 """Attendance serializers."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.attendance.models import AttendanceRecord
 
 
-class AttendanceRecordSerializer(serializers.ModelSerializer):
+class AttendanceRecordSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
     admission_number = serializers.CharField(source="learner.admission_number", read_only=True)
 

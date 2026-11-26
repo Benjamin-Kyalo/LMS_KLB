@@ -96,7 +96,7 @@ export default function ResourceDetail({ resource, onClose }) {
           </div>
         )}
 
-        {error && <div className="notice error">{error}</div>}
+        {error && <div className="notice error" role="alert">{error}</div>}
 
         <div className="form-actions">
           {downloadUrl && (

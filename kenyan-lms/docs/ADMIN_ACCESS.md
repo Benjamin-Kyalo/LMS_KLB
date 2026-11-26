@@ -11,7 +11,8 @@ Sign-in uses an HttpOnly Django session cookie with a readable CSRF cookie
 echoed as `X-CSRFToken`. Identity and roles are re-read from
 `/api/auth/me/`; no `klb_token` or `klb_user` lives in `localStorage`.
 Password changes/resets invalidate active sessions, and reset links expire
-after one hour. See `SECURITY_AUDIT.md`.
+after one hour. The frontend calls `/api` through the Vite proxy; the backend
+allows credentialed CORS from its configured origins. See `SECURITY_AUDIT.md`.
 
 ## 1. Sign in and you land on the right side
 
@@ -78,6 +79,14 @@ If password reset email is configured, users can also use
 `POST /api/auth/password/reset/`. In local development the reset link is
 printed to the console. See `docs/COMMANDS.md` for the full command list.
 
+An administrator can reset another user's account from **Users** with
+`POST /api/auth/users/{id}/reset_password/`. The server generates a temporary
+password, requires a change at the next sign-in, invalidates the user's old
+sessions and writes an audit entry. The temporary password is returned once in
+the response: hand it to the account owner securely and never keep it in a
+document or chat. The login page has a **Forgot your password?** link, and the
+frontend serves `/reset-password` for the email link flow.
+
 ### Invitation-only administrator signup
 
 Public `/register` offers only `LEARNER`, `GUARDIAN` and `TEACHER`. An
@@ -97,7 +106,9 @@ channels. An `ADMIN` cannot invite into another institution or grant
 `SUPER_ADMIN`; only `SUPER_ADMIN` can grant any role.
 
 Teacher self-registration creates an inactive account that an institution
-`ADMIN` must approve before sign-in.
+`ADMIN` must approve before sign-in. A signed-in user cannot create another
+account: `/register` shows an **Already signed in** state with **Sign out** and
+**Go to workspace** options instead of the form.
 
 ## 4. Roles and what each one can do
 
@@ -133,6 +144,22 @@ capabilities. Custom-role CRUD uses `/api/auth/roles/`, and
 `/api/auth/users/roles/` returns the built-ins plus custom options. User
 payloads use `{ "role": "CUSTOM", "custom_role": <id> }`; responses include
 `custom_role`, `custom_role_name` and `capabilities`.
+
+### Visible identifiers and guardian links
+
+The identifiers shown to people are `TR_SCHOOL_YYYY/MM_NNN` (teachers),
+`LR_SCHOOL_YYYY/MM_NNN` (learners) and `GD_SCHOOL_YYYY/MM_NNN` (guardians);
+institutions use `INST_YYYY_NNN`. These are display references — database
+primary keys and foreign keys stay numeric. Usernames are generated from a
+sanitized `first_last` and made unique with a suffix when needed. The
+identifiers appear in the Users, Learners, Teachers and Guardians tables. See
+`REFERENCE_NUMBERING.md`.
+
+Links are managed from both sides: **Link guardian** on Learners and
+**Link learner** on Guardians both post to `/api/learners/guardian-links/`, and
+search options show the person's name plus their unique identifier. The
+**Guardian links** page lists pending, verified and rejected requests for an
+administrator to decide.
 
 ## 5. Where permissions are configured
 
@@ -231,10 +258,13 @@ Try these in order:
 ## 9. Safety rules
 
 - Never put a real password in source code, a document, a screenshot or a chat.
-- Do not generate or display passwords for other users; admin-created accounts
-  use unusable passwords and the reset flow. The retired-role migration changes
-  only role values: no password is changed, generated, printed or stored in a
-  document or chat.
+- Do not hand-pick passwords for other users. Admin-created accounts start with
+  an unusable password; `reset_password` returns one temporary password that
+  must be shared securely and never stored in a document or chat. The
+  retired-role migration changes only role values: no password is changed,
+  generated, printed or stored in a document or chat.
+- Errors are professional, field-prefixed messages such as
+  `email: This field may not be blank.`; raw JSON is never shown to a user.
 - Keep `.env` local and Git-ignored; `.env.example` is the safe template.
   Local secrets are owner-managed and none is in source control.
 - `backups/` is Git-ignored: dumps contain password hashes and PII. Take a

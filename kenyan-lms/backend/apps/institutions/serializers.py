@@ -1,4 +1,5 @@
 """Serializers for institution structure."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.institutions.models import (
@@ -6,14 +7,14 @@ from apps.institutions.models import (
 )
 
 
-class InstitutionTypeSerializer(serializers.ModelSerializer):
+class InstitutionTypeSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = InstitutionType
         fields = "__all__"
         extra_kwargs = {"code": {"required": False, "allow_blank": True}}
 
 
-class InstitutionSerializer(serializers.ModelSerializer):
+class InstitutionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     institution_type_name = serializers.CharField(source="institution_type.name", read_only=True)
     user_count = serializers.IntegerField(source="users.count", read_only=True)
 
@@ -54,14 +55,14 @@ class InstitutionProfileSerializer(InstitutionSerializer):
         extra_kwargs = {}
 
 
-class DepartmentSerializer(serializers.ModelSerializer):
+class DepartmentSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Department
         fields = "__all__"
         extra_kwargs = {"code": {"required": False, "allow_blank": True}}
 
 
-class PublicInstitutionSerializer(serializers.ModelSerializer):
+class PublicInstitutionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     institution_type_name = serializers.CharField(source="institution_type.name", read_only=True)
 
     class Meta:
@@ -70,13 +71,13 @@ class PublicInstitutionSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class AcademicYearSerializer(serializers.ModelSerializer):
+class AcademicYearSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = AcademicYear
         fields = "__all__"
 
 
-class TermSerializer(serializers.ModelSerializer):
+class TermSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
 
     class Meta:
@@ -84,7 +85,7 @@ class TermSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class SchoolClassSerializer(serializers.ModelSerializer):
+class SchoolClassSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class_name = serializers.CharField(source="name", read_only=True)
     academic_year_name = serializers.CharField(source="academic_year.name", read_only=True)
     class_teacher_name = serializers.SerializerMethodField()
@@ -98,7 +99,7 @@ class SchoolClassSerializer(serializers.ModelSerializer):
         return assignment.teacher.user.full_name if assignment else None
 
 
-class SubjectSerializer(serializers.ModelSerializer):
+class SubjectSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Subject
         fields = "__all__"

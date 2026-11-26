@@ -142,14 +142,39 @@ by the migration. The capability rules are recorded in the next section.
 
 | Item | Verified in code/local checks | Still required at deployment |
 | --- | --- | --- |
-| TLS and proxy headers | `SECURE_PROXY_SSL_HEADER`, HTTPS redirect/HSTS, and trusted-proxy-only `X-Forwarded-For` are implemented and covered by tests | Configure a TLS-terminating proxy that sets `X-Forwarded-Proto: https` and list its address in `TRUSTED_PROXY_IPS`; replay headers against the deployed app |
-| Throttle cache | Settings and scoped throttles are implemented; local Django cache works | Configure one shared cache for multi-worker deployments and confirm lockout/throttles across workers |
-| Database role | Migrations apply cleanly and application queries are scoped in code | Use a least-privilege PostgreSQL role; rotate credentials if the local password was reused off this machine |
-| SMTP | Production `MAILERS` fails closed without `SMTP_HOST`; placeholder `check --deploy` passed | Configure real SMTP values and send a password-reset email end to end |
-| Media | Upload magic-byte sniffing, size bounds, and application scoping are covered by tests | Configure web-server media content types and confirm private media cannot bypass application/institution checks |
+| TLS and proxy headers | `SECURE_PROXY_SSL_HEADER`, HTTPS redirect/HSTS, trusted-proxy-only `X-Forwarded-For`, and `TrustedProxyHeaderMiddleware` (which strips forwarded HTTPS headers from untrusted peers) are implemented and tested; production refuses an empty `TRUSTED_PROXY_IPS` | Configure a TLS-terminating proxy that sets `X-Forwarded-Proto: https`, list its direct peer in `TRUSTED_PROXY_IPS`, and prevent direct access with a forged header |
+| Throttle cache | Scoped DRF throttles and `CACHE_URL` (shared Redis) are implemented; login lockout counters are database-backed and shared; without `CACHE_URL` Django uses a per-process cache | Set `CACHE_URL` to one shared backend, install the Redis client, and confirm both DRF throttles and lockout across workers |
+| Database role | `scripts/create_app_db_role.sql` defines `lms_app` with DML/sequence grants; migrations apply cleanly and application queries are scoped in code. The app still uses owner-managed `DB_USER`/`DB_PASSWORD` | Switch the deployed app to the approved least-privilege role, keep migrations under owner credentials, review/revoke excess grants, and rotate only with owner approval |
+| SMTP | Production `MAILERS` fails closed without `SMTP_HOST`; placeholder `check --deploy` passed | Configure real server-side SMTP values and send an admin password-reset email end to end, verifying the deployed link target |
+| Media | Upload magic-byte sniffing, size bounds, and application scoping are covered by tests; Django serves `/media/` only in `DEBUG` | Configure web-server/proxy media content types and confirm private media cannot bypass application/institution checks |
+| CSP host/source list | Production default policy plus `CONTENT_SECURITY_POLICY` override exist; `.env.example` carries a shorter policy without the default embed allowlist | Set the policy for the deployed domain, including `connect-src` for any split API origin, `img-src` for any media CDN, and `frame-src` if embeds are used |
+| Secrets handling | `django-environ` reads `.env`; `.gitignore` excludes `.env`/`.env.*` except `.env.example`; Vite exposes only `VITE_*`, used for `VITE_API_BASE_URL` | Inject all secrets server-side only; never print, paste or commit `.env` values, and never prefix a secret with `VITE_` |
+| CORS credentials / `/api` proxy | `CORS_ALLOW_CREDENTIALS=True`; production requires explicit `CORS_ALLOWED_ORIGINS`; Vite dev proxy maps `/api` and `/media`; frontend sends `credentials: "include"` | Provide production `/api` and `/media` routes, use exact HTTPS origins (no wildcard with credentials), keep `SameSite` compatibility, and rebuild when `VITE_API_BASE_URL` changes |
+| Static files and production build | `STATIC_ROOT` and `npm run build` exist; current `dist` has no PWA artifacts; collectstatic was absent from the deployment flow | Run `collectstatic` with production settings, serve `/static/` from the web server, serve `frontend/dist` with SPA fallback, and verify no stale `/sw.js` is served without the kill-switch |
 | Production deploy check | Placeholder `check --deploy` passed with no issues | Repeat with final hosts, origins and secret values |
-| Old service worker | Rebuilt `dist` contains no `sw.js`, manifest, workbox, or precache files | Deploy the one-release `/sw.js` unregister/self-delete kill-switch (or clear site data) for previously installed clients |
+| Old service worker | `frontend/public/sw.js` ships a one-release self-unregistering kill-switch; current `dist` has no manifest, workbox or precache files | Serve `/sw.js` with `Cache-Control: no-cache` for one release, confirm old workers unregister, then remove the file |
 | Accessibility | Lighthouse accessibility `1.00`, accessibility-tree snapshots, visible `<h1>`, and forced reduced-motion browser checks passed | Complete an assistive-technology review with real screen reader/keyboard users |
+
+### Deployment gate re-check (2026-11-26, read-only)
+
+A source/configuration-only re-check confirmed the following. **All ten
+deployment concerns are PENDING**; none has been verified against a live
+deployment, and no code was changed by this re-check. `.env` was inspected by
+key name only — no values were read, printed or copied. The actionable checklist
+is in `PRODUCTION_CONFIGURATION.md`, section 5.
+
+| Concern | Repository state | Deployment status |
+| --- | --- | --- |
+| TLS termination + proxy headers | `TRUSTED_PROXY_IPS` gates `X-Forwarded-For` and forwarded HTTPS headers; production fails closed without it | PENDING |
+| Shared throttle cache | Scoped DRF throttles and `CACHE_URL` Redis configuration present; login lockout is DB-backed | PENDING |
+| Least-privilege DB role | `lms_app` SQL script exists; app still uses owner-managed `DB_USER`/`DB_PASSWORD` | PENDING |
+| SMTP + admin reset email | SMTP env keys and forced production mailer exist; local environment has no `SMTP_*` keys; no end-to-end delivery evidence | PENDING |
+| `/media/` serving | `MEDIA_URL`/`MEDIA_ROOT` set; Django route only under `DEBUG` | PENDING |
+| CSP host/source list | Override and default policy exist; not tailored to a deployed domain | PENDING |
+| Old `/sw.js` | `frontend/public/sw.js` kill-switch exists; still needs deployment and removal after one release | PENDING |
+| Secrets server-side | `.env` ignored, env-based settings, browser sees only `VITE_*` values | PENDING for production injection; standing rule not to print/commit values |
+| CORS credentials + `/api` proxy | Credentials enabled, explicit production origins required, dev proxy only | PENDING |
+| `collectstatic` + production build | `STATIC_ROOT` and build script exist; collectstatic was absent from the deployment flow | PENDING |
 
 ## Closeout verification table
 

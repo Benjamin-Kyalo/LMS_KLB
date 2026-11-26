@@ -37,7 +37,7 @@ export default function ApprovalRequests() {
       reload();
       summary.reload();
     } catch (err) {
-      push(err.details ? JSON.stringify(err.details) : err.message, "error");
+      push(err.message || "Something went wrong. Please try again.", "error");
     } finally {
       setBusy(false);
     }

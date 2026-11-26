@@ -1,4 +1,5 @@
 """Course serializers."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.core.permissions import is_staff_user as core_is_staff_user, same_institution
@@ -40,13 +41,13 @@ class CurrentLearnerDefault:
         return getattr(user, "learner_profile", None)
 
 
-class LessonSerializer(serializers.ModelSerializer):
+class LessonSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = "__all__"
 
 
-class ModuleSerializer(serializers.ModelSerializer):
+class ModuleSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     lessons = LessonSerializer(many=True, read_only=True)
 
     class Meta:
@@ -54,7 +55,7 @@ class ModuleSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class CourseSerializer(serializers.ModelSerializer):
+class CourseSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     teacher_name = serializers.CharField(source="teacher.user.full_name", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     module_count = serializers.IntegerField(source="modules.count", read_only=True)
@@ -77,7 +78,7 @@ class CourseSerializer(serializers.ModelSerializer):
         return value
 
 
-class LessonProgressSerializer(serializers.ModelSerializer):
+class LessonProgressSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     lesson_title = serializers.CharField(source="lesson.title", read_only=True)
     learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
 
@@ -110,14 +111,14 @@ class LessonProgressSerializer(serializers.ModelSerializer):
         return value
 
 
-class AssignmentSerializer(serializers.ModelSerializer):
+class AssignmentSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Assignment
         fields = "__all__"
         read_only_fields = ["institution", "created_by"]
 
 
-class SubmissionSerializer(serializers.ModelSerializer):
+class SubmissionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
     admission_number = serializers.CharField(source="learner.admission_number", read_only=True)
     assignment_title = serializers.CharField(source="assignment.title", read_only=True)

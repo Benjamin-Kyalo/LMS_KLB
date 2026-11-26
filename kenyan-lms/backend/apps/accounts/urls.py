@@ -13,6 +13,7 @@ urlpatterns = [
     path("csrf/", views.csrf_token, name="csrf-token"),
     path("capabilities/", views.capabilities, name="capabilities"),
     path("register/", views.register, name="register"),
+    path("learner-lookup/", views.learner_lookup, name="learner-lookup"),
     path("login/", views.login, name="login"),
     path("logout/", views.logout, name="logout"),
     path("me/", views.me, name="me"),

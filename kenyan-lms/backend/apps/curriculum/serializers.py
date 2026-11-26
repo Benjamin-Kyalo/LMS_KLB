@@ -1,4 +1,5 @@
 """Curriculum serializers."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.curriculum.models import (
@@ -7,14 +8,14 @@ from apps.curriculum.models import (
 )
 
 
-class CurriculumFrameworkSerializer(serializers.ModelSerializer):
+class CurriculumFrameworkSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = CurriculumFramework
         fields = "__all__"
         extra_kwargs = {"code": {"required": False, "allow_blank": True}}
 
 
-class EducationLevelSerializer(serializers.ModelSerializer):
+class EducationLevelSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     framework_name = serializers.CharField(source="framework.name", read_only=True)
 
     class Meta:
@@ -23,7 +24,7 @@ class EducationLevelSerializer(serializers.ModelSerializer):
         extra_kwargs = {"code": {"required": False, "allow_blank": True}}
 
 
-class LearningAreaSerializer(serializers.ModelSerializer):
+class LearningAreaSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     level_name = serializers.CharField(source="level.name", read_only=True)
 
     class Meta:
@@ -31,38 +32,38 @@ class LearningAreaSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class StrandSerializer(serializers.ModelSerializer):
+class StrandSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Strand
         fields = "__all__"
 
 
-class SubStrandSerializer(serializers.ModelSerializer):
+class SubStrandSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = SubStrand
         fields = "__all__"
 
 
-class LearningOutcomeSerializer(serializers.ModelSerializer):
+class LearningOutcomeSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = LearningOutcome
         fields = "__all__"
         extra_kwargs = {"code": {"required": False, "allow_blank": True}}
 
 
-class CompetencySerializer(serializers.ModelSerializer):
+class CompetencySerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Competency
         fields = "__all__"
 
 
-class RubricLevelSerializer(serializers.ModelSerializer):
+class RubricLevelSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = RubricLevel
         fields = "__all__"
 
 
-class RubricSerializer(serializers.ModelSerializer):
+class RubricSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     levels = RubricLevelSerializer(many=True, read_only=True)
 
     class Meta:
@@ -70,7 +71,7 @@ class RubricSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class CompetencyEvidenceSerializer(serializers.ModelSerializer):
+class CompetencyEvidenceSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
     recorded_by_name = serializers.CharField(source="recorded_by.full_name", read_only=True)
 

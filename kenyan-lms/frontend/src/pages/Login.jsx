@@ -94,7 +94,7 @@ export default function Login({ variant = "standard" }) {
             )}
             <div style={{ margin: "0.9rem 0" }}>
               <label htmlFor="username">Username</label>
-              <input id="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />
+              <input id="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
             </div>
             <div style={{ margin: "0.9rem 0" }}>
               <label htmlFor="password">Password</label>

@@ -1,10 +1,11 @@
 """KICD-style internal review workflow; this does not submit anything to KICD and does not represent official KICD approval."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.approval.models import ApprovalChecklistItem, ApprovalDecision, ApprovalRequest
 
 
-class ApprovalRequestSerializer(serializers.ModelSerializer):
+class ApprovalRequestSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     submitted_by_name = serializers.CharField(source="submitted_by.full_name", read_only=True)
     reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True)
     institution_name = serializers.CharField(source="institution.name", read_only=True)
@@ -16,7 +17,7 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ["reference", "institution"]
 
 
-class ApprovalDecisionSerializer(serializers.ModelSerializer):
+class ApprovalDecisionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     request_title = serializers.CharField(source="request.title", read_only=True)
     request_reference = serializers.CharField(source="request.reference", read_only=True)
     decided_by_name = serializers.CharField(source="decided_by.full_name", read_only=True)
@@ -27,7 +28,7 @@ class ApprovalDecisionSerializer(serializers.ModelSerializer):
         read_only_fields = ["reference", "institution", "decided_at"]
 
 
-class ApprovalChecklistItemSerializer(serializers.ModelSerializer):
+class ApprovalChecklistItemSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     request_title = serializers.CharField(source="request.title", read_only=True)
     request_reference = serializers.CharField(source="request.reference", read_only=True)
 

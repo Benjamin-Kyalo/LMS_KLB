@@ -1,4 +1,5 @@
 """Communication API endpoints."""
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -29,13 +30,14 @@ class AnnouncementViewSet(StaffWriteMixin, InstitutionScopedQuerysetMixin, views
         return qs
 
     def perform_create(self, serializer):
-        announcement = serializer.save(
-            institution=self.request.user.institution,
-            published_by=self.request.user,
-        )
-        if announcement.is_published:
-            announcement.published_at = timezone.now()
-            announcement.save()
+        with transaction.atomic():
+            announcement = serializer.save(
+                institution=self.request.user.institution,
+                published_by=self.request.user,
+            )
+            if announcement.is_published:
+                announcement.published_at = timezone.now()
+                announcement.save(update_fields=["published_at"])
 
     @action(detail=True, methods=["post"], url_path="publish")
     def publish(self, request, pk=None):

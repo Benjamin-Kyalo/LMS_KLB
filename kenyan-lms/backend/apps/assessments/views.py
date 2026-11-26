@@ -1,6 +1,7 @@
 """Assessment API endpoints."""
 from decimal import Decimal
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -147,6 +148,9 @@ class QuizAttemptViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
                 quizquestion__quiz_id=attempt.quiz_id,
             )
         }
+        # Validate the whole submission before writing anything. A single bad
+        # answer must never leave earlier answers saved on an in-progress attempt.
+        scored = []
         total = Decimal("0")
         for item in serializer.validated_data["answers"]:
             question = allowed_questions.get(item["question"])
@@ -157,15 +161,22 @@ class QuizAttemptViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
             correct = str(item["answer"]).strip().lower() == str(question.correct_answer).strip().lower()
             marks = question.marks if question.question_type in {"MCQ", "TRUE_FALSE"} and correct else Decimal("0")
             total += marks
-            Answer.objects.update_or_create(
-                attempt=attempt,
-                question=question,
-                defaults={"answer_text": str(item["answer"]), "is_correct": correct, "marks_obtained": marks},
-            )
-        attempt.score = total
-        attempt.completed_at = timezone.now()
-        attempt.status = "COMPLETED"
-        attempt.save()
+            scored.append((question, str(item["answer"]), correct, marks))
+        with transaction.atomic():
+            locked = QuizAttempt.objects.select_for_update().get(pk=attempt.pk)
+            if locked.status != "IN_PROGRESS":
+                raise ValidationError({"attempt": "This attempt has already been completed."})
+            for question, answer_text, correct, marks in scored:
+                Answer.objects.update_or_create(
+                    attempt=locked,
+                    question=question,
+                    defaults={"answer_text": answer_text, "is_correct": correct, "marks_obtained": marks},
+                )
+            locked.score = total
+            locked.completed_at = timezone.now()
+            locked.status = "COMPLETED"
+            locked.save()
+            attempt = locked
         return Response(QuizAttemptSerializer(attempt).data, status=status.HTTP_200_OK)
 
 

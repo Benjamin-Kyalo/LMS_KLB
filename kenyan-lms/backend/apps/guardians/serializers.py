@@ -1,6 +1,9 @@
 """Guardian serializers."""
+import re
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.core.constants import Roles
@@ -9,9 +12,40 @@ from apps.guardians.models import Guardian
 User = get_user_model()
 
 
-class GuardianSerializer(serializers.ModelSerializer):
+def _generate_username(first_name, last_name):
+    base = f"{first_name}_{last_name}".strip("_").lower().replace(" ", "_")
+    base = re.sub(r"[^a-z0-9_.-]", "", base)
+    base = re.sub(r"_+", "_", base).strip("_.-")
+    if not base:
+        base = "user"
+    candidate = base
+    counter = 2
+    while User.objects.filter(username__iexact=candidate).exists():
+        candidate = f"{base}_{counter}"
+        counter += 1
+    return candidate
+
+
+class GuardianSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     guardian_name = serializers.CharField(source="user.full_name", read_only=True)
-    email = serializers.EmailField(source="user.email", read_only=True)
+    username = serializers.CharField(source="user.username")
+    first_name = serializers.CharField(source="user.first_name")
+    last_name = serializers.CharField(source="user.last_name")
+    email = serializers.EmailField(source="user.email")
+    institution_code = serializers.CharField(source="institution.code", read_only=True)
+    learner_names = serializers.SerializerMethodField()
+
+    def get_learner_names(self, obj):
+        return [link.learner.user.full_name for link in obj.learner_links.select_related("learner__user").all()]
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        user = instance.user
+        for field in ("username", "first_name", "last_name", "email"):
+            if field in validated_data:
+                setattr(user, field, validated_data.pop(field))
+        user.save()
+        return super().update(instance, validated_data)
 
     class Meta:
         model = Guardian
@@ -19,7 +53,7 @@ class GuardianSerializer(serializers.ModelSerializer):
 
 
 class GuardianCreateSerializer(serializers.Serializer):
-    username = serializers.CharField()
+    username = serializers.CharField(required=False, allow_blank=True)
     first_name = serializers.CharField()
     last_name = serializers.CharField()
     email = serializers.EmailField(required=False, allow_blank=True)
@@ -30,8 +64,14 @@ class GuardianCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         request = self.context["request"]
         # No password is invented or displayed; use the password reset flow.
+        username = (validated_data.get("username") or "").strip()
+        if not username:
+            username = _generate_username(
+                validated_data.get("first_name", ""),
+                validated_data.get("last_name", ""),
+            )
         user = User.objects.create_user(
-            username=validated_data["username"],
+            username=username,
             first_name=validated_data["first_name"],
             last_name=validated_data["last_name"],
             email=validated_data.get("email", ""),

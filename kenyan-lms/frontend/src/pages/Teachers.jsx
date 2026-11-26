@@ -10,11 +10,12 @@ export default function Teachers() {
         { key: "teacher_name", label: "Name" },
         { key: "email", label: "Email" },
         { key: "staff_number", label: "Staff no.", render: (r) => <span className="mono">{r.staff_number || "—"}</span> },
+        { key: "institution_code", label: "School code", render: (r) => r.institution_code || "—" },
         { key: "employment_type", label: "Employment" },
         { key: "subject_names", label: "Subjects", render: (r) => (r.subject_names || []).join(", ") || "—" },
       ]}
       fields={[
-        { name: "username", label: "Username", required: true },
+        { name: "username", label: "Username", hint: "Leave blank to generate from the name." },
         { name: "first_name", label: "First name", required: true },
         { name: "last_name", label: "Last name", required: true },
         { name: "email", label: "Email", type: "email" },

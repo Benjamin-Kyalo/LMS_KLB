@@ -125,7 +125,7 @@ export default function Users() {
       setEditing(null);
       reload();
     } catch (err) {
-      setFormError(err.details ? JSON.stringify(err.details) : err.message);
+      setFormError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -203,8 +203,10 @@ export default function Users() {
         columns={[
           { key: "full_name", label: "Name", render: (r) => r.full_name || `${r.first_name || ""} ${r.last_name || ""}`.trim() || "—" },
           { key: "username", label: "Username" },
+          { key: "admission_number", label: "Admission no.", render: (r) => r.admission_number ? <span className="mono">{r.admission_number}</span> : "—" },
           { key: "role", label: "Role", render: (r) => roleName(r, roleOptions || []) },
           { key: "institution_name", label: "Institution" },
+          { key: "institution_code", label: "School code", render: (r) => r.institution_code || "—" },
           { key: "is_active", label: "Active", render: (r) => <span className={`tag ${r.is_active ? "good" : "bad"}`}>{r.is_active ? "Yes" : "No"}</span> },
           { key: "onboarding", label: "Setup", render: (r) => (
             <span className={`tag ${r.onboarding?.is_complete ? "good" : ""}`}>

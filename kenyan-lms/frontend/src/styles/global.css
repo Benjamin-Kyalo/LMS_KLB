@@ -2,6 +2,18 @@
 
 * { box-sizing: border-box; }
 img { max-width: 100%; }
+.required-mark::after { content: " *"; color: var(--bad); }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 html, body, #root { height: 100%; }
 html { color: var(--ink); scroll-behavior: smooth; }
 body {
@@ -231,6 +243,11 @@ button.hold-confirm.is-holding { transform: none; box-shadow: none; }
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
 .chart-card { min-width: 0; }
 .chart-card h3 { margin-bottom: 0.15rem; }
+.chart-data { margin-top: 0.6rem; font-size: 0.8rem; color: var(--ink-soft); }
+.chart-data summary { cursor: pointer; }
+.chart-data table { width: 100%; border-collapse: collapse; margin-top: 0.4rem; }
+.chart-data caption { text-align: left; color: var(--ink-faint); margin-bottom: 0.25rem; }
+.chart-data th, .chart-data td { padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--line); text-align: left; }
 .chart-subtitle { font-size: 0.8rem; margin: 0 0 0.6rem; }
 .chart-wrap { width: 100%; height: 230px; min-width: 0; }
 .chart-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--ink-faint); font-size: 0.85rem; text-align: center; border: 1px dashed var(--line-strong); border-radius: var(--radius); }

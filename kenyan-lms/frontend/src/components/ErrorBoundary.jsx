@@ -7,7 +7,7 @@ export default class ErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div className="panel panel-pad" style={{ margin: "2rem" }}>
+        <div className="panel panel-pad" role="alert" style={{ margin: "2rem" }}>
           <h2>Something went wrong</h2>
           <p className="mono">{String(this.state.error.message || this.state.error)}</p>
           <button onClick={() => this.setState({ error: null })}>

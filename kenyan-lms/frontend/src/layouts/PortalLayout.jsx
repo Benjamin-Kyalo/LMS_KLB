@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useSiteContent } from "../context/SiteContentContext";
@@ -30,6 +30,15 @@ export default function PortalLayout() {
   }
 
   const closeMenu = () => setMenuOpen(false);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen]);
   const roleLabel = isGuardian(user) ? "Parent / Guardian" : isLearner(user) ? "Learner" : ROLES[user?.role] || user?.role;
   const navLabel = (key, fallback) => (
     (content.app.portalNav || []).find((item) => item.key === key)?.label || fallback
@@ -57,13 +66,18 @@ export default function PortalLayout() {
             <div className="muted" style={{ fontSize: "0.75rem" }}>{roleLabel}</div>
           </div>
           <button className="ghost small" onClick={handleLogout}><RollingLabel>Sign out</RollingLabel></button>
-          <button className="secondary mobile-nav-toggle" onClick={() => setMenuOpen(!menuOpen)}>
+          <button
+            className="secondary mobile-nav-toggle"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-expanded={menuOpen}
+            aria-controls="portal-nav"
+          >
             {menuOpen ? <RollingLabel>Hide menu</RollingLabel> : <RollingLabel>Menu</RollingLabel>}
           </button>
         </div>
       </header>
 
-      <nav className={`portal-nav${menuOpen ? " is-open" : ""}`} aria-label="Learner portal">
+      <nav id="portal-nav" className={`portal-nav${menuOpen ? " is-open" : ""}`} aria-label="Learner portal">
         <PortalNav to="/portal" onNavigate={closeMenu}>{navLabel("home", "Home")}</PortalNav>
         <PortalNav to="/portal/courses" onNavigate={closeMenu}>{navLabel("courses", "My courses")}</PortalNav>
         <PortalNav to="/portal/textbooks" onNavigate={closeMenu}>{navLabel("textbooks", "Textbook library")}</PortalNav>

@@ -12,6 +12,8 @@ class Guardian(AutoReferenceModelMixin, InstitutionScopedModel):
     relationship_to_learner = models.CharField(max_length=50, blank=True)
     preferred_language = models.CharField(max_length=10, default="en")
     receive_sms = models.BooleanField(default=True)
+    is_archived = models.BooleanField(default=False, db_index=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [

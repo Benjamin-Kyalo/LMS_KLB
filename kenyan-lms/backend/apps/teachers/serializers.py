@@ -2,6 +2,7 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.accounts.models import OnboardingProfile
@@ -11,9 +12,13 @@ from apps.teachers.models import LessonPlan, Teacher, TeacherApproval, TeacherCl
 User = get_user_model()
 
 
-class TeacherSerializer(serializers.ModelSerializer):
+class TeacherSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     teacher_name = serializers.CharField(source="user.full_name", read_only=True)
-    email = serializers.EmailField(source="user.email", read_only=True)
+    username = serializers.CharField(source="user.username")
+    first_name = serializers.CharField(source="user.first_name")
+    last_name = serializers.CharField(source="user.last_name")
+    email = serializers.EmailField(source="user.email")
+    institution_code = serializers.CharField(source="institution.code", read_only=True)
     subject_names = serializers.SerializerMethodField()
 
     class Meta:
@@ -22,6 +27,15 @@ class TeacherSerializer(serializers.ModelSerializer):
 
     def get_subject_names(self, obj):
         return list(obj.subjects.values_list("name", flat=True))
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        user = instance.user
+        for field in ("username", "first_name", "last_name", "email"):
+            if field in validated_data:
+                setattr(user, field, validated_data.pop(field))
+        user.save()
+        return super().update(instance, validated_data)
 
 
 class TeacherCreateSerializer(serializers.Serializer):
@@ -80,19 +94,19 @@ class TeacherCreateSerializer(serializers.Serializer):
         return teacher
 
 
-class TeacherClassAssignmentSerializer(serializers.ModelSerializer):
+class TeacherClassAssignmentSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = TeacherClassAssignment
         fields = "__all__"
 
 
-class LessonPlanSerializer(serializers.ModelSerializer):
+class LessonPlanSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = LessonPlan
         fields = "__all__"
 
 
-class TeacherApprovalSerializer(serializers.ModelSerializer):
+class TeacherApprovalSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     teacher_name = serializers.CharField(source="teacher.user.full_name", read_only=True)
     email = serializers.EmailField(source="teacher.user.email", read_only=True)
     staff_number = serializers.CharField(source="teacher.staff_number", read_only=True)

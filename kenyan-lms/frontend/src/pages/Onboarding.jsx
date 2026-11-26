@@ -48,7 +48,7 @@ export default function Onboarding() {
       setIdentifier("");
       links.reload();
     } catch (err) {
-      setError(err.details ? JSON.stringify(err.details) : err.message);
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setPendingAction("");
     }

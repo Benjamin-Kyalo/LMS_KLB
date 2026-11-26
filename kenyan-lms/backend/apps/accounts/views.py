@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth.password_validation import validate_password as validate_password_value
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
+from django.db import transaction
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import viewsets
@@ -39,6 +40,8 @@ from apps.core.permissions import (
     is_staff_user,
 )
 from apps.core.viewsets import InstitutionScopedQuerysetMixin
+from apps.institutions.models import Institution
+from apps.learners.models import Learner
 from apps.teachers.models import TeacherApproval
 
 
@@ -140,7 +143,7 @@ def password_change(request):
 @permission_classes([AllowAny])
 @throttle_classes([PasswordResetThrottle])
 def password_reset_request(request):
-    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer = PasswordResetRequestSerializer(data=request.data, context={"request": request})
     serializer.is_valid(raise_exception=True)
     email = serializer.validated_data["email"]
     if reset_request_count(request, email) < settings.RESET_REQUEST_MAX:
@@ -159,6 +162,39 @@ def password_reset_confirm(request):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response({"detail": "Password reset. You may now log in."})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([RegistrationThrottle])
+def learner_lookup(request):
+    """Return limited learner details for guardian registration confirmation."""
+    institution_id = request.data.get("institution")
+    identifier = str(request.data.get("learner_identifier", "") or "").strip()
+    if not institution_id or not identifier:
+        raise ValidationError({"detail": "School and learner number are required."})
+    try:
+        institution = Institution.objects.get(pk=institution_id, is_active=True)
+    except (Institution.DoesNotExist, ValueError, TypeError):
+        raise ValidationError({"institution": "Choose a valid school."})
+    learner = (
+        Learner.objects.filter(institution=institution, admission_number__iexact=identifier).first()
+        or Learner.objects.filter(institution=institution, assessment_number__iexact=identifier).first()
+    )
+    if learner is None:
+        return Response(
+            {"detail": "No learner was found with that admission or assessment number in the selected school. Check the number and school, then try again."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    return Response({
+        "found": True,
+        "learner": {
+            "full_name": learner.user.full_name,
+            "admission_number": learner.admission_number,
+            "assessment_number": learner.assessment_number,
+            "class_name": getattr(learner.class_room, "name", ""),
+        },
+    })
 
 
 class UserViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
@@ -189,6 +225,7 @@ class UserViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
         return queryset.select_related("institution")
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def reset_password(self, request, pk=None):
         user = self.get_object()
         if user.pk == request.user.pk:
@@ -224,6 +261,7 @@ class UserViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
         instance.delete()
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def set_active(self, request, pk=None):
         user = self.get_object()
         desired = request.data.get("is_active", not user.is_active)
@@ -327,37 +365,40 @@ class CustomRoleViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        super().perform_create(serializer)
-        log_audit(
-            self.request.user, "custom_role.created", "CustomRole", serializer.instance.pk,
-            {"name": serializer.instance.name, "permissions": serializer.instance.permissions},
-            institution=serializer.instance.institution, request=self.request,
-        )
+        with transaction.atomic():
+            super().perform_create(serializer)
+            log_audit(
+                self.request.user, "custom_role.created", "CustomRole", serializer.instance.pk,
+                {"name": serializer.instance.name, "permissions": serializer.instance.permissions},
+                institution=serializer.instance.institution, request=self.request,
+            )
 
     def perform_update(self, serializer):
-        super().perform_update(serializer)
-        log_audit(
-            self.request.user, "custom_role.updated", "CustomRole", serializer.instance.pk,
-            {"name": serializer.instance.name, "permissions": serializer.instance.permissions},
-            institution=serializer.instance.institution, request=self.request,
-        )
+        with transaction.atomic():
+            super().perform_update(serializer)
+            log_audit(
+                self.request.user, "custom_role.updated", "CustomRole", serializer.instance.pk,
+                {"name": serializer.instance.name, "permissions": serializer.instance.permissions},
+                institution=serializer.instance.institution, request=self.request,
+            )
 
     def destroy(self, request, *args, **kwargs):
-        role = self.get_object()
-        if role.users.exists() or role.invitations.exists():
-            role.is_active = False
-            role.save(update_fields=["is_active", "updated_at"])
-            log_audit(
-                request.user, "custom_role.deactivated", "CustomRole", role.pk,
-                {"name": role.name}, institution=role.institution, request=request,
-            )
-        else:
-            role_pk, institution = role.pk, role.institution
-            role.delete()
-            log_audit(
-                request.user, "custom_role.deleted", "CustomRole", role_pk,
-                {}, institution=institution, request=request,
-            )
+        with transaction.atomic():
+            role = self.get_object()
+            if role.users.exists() or role.invitations.exists():
+                role.is_active = False
+                role.save(update_fields=["is_active", "updated_at"])
+                log_audit(
+                    request.user, "custom_role.deactivated", "CustomRole", role.pk,
+                    {"name": role.name}, institution=role.institution, request=request,
+                )
+            else:
+                role_pk, institution = role.pk, role.institution
+                role.delete()
+                log_audit(
+                    request.user, "custom_role.deleted", "CustomRole", role_pk,
+                    {}, institution=institution, request=request,
+                )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

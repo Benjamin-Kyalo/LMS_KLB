@@ -39,11 +39,12 @@ export default function HoldToConfirmButton({
     if (typeof event.button === "number" && event.button !== 0) return;
     stop();
     const startedAt = performance.now();
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     setHolding(true);
 
     function step(now) {
       const value = Math.min(1, (now - startedAt) / holdMs);
-      setProgress(value);
+      if (!reduceMotion) setProgress(value);
       if (value >= 1) {
         frame.current = null;
         completed.current = true;

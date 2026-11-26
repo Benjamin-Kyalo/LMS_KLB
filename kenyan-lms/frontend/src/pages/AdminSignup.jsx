@@ -41,7 +41,7 @@ export default function AdminSignup() {
       signInWithData(data);
       navigate("/admin");
     } catch (err) {
-      setError(err.details ? JSON.stringify(err.details) : err.message);
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }

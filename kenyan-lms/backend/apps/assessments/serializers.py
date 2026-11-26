@@ -1,4 +1,5 @@
 """Assessment serializers."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.assessments.models import (
@@ -6,14 +7,14 @@ from apps.assessments.models import (
 )
 
 
-class QuestionSerializer(serializers.ModelSerializer):
+class QuestionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = "__all__"
         read_only_fields = ["institution", "created_by"]
 
 
-class StudentQuestionSerializer(serializers.ModelSerializer):
+class StudentQuestionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     """Question shape for learners: no answer key or teacher explanation."""
 
     class Meta:
@@ -25,7 +26,7 @@ class StudentQuestionSerializer(serializers.ModelSerializer):
         read_only_fields = ["institution", "created_by"]
 
 
-class QuizQuestionSerializer(serializers.ModelSerializer):
+class QuizQuestionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     question_text = serializers.CharField(source="question.text", read_only=True)
 
     class Meta:
@@ -33,7 +34,7 @@ class QuizQuestionSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class QuizSerializer(serializers.ModelSerializer):
+class QuizSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     question_count = serializers.IntegerField(source="quiz_questions.count", read_only=True)
 
     class Meta:
@@ -42,13 +43,13 @@ class QuizSerializer(serializers.ModelSerializer):
         read_only_fields = ["institution"]
 
 
-class AnswerSerializer(serializers.ModelSerializer):
+class AnswerSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     class Meta:
         model = Answer
         fields = "__all__"
 
 
-class QuizAttemptSerializer(serializers.ModelSerializer):
+class QuizAttemptSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
     quiz_title = serializers.CharField(source="quiz.title", read_only=True)
     answers = AnswerSerializer(many=True, read_only=True)
@@ -74,7 +75,7 @@ class QuizSubmissionSerializer(serializers.Serializer):
     answers = QuizAnswerInputSerializer(many=True)
 
 
-class ExamSerializer(serializers.ModelSerializer):
+class ExamSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     subject_name = serializers.CharField(source="subject.name", read_only=True)
 
     class Meta:
@@ -83,7 +84,7 @@ class ExamSerializer(serializers.ModelSerializer):
         read_only_fields = ["institution"]
 
 
-class ExamResultSerializer(serializers.ModelSerializer):
+class ExamResultSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
     admission_number = serializers.CharField(source="learner.admission_number", read_only=True)
     exam_title = serializers.CharField(source="exam.title", read_only=True)

@@ -63,6 +63,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+    "apps.core.middleware.TrustedProxyHeaderMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -134,6 +135,18 @@ LOGIN_FAIL_MAX = env.int("LOGIN_FAIL_MAX", default=5)
 LOGIN_LOCKOUT_SECONDS = env.int("LOGIN_LOCKOUT_SECONDS", default=15 * 60)
 # Never trust X-Forwarded-For unless the direct peer is a known reverse proxy.
 TRUSTED_PROXY_IPS = env.list("TRUSTED_PROXY_IPS", default=[])
+# Reset emails must link to the frontend origin, not the API host.
+FRONTEND_BASE_URL = env("FRONTEND_BASE_URL", default="")
+# Supply a shared Redis URL when running more than one worker so throttles and
+# lockouts are shared. Django's default local-memory cache is per-process.
+CACHE_URL = env("CACHE_URL", default="")
+if CACHE_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": CACHE_URL,
+        }
+    }
 RESET_REQUEST_MAX = env.int("RESET_REQUEST_MAX", default=5)
 RESET_REQUEST_WINDOW_SECONDS = env.int("RESET_REQUEST_WINDOW_SECONDS", default=60 * 60)
 

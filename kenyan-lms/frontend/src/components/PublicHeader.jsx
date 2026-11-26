@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useSiteContent } from "../context/SiteContentContext";
@@ -21,8 +22,21 @@ function safeHref(value) {
 
 function HeaderLink({ item }) {
   const href = safeHref(item?.href);
+  const newTabHintId = useId();
   if (/^https:\/\//i.test(href)) {
-    return <a href={href} target="_blank" rel="noreferrer">{item?.label}</a>;
+    return (
+      <>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-describedby={newTabHintId}
+        >
+          {item?.label}
+        </a>
+        <span id={newTabHintId} className="sr-only">Opens in a new tab</span>
+      </>
+    );
   }
   return <Link to={href}>{item?.label}</Link>;
 }

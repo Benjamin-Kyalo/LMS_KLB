@@ -82,9 +82,21 @@ fails after an install, delete `node_modules` and `package-lock.json`, then
 **Means:** frontend cannot reach Django.
 
 **Check:** Django running on 8000; `.env` in `frontend/` has
-`VITE_API_BASE_URL=/api`; Vite proxy points at `http://127.0.0.1:8000`.
+`VITE_API_BASE_URL=/api`; Vite proxy points at `http://127.0.0.1:8000`. The
+frontend calls `/api` through that Vite proxy with credentialed CORS; earlier
+auth failures were caused by this proxy/CORS path and are fixed by this setup —
+keep both in place rather than switching to an absolute API host.
 
 **Confirm:** `Invoke-RestMethod http://127.0.0.1:8000/api/health/`.
+
+## API returns a stale serializer error after a code change
+
+**Means:** the running backend process still has the old serializer loaded.
+
+**Fix:** restart the backend process, then retry the request; serializer and
+validation changes are not picked up until Django reloads.
+
+**Confirm:** the response matches the current serializer.
 
 ## 401 Unauthorized
 
@@ -114,7 +126,10 @@ Check the connection is live (failed uploads are not queued or replayed), the
 form sends `multipart/form-data`, `MEDIA_ROOT` exists and the file is within the
 size limit. The server sniffs magic bytes, so the content must really be JPG,
 PNG or WebP for a logo or an allowed type for a resource; renaming a file does
-not pass validation.
+not pass validation. Managed public-site photos must additionally be at least
+640×360 pixels and at most 5 MB; per-section styles accept allowlisted values
+only and raw CSS is rejected. A failed save rolls back cleanly — no partial
+record or file is left behind (see `DATABASE_GUIDE.md`).
 
 ## Tests fail
 

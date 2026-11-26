@@ -70,6 +70,7 @@ export default function Profile() {
               {profileSaved ? "Profile saved ✓" : profileBusy ? "Saving…" : <RollingLabel>Save profile</RollingLabel>}
             </button>
           </div>
+          {profileSaved && <p role="status" className="muted" style={{ margin: "0.35rem 0 0" }}>Profile saved.</p>}
         </form>
       </div>
 
@@ -85,6 +86,7 @@ export default function Profile() {
               {passwordSaved ? "Password updated ✓" : passwordBusy ? "Updating…" : <RollingLabel>Change password</RollingLabel>}
             </button>
           </div>
+          {passwordSaved && <p role="status" className="muted" style={{ margin: "0.35rem 0 0" }}>Password updated.</p>}
         </form>
       </div>
     </section>

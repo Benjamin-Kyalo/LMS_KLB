@@ -1,10 +1,11 @@
 """Report serializers."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.reports.models import ReportSnapshot
 
 
-class ReportSnapshotSerializer(serializers.ModelSerializer):
+class ReportSnapshotSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     generated_by_name = serializers.CharField(source="generated_by.full_name", read_only=True)
 
     class Meta:

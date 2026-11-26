@@ -1,4 +1,5 @@
 """Validation for administrator-managed palettes."""
+from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.theming.contrast import (
@@ -10,7 +11,7 @@ from apps.theming.site_content import normalise_site_content
 TEXT_SHADE_STEPS = (900, 800, 700)
 
 
-class ThemePaletteSerializer(serializers.ModelSerializer):
+class ThemePaletteSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     shades = serializers.SerializerMethodField()
     created_by_name = serializers.CharField(
         source="created_by.full_name", read_only=True, allow_null=True,
@@ -58,7 +59,7 @@ class ThemePaletteSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class SiteContentSerializer(serializers.ModelSerializer):
+class SiteContentSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     updated_by_name = serializers.CharField(
         source="updated_by.full_name", read_only=True, allow_null=True,
     )

@@ -28,7 +28,7 @@ export default function AnalyticsOverview() {
       push(message, "success");
       dashboard.reload(); cohorts.reload(); remediation.reload(); snapshots.reload();
     } catch (err) {
-      push(err.details ? JSON.stringify(err.details) : err.message, "error");
+      push(err.message || "Something went wrong. Please try again.", "error");
     } finally {
       setBusyAction("");
     }

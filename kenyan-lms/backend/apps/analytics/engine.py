@@ -16,6 +16,7 @@ Assumptions, all derived from the existing models:
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 
+from django.db import transaction
 from django.db.models import Avg
 from django.utils import timezone
 
@@ -197,6 +198,7 @@ def remediation_summary(institution):
     }
 
 
+@transaction.atomic
 def evaluate_remediation(institution):
     """Evaluate active rules once and return created/updated/skipped counts.
 
@@ -452,6 +454,7 @@ def dashboard_metrics(institution):
     }
 
 
+@transaction.atomic
 def refresh_snapshot(institution, dataset, period, user=None):
     """Compute and upsert one snapshot for an institution and period."""
     _require_institution(institution)

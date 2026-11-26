@@ -27,6 +27,11 @@ if not CORS_ALLOWED_ORIGINS:
     raise ImproperlyConfigured("CORS_ALLOWED_ORIGINS is required in production.")
 if not SMTP_HOST:
     raise ImproperlyConfigured("SMTP_HOST is required in production.")
+if not TRUSTED_PROXY_IPS:
+    raise ImproperlyConfigured(
+        "TRUSTED_PROXY_IPS is required in production so forwarded HTTPS headers "
+        "are only accepted from the known reverse proxy."
+    )
 
 # TLS / reverse-proxy settings. The proxy must set X-Forwarded-Proto: https.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

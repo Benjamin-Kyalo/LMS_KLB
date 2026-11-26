@@ -129,16 +129,23 @@ def next_child_number(model_label, field, parent_field, parent):
 def assign_institution_code(instance):
     if instance.code:
         return
-    base = school_abbreviation(instance.name)
+    year = timezone.now().strftime("%Y")
+    head = f"INST_{year}"
     Institution = apps.get_model("institutions", "Institution")
     with transaction.atomic():
         _lock("klb:institutions:Institution:code", "global")
         taken = set(Institution.objects.values_list("code", flat=True))
-        code = base
-        suffix = 2
+        highest = 0
+        for code in taken:
+            if not code.startswith(head + "_"):
+                continue
+            match = re.search(r"_(\d+)$", code)
+            if match:
+                highest = max(highest, int(match.group(1)))
+        code = f"{head}_{highest + 1:03d}"
         while code in taken:
-            code = f"{base}{suffix}"
-            suffix += 1
+            highest += 1
+            code = f"{head}_{highest:03d}"
     instance.code = code
 
 

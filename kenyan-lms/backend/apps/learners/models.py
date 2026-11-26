@@ -19,6 +19,8 @@ class Learner(AutoReferenceModelMixin, InstitutionScopedModel):
         choices=[("ACTIVE", "Active"), ("TRANSFERRED", "Transferred"), ("ALUMNI", "Alumni"), ("SUSPENDED", "Suspended")],
         db_index=True,
     )
+    is_archived = models.BooleanField(default=False, db_index=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
     date_admitted = models.DateField(null=True, blank=True)
     date_left = models.DateField(null=True, blank=True)
     previous_school = models.CharField(max_length=200, blank=True)

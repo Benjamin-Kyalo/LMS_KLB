@@ -26,7 +26,7 @@ class LearnerViewSet(
     FamilyScopedReadMixin, AdminWriteMixin, InstitutionScopedQuerysetMixin, viewsets.ModelViewSet
 ):
     capability = Capabilities.LEARNERS_MANAGE
-    queryset = Learner.objects.all()
+    queryset = Learner.objects.select_related("user", "institution", "class_room")
     serializer_class = LearnerSerializer
     filterset_fields = ["institution", "class_room", "status", "gender"]
     search_fields = ["user__first_name", "user__last_name", "admission_number", "assessment_number"]

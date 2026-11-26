@@ -122,7 +122,7 @@ export default function ResourcePage({
       setEditing(null);
       reload();
     } catch (err) {
-      setFormError(err.details ? JSON.stringify(err.details) : err.message);
+      setFormError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }

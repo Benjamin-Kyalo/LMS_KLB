@@ -1,4 +1,5 @@
 """Curriculum-grounded learning assistant. By default it is fully local and deterministic; an optional HTTP provider can be configured with environment variables, but no credentials are bundled and no external service is contacted unless explicitly configured."""
+from django.db import transaction
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import BasePermission, IsAuthenticated
@@ -81,23 +82,26 @@ class TutorConversationViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelVie
         ask_serializer.is_valid(raise_exception=True)
         question = clean_question(ask_serializer.validated_data["question"])
 
-        TutorMessage.objects.create(
-            institution=conversation.institution,
-            conversation=conversation,
-            role=TutorMessage.Role.USER,
-            body=question,
-            created_by=request.user,
-        )
+        # Ask the provider before writing anything, so a failed or timed-out
+        # answer cannot leave an orphan question the client will retry.
         result = get_provider().answer(question, conversation.institution)
-        tutor_message = TutorMessage.objects.create(
-            institution=conversation.institution,
-            conversation=conversation,
-            role=TutorMessage.Role.TUTOR,
-            body=result["answer"],
-            sources=result["sources"],
-            suggestions=result["suggestions"],
-            created_by=request.user,
-        )
+        with transaction.atomic():
+            TutorMessage.objects.create(
+                institution=conversation.institution,
+                conversation=conversation,
+                role=TutorMessage.Role.USER,
+                body=question,
+                created_by=request.user,
+            )
+            tutor_message = TutorMessage.objects.create(
+                institution=conversation.institution,
+                conversation=conversation,
+                role=TutorMessage.Role.TUTOR,
+                body=result["answer"],
+                sources=result["sources"],
+                suggestions=result["suggestions"],
+                created_by=request.user,
+            )
         return Response(
             TutorMessageSerializer(tutor_message).data,
             status=status.HTTP_201_CREATED,

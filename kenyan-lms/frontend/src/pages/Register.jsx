@@ -7,13 +7,16 @@ import PublicHeader from "../components/PublicHeader";
 import PublicFooter from "../components/PublicFooter";
 import ParticleHeadline from "../components/ParticleHeadline";
 import AnimatedSubmitButton from "../components/AnimatedSubmitButton";
+import RollingLabel from "../components/RollingLabel";
 import { useSectionStyle } from "../styles/sectionStyles";
 import { homeFor } from "../utilities/roles";
 
 export default function Register() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const auth = useAuth();
+  const { signIn, refreshing } = auth;
+  const currentUser = auth?.user || null;
   const { content } = useSiteContent();
   const sectionStyle = useSectionStyle("register");
   const registerCopy = content.auth.register;
@@ -23,6 +26,9 @@ export default function Register() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [learnerPreview, setLearnerPreview] = useState(null);
+  const [lookingUpLearner, setLookingUpLearner] = useState(false);
+  const [learnerLookupKey, setLearnerLookupKey] = useState("");
   const requestedRole = String(params.get("role") || "").toUpperCase();
   const [form, setForm] = useState({
     username: "", email: "", password: "", confirm: "", first_name: "",
@@ -42,7 +48,40 @@ export default function Register() {
 
   function update(name, value) {
     setForm((previous) => ({ ...previous, [name]: value }));
+    if (name === "learner_identifier" || name === "institution") {
+      setLearnerPreview(null);
+      setLearnerLookupKey("");
+    }
   }
+
+  async function lookupLearner() {
+    if (form.role !== "GUARDIAN" || !form.learner_identifier.trim() || !form.institution) return;
+    const key = `${form.institution}:${form.learner_identifier.trim()}`;
+    if (learnerLookupKey === key) return;
+    setLearnerLookupKey(key);
+    setLookingUpLearner(true);
+    setError(null);
+    try {
+      const data = await api.post("/auth/learner-lookup/", {
+        institution: form.institution,
+        learner_identifier: form.learner_identifier,
+      });
+      setLearnerPreview(data.learner);
+    } catch (err) {
+      setLearnerPreview(null);
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setLookingUpLearner(false);
+    }
+  }
+
+  useEffect(() => {
+    if (form.role !== "GUARDIAN") return;
+    if (!form.institution || !form.learner_identifier.trim()) return;
+    const key = `${form.institution}:${form.learner_identifier.trim()}`;
+    if (learnerPreview || lookingUpLearner || learnerLookupKey === key) return;
+    lookupLearner();
+  }, [form.role, form.institution, form.learner_identifier, learnerPreview, lookingUpLearner, learnerLookupKey]);
 
   async function submit(e) {
     e.preventDefault();
@@ -68,10 +107,45 @@ export default function Register() {
       const data = await signIn(form.username, form.password);
       navigate(data.user?.onboarding?.is_complete === false ? "/onboarding" : homeFor(data.user));
     } catch (err) {
-      setError(err.details ? JSON.stringify(err.details) : err.message);
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
+  }
+
+  if (refreshing) {
+    return (
+      <div className="public-auth-page">
+        <PublicHeader links={[]} ariaLabel="Registration navigation" showSignIn={false} />
+        <main className="public-auth-main"><div className="public-auth-card"><h2>Loading…</h2></div></main>
+        <PublicFooter />
+      </div>
+    );
+  }
+
+  if (currentUser) {
+    return (
+      <div className="public-auth-page">
+        <PublicHeader links={[]} ariaLabel="Registration navigation" showSignIn={false} />
+        <main className="public-auth-main">
+          <div className="public-auth-card">
+            <h2>Already signed in</h2>
+            <p className="muted">
+              You are signed in as {currentUser.full_name || currentUser.username}. Sign out before creating another account.
+            </p>
+            <div className="form-actions">
+              <button type="button" onClick={() => auth?.signOut?.().then(() => navigate("/register"))}>
+                <RollingLabel>Sign out</RollingLabel>
+              </button>
+              <button type="button" className="ghost" onClick={() => navigate(homeFor(currentUser))}>
+                <RollingLabel>Go to workspace</RollingLabel>
+              </button>
+            </div>
+          </div>
+        </main>
+        <PublicFooter />
+      </div>
+    );
   }
 
   return (
@@ -125,13 +199,6 @@ export default function Register() {
           </fieldset>
 
           <div className="form-grid">
-            <FormInput label="First name" value={form.first_name} onChange={(v) => update("first_name", v)} required />
-            <FormInput label="Last name" value={form.last_name} onChange={(v) => update("last_name", v)} required />
-            <FormInput label="Username" value={form.username} onChange={(v) => update("username", v)} hint="Leave blank to generate from your name." />
-            <FormInput label="Email" type="email" value={form.email} onChange={(v) => update("email", v)} required />
-            <FormInput label="Password" type="password" value={form.password} onChange={(v) => update("password", v)} required hint="At least 8 characters" />
-            <FormInput label="Confirm password" type="password" value={form.confirm} onChange={(v) => update("confirm", v)} required />
-
             <label>
               School / institution
               <select value={form.institution} onChange={(e) => update("institution", e.target.value)} required>
@@ -141,6 +208,35 @@ export default function Register() {
                 ))}
               </select>
             </label>
+
+            {form.role === "GUARDIAN" && (
+              <>
+                <FormInput
+                  label="Learner admission or assessment number"
+                  value={form.learner_identifier}
+                  onChange={(v) => update("learner_identifier", v)}
+                  onBlur={lookupLearner}
+                  required
+                  hint="Enter this first. Your school verifies this link before any learner data is shown."
+                />
+                {lookingUpLearner && <p className="muted">Checking learner details…</p>}
+                {learnerPreview && (
+                  <div className="notice info" role="status" style={{ gridColumn: "1 / -1" }}>
+                    <strong>{learnerPreview.full_name}</strong>
+                    {learnerPreview.class_name && <span> · {learnerPreview.class_name}</span>}
+                    <br />
+                    <span className="muted">Admission/assessment number: {learnerPreview.admission_number || learnerPreview.assessment_number}</span>
+                  </div>
+                )}
+              </>
+            )}
+
+            <FormInput label="First name" value={form.first_name} onChange={(v) => update("first_name", v)} required />
+            <FormInput label="Last name" value={form.last_name} onChange={(v) => update("last_name", v)} required />
+            <FormInput label="Username" value={form.username} onChange={(v) => update("username", v)} hint="Leave blank to generate from your name." />
+            <FormInput label="Email" type="email" value={form.email} onChange={(v) => update("email", v)} required />
+            <FormInput label="Password" type="password" value={form.password} onChange={(v) => update("password", v)} required hint="At least 8 characters" />
+            <FormInput label="Confirm password" type="password" value={form.confirm} onChange={(v) => update("confirm", v)} required />
             <FormInput label="Phone" value={form.phone} onChange={(v) => update("phone", v)} />
 
             {form.role === "LEARNER" && (
@@ -160,13 +256,6 @@ export default function Register() {
             {form.role === "GUARDIAN" && (
               <>
                 <FormInput label="Relationship to learner" value={form.relationship_to_learner} onChange={(v) => update("relationship_to_learner", v)} required />
-                <FormInput
-                  label="Learner admission or assessment number"
-                  value={form.learner_identifier}
-                  onChange={(v) => update("learner_identifier", v)}
-                  required
-                  hint="Your school verifies this link before any learner data is shown."
-                />
                 <FormInput label="Occupation" value={form.occupation} onChange={(v) => update("occupation", v)} />
               </>
             )}
@@ -198,11 +287,11 @@ export default function Register() {
   );
 }
 
-function FormInput({ label, value, onChange, type = "text", required, hint }) {
+function FormInput({ label, value, onChange, onBlur, type = "text", required, hint }) {
   return (
     <label>
       {label}
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} required={required} />
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} required={required} />
       {hint && <small className="muted">{hint}</small>}
     </label>
   );
