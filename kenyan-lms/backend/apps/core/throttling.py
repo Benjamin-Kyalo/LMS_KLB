@@ -45,3 +45,7 @@ class TutorThrottle(ScopedThrottle):
 
 class ExportThrottle(ScopedThrottle):
     scope = "export_generate"
+
+
+class PublicEnquiryThrottle(ScopedThrottle):
+    scope = "public_enquiry"

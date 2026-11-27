@@ -11,6 +11,7 @@ const PortalLayout = lazy(() => import("./layouts/PortalLayout"));
 const Login = lazy(() => import("./pages/Login"));
 const Home = lazy(() => import("./pages/Home"));
 const Library = lazy(() => import("./pages/Library"));
+const PublicPage = lazy(() => import("./pages/PublicPage"));
 const Register = lazy(() => import("./pages/Register"));
 const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
@@ -139,6 +140,18 @@ export default function App() {
               {/* Public discovery and role-based sign-in */}
               <Route path="/" element={<Home />} />
               <Route path="/home" element={<Home />} />
+              <Route path="/for-schools" element={<PublicPage page="schools" />} />
+              <Route path="/for-teachers" element={<PublicPage page="teachers" />} />
+              <Route path="/for-learners" element={<PublicPage page="learners" />} />
+              <Route path="/for-parents" element={<PublicPage page="parents" />} />
+              <Route path="/about" element={<PublicPage page="about" />} />
+              <Route path="/help" element={<PublicPage page="help" />} />
+              <Route path="/contact" element={<PublicPage page="contact" />} />
+              <Route path="/faq" element={<PublicPage page="faq" />} />
+              <Route path="/privacy" element={<PublicPage page="privacy" />} />
+              <Route path="/terms" element={<PublicPage page="terms" />} />
+              <Route path="/acceptable-use" element={<PublicPage page="acceptableUse" />} />
+              <Route path="/accessibility-statement" element={<PublicPage page="accessibility" />} />
               <Route path="/library" element={<Library />} />
               <Route path="/register" element={<Register />} />
               <Route path="/reset-password" element={<PasswordReset />} />
@@ -253,7 +266,7 @@ export default function App() {
               <Route path="roles" element={<Legacy adminTo="/admin/roles" />} />
               <Route path="departments" element={<Legacy adminTo="/admin/departments" />} />
               <Route path="academic-years" element={<Legacy adminTo="/admin/academic-years" />} />
-              <Route path="terms" element={<Legacy adminTo="/admin/terms" />} />
+              <Route path="academic-terms" element={<Legacy adminTo="/admin/terms" />} />
               <Route path="subjects" element={<Legacy adminTo="/admin/subjects" />} />
               <Route path="institutions" element={<Legacy adminTo="/admin/institutions" />} />
               <Route path="learners" element={<Legacy adminTo="/admin/learners" portalTo="/portal/courses" />} />

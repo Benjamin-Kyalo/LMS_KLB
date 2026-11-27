@@ -207,7 +207,7 @@ class RubricGradingTests(APITestCase):
             ).exists()
         )
         self.assertTrue(
-            Notification.objects.filter(recipient=self.admin, title="A learner resubmitted work").exists()
+            Notification.objects.filter(recipient=self.admin, title="Assignment submission received").exists()
         )
 
         second = self.client.post(

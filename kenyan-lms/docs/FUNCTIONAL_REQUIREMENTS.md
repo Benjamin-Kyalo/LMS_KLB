@@ -107,7 +107,7 @@ use a service worker; see `OFFLINE_MODE_REVERSAL.md`.
 | PLT-04 | Meaningful empty, loading, success, error and confirmation states | P1 | Every list/form has a designed state; destructive actions require confirmation |
 | PLT-05 | Professional buttons and forms | P1 | Hover, active, disabled and loading states are consistent in `global.css` |
 | PLT-06 | Responsive and accessible by default | P0 | No horizontal overflow at 390px; labels, focus rings, contrast and semantic controls pass checks |
-| PLT-07 | Web reliability without silent data loss (offline PWA requirement superseded) | P1 | A failed mutation shows an error and stays unsaved; the user retries when the connection returns. No local queue, cache or automatic replay |
+| PLT-07 | Web reliability without silent data loss (offline PWA requirement superseded) | P1 | A failed mutation shows an error and stays unsaved by default; the user retries when the connection returns. No broad offline queue, app shell or automatic replay; only the separately documented opt-in low-bandwidth allowlist may cache public reads or queue theming writes |
 | PLT-08 | Audit trail for sensitive changes | P1 | User, role, approval, finance and theme changes create audit entries |
 | PLT-09 | Labelled sample data for demonstration | P1 | At least 10 labelled samples per category; `.invalid` emails and `sample_` users are clearly marked |
 | PLT-10 | Safe boundaries for external systems | P1 | Fees stay ledger-only, KICD internal only, KEMIS local staging only, tutor local/deterministic by default |

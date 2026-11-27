@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useList, useResource } from "../hooks/useApi";
 import { api } from "../services/api";
 import { useToast } from "../context/ToastContext";
+import { useSiteContent } from "../context/SiteContentContext";
 import DataTable from "../components/DataTable";
 import Modal from "../components/Modal";
 import RollingLabel from "../components/RollingLabel";
@@ -18,8 +19,26 @@ const NOTIFICATION_TYPES = [
   ["SYSTEM", "System"],
 ];
 
+function readableError(value, fallback) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text || /^[\[{]/.test(text) || /<\/?[A-Za-z][^>]*>/.test(text)) return fallback;
+  return text === "[object Object]" ? fallback : text;
+}
+
 export default function NotificationCentre() {
   const { push } = useToast();
+  const { content } = useSiteContent();
+  const messages = content.messages || {};
+  const somethingWrong = messages.errors?.somethingWrong
+    || "We could not complete that action. Try again, or contact support if the problem continues. Include the reference number shown on this page.";
+  const pageIntroduction = messages.pageIntroductions?.notifications
+    || "Keep track of important updates and messages relevant to your account.";
+  const emptyState = messages.emptyStates?.notifications || {
+    title: "You're all caught up",
+    message: "Important updates will appear here when they arrive.",
+  };
+  const searchHint = messages.emptyStates?.resources?.message
+    || "Try changing your search or exploring another category.";
   const notifications = useList("/communications/notifications/");
   const unread = useResource("/communications/notifications/unread-count/");
   const preferences = useList("/communications/preferences/");
@@ -50,7 +69,7 @@ export default function NotificationCentre() {
       notifications.reload();
       unread.reload();
     } catch (err) {
-      push(err.message || "The notification could not be updated.", "error");
+      push(readableError(err?.message, somethingWrong), "error");
     } finally {
       setBusy(false);
     }
@@ -83,13 +102,14 @@ export default function NotificationCentre() {
       push("Notification preferences saved.", "success");
       preferences.reload();
     } catch (err) {
-      push(err.message || "The preferences could not be saved.", "error");
+      push(readableError(err?.message, somethingWrong), "error");
     } finally {
       setPrefBusy(false);
     }
   }
 
   const rows = controls.visibleRows;
+  const loadError = notifications.error || unread.error || preferences.error;
 
   return (
     <section>
@@ -98,7 +118,7 @@ export default function NotificationCentre() {
           <div className="overline">Your inbox</div>
           <h1>Notifications</h1>
           <p className="muted">
-            {unread.data?.count ?? 0} unread alert(s). School events appear here automatically.
+            {pageIntroduction} {unread.data?.count ?? 0} unread alert(s). School events appear here automatically.
           </p>
         </div>
         <div className="actions">
@@ -116,9 +136,9 @@ export default function NotificationCentre() {
         </div>
       </div>
 
-      {(notifications.error || unread.error || preferences.error) && (
+      {loadError && (
         <div className="notice error" role="alert">
-          {notifications.error || unread.error || preferences.error}
+          {readableError(loadError, somethingWrong)}
         </div>
       )}
 
@@ -235,9 +255,9 @@ export default function NotificationCentre() {
         ]}
         rows={rows}
         loading={notifications.loading || unread.loading}
-        error={notifications.error || unread.error}
-        emptyTitle={controls.query ? "No matching alerts" : "Your inbox is clear"}
-        emptyHint="Alerts from school workflows will appear here."
+        error={loadError ? readableError(loadError, somethingWrong) : null}
+        emptyTitle={controls.query ? "No matching alerts" : emptyState.title}
+        emptyHint={controls.query ? searchHint : emptyState.message}
       />
       <TablePagination controls={controls} />
 

@@ -1,7 +1,11 @@
 """Theme palette catalogue, permissions and activation rules."""
+import importlib
+import json
 from copy import deepcopy
 from io import BytesIO
+from pathlib import Path
 
+from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -17,7 +21,9 @@ from apps.theming.catalogue import (
 )
 from apps.theming.models import SiteContent, ThemePalette
 from apps.theming.serializers import ThemePaletteSerializer
-from apps.theming.site_content import DEFAULT_SITE_CONTENT, PUBLIC_SITE_KEY
+from apps.theming.site_content import (
+    DEFAULT_SITE_CONTENT, PUBLIC_SITE_KEY, default_site_content,
+)
 
 User = get_user_model()
 
@@ -180,6 +186,12 @@ class ThemeManagementTests(APITestCase):
         self.assertEqual(first.status_code, status.HTTP_200_OK, first.data)
         self.assertEqual(first.data["roles"]["title"], "Where do you fit?")
         self.assertEqual(first.data["header"]["brand"]["mark"], "KLB")
+        self.assertEqual(first.data["header"]["brand"]["name"], "Elimu")
+        self.assertEqual(first.data["hero"]["title"], "Give every lesson somewhere to go.")
+        self.assertEqual(first.data["footer"]["closingLine"], "Every lesson opens a door.")
+        self.assertEqual(
+            first.data["publicPages"]["about"]["pageTitle"], "About KLB Elimu"
+        )
         self.assertEqual(first.data["library"]["booksTitle"], "Books to explore")
         self.assertEqual(first.data["hero"]["imageSrc"], "/images/hero-community.png")
         self.assertNotIn("facts", first.data)
@@ -316,12 +328,17 @@ class ThemeManagementTests(APITestCase):
     def test_default_public_copy_does_not_promise_offline_behaviour(self):
         copy = str(DEFAULT_SITE_CONTENT).lower()
         for phrase in (
-            "offline",
             "sync on reconnect",
             "queued until reconnected",
             "continue offline",
+            "works when the network is not",
+            "can be made available offline",
         ):
             self.assertNotIn(phrase, copy)
+        self.assertIn(
+            "offline downloads and synchronisation are not part of this application",
+            copy,
+        )
 
     def test_retired_quick_facts_never_return(self):
         url = reverse("site-content")
@@ -505,17 +522,29 @@ class ThemeManagementTests(APITestCase):
         )
         content["app"]["portalNav"].append({"key": "sync", "label": "Offline queue"})
 
+        rejected_phrases = (
+            "works when the network is not",
+            "lessons that continue offline",
+            "syncs when you are back online",
+            "submit work while offline and sync on reconnect",
+        )
         self.client.force_authenticate(user=self.platform)
         saved = self.client.patch(url, {"content": content}, format="json")
         self.assertEqual(saved.status_code, status.HTTP_200_OK, saved.data)
-        self.assertNotIn("offline", str(saved.data).lower())
+        for phrase in rejected_phrases:
+            self.assertNotIn(phrase, str(saved.data).lower())
 
         self.client.logout()
         public = self.client.get(url)
-        self.assertNotIn("offline", str(public.data).lower())
+        for phrase in rejected_phrases:
+            self.assertNotIn(phrase, str(public.data).lower())
         self.assertEqual(
             public.data["workspaces"]["cards"][0]["title"],
             "Learning in one place",
+        )
+        self.assertIn(
+            "offline downloads and synchronisation are not part of this application",
+            str(public.data).lower(),
         )
 
     def test_site_content_rejects_unsafe_links(self):
@@ -540,8 +569,8 @@ class ThemeManagementTests(APITestCase):
         url = reverse("site-content")
         first = self.client.get(url)
         self.assertEqual(first.status_code, status.HTTP_200_OK, first.data)
-        self.assertEqual(first.data["announcement"]["actionHref"], "/#journey")
-        self.assertEqual(len(first.data["quickLinks"]["links"]), 6)
+        self.assertEqual(first.data["announcement"]["actionHref"], "/library")
+        self.assertEqual(len(first.data["quickLinks"]["links"]), 8)
         self.assertEqual(first.data["routines"]["items"][1]["key"], "record")
         self.assertEqual(first.data["access"]["columns"], ["Role", "Sees", "Can do"])
         self.assertEqual(len(first.data["accessibility"]["items"]), 3)
@@ -589,3 +618,86 @@ class ThemeManagementTests(APITestCase):
             rejected = self.client.patch(url, {"content": content}, format="json")
             self.assertEqual(rejected.status_code, status.HTTP_400_BAD_REQUEST, rejected.data)
             self.assertIn(path, str(rejected.data))
+
+    def test_content_pack_copy_is_present_and_editable(self):
+        url = reverse("site-content")
+        first = self.client.get(url)
+        self.assertEqual(first.status_code, status.HTTP_200_OK, first.data)
+        self.assertEqual(
+            [link["label"] for link in first.data["header"]["links"]],
+            [
+                "Home", "For Schools", "For Teachers", "For Learners",
+                "Digital Library", "About KLB Elimu", "Help Centre",
+            ],
+        )
+        self.assertEqual(
+            first.data["header"]["primaryCtaLabel"], "Get Your School Started"
+        )
+        self.assertEqual(
+            first.data["introduction"]["title"], "A better-connected way to learn."
+        )
+        self.assertEqual(len(first.data["capabilities"]["cards"]), 4)
+        self.assertEqual(first.data["steps"]["title"], "Getting started is straightforward.")
+        self.assertEqual(len(first.data["steps"]["steps"]), 5)
+        self.assertEqual(first.data["closingCta"]["secondaryLabel"], "Sign In to KLB Elimu")
+        self.assertIn("info", first.data["styles"])
+        self.assertEqual(
+            first.data["messages"]["errors"]["invalidLogin"],
+            "We could not verify those sign-in details. Check your username and "
+            "password and try again.",
+        )
+
+        self.client.force_authenticate(user=self.platform)
+        content = deepcopy(DEFAULT_SITE_CONTENT)
+        content["publicPages"]["contact"]["title"] = "Talk to our team"
+        content["header"]["primaryCtaHref"] = "https://example.test/schools"
+        saved = self.client.patch(url, {"content": content}, format="json")
+        self.assertEqual(saved.status_code, status.HTTP_200_OK, saved.data)
+        self.assertEqual(saved.data["publicPages"]["contact"]["title"], "Talk to our team")
+        self.assertEqual(
+            saved.data["header"]["primaryCtaHref"], "https://example.test/schools"
+        )
+
+        content = deepcopy(DEFAULT_SITE_CONTENT)
+        content["header"]["primaryCtaHref"] = "javascript:alert(1)"
+        rejected = self.client.patch(url, {"content": content}, format="json")
+        self.assertEqual(rejected.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("header.primaryCtaHref", str(rejected.data))
+
+    def test_frontend_default_pack_matches_backend_defaults(self):
+        pack_path = (
+            Path(__file__).resolve().parents[4]
+            / "frontend" / "src" / "config" / "publicContentPack.json"
+        )
+        frontend_defaults = json.loads(pack_path.read_text(encoding="utf-8"))
+        self.assertEqual(default_site_content(), frontend_defaults)
+
+    def test_content_pack_migration_round_trips_saved_edits(self):
+        migration = importlib.import_module(
+            "apps.theming.migrations.0009_apply_klb_elimu_content_pack"
+        )
+        original = {
+            "header": {
+                "brand": {"name": "Digital Learning Ecosystem"},
+                "signInLabel": "Sign in",
+            },
+            "hero": {"title": "Teaching and learning, connected for Kenyan schools."},
+            "customAdminWording": "Keep this exact note.",
+        }
+        record, _ = SiteContent.objects.get_or_create(
+            key=PUBLIC_SITE_KEY, defaults={"content": deepcopy(original)},
+        )
+        record.content = deepcopy(original)
+        record.save(update_fields=["content", "updated_at"])
+
+        migration.apply_content_pack(apps, None)
+        record.refresh_from_db()
+        self.assertEqual(record.content["header"]["brand"]["name"], "Elimu")
+        self.assertEqual(record.content["hero"]["title"], "Give every lesson somewhere to go.")
+        self.assertEqual(record.content["customAdminWording"], "Keep this exact note.")
+        self.assertTrue(SiteContent.objects.filter(key=migration.BACKUP_KEY).exists())
+
+        migration.revert_content_pack(apps, None)
+        record.refresh_from_db()
+        self.assertEqual(record.content, original)
+        self.assertFalse(SiteContent.objects.filter(key=migration.BACKUP_KEY).exists())

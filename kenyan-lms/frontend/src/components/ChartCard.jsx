@@ -21,7 +21,7 @@ function ChartBody({ type, data, xKey, series, colors }) {
       <PieChart accessibilityLayer>
         <Pie data={data} dataKey="value" nameKey="label" innerRadius="35%" outerRadius="70%" paddingAngle={2}>
           {data.map((entry, index) => (
-            <Cell key={entry.label || entry.status || index} fill={colors.chart[index % colors.chart.length]} />
+            <Cell key={`${entry.label || entry.status || "slice"}-${index}`} fill={colors.chart[index % colors.chart.length]} />
           ))}
         </Pie>
         <Tooltip />
@@ -104,7 +104,7 @@ export default function ChartCard({
             </thead>
             <tbody>
               {data.map((row, index) => (
-                <tr key={row[xKey] ?? row.label ?? index}>
+                <tr key={`${row[xKey] ?? row.label ?? "row"}-${index}`}>
                   <th scope="row">{row[xKey] ?? row.label ?? ""}</th>
                   {columns.map((column) => <td key={column.key}>{row[column.key] ?? ""}</td>)}
                 </tr>

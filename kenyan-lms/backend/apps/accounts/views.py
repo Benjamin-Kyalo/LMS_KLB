@@ -151,7 +151,12 @@ def password_reset_request(request):
         record_reset_request(request, email)
     # Always the same response: do not reveal which emails exist or whether a
     # request was suppressed by the abuse window.
-    return Response({"detail": "If the account exists, a reset message has been sent."})
+    return Response({
+        "detail": (
+            "Password reset instructions have been sent to the registered email "
+            "address, if an account matches the details provided."
+        )
+    })
 
 
 @api_view(["POST"])

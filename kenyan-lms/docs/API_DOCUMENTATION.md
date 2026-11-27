@@ -43,6 +43,7 @@ old root URLs redirect by role. Examples:
 | `/portal` | Learner / guardian | `/api/reports/my-learners/`, `/api/reports/learner/{id}/` |
 | `/portal/courses`, `/portal/assignments`, `/portal/quizzes` | Learner / guardian | `/api/courses/`, `/api/courses/assignments/`, `/api/assessments/quizzes/` |
 | `/library` | Public | `/api/content/facets/`, `/api/content/public/books/`, `/api/content/public/resources/` |
+| `/contact` | Public | `/api/core/public-enquiries/` |
 | `/portal/textbooks`, `/portal/resources`, `/portal/documents` | Learner / guardian | `/api/content/available/`, `/api/content/portal/resources/`, `/api/content/portal/documents/` |
 | `/portal/reports`, `/portal/communications` | Learner / guardian | `/api/reports/learner/{id}/`, `/api/communications/announcements/` |
 
@@ -60,12 +61,53 @@ See `REFERENCE_NUMBERING.md`.
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/api/health/` | API and database status |
+| GET | `/api/health/` | API and database status (service name `KLB Elimu`) |
 | GET | `/api/core/client-config/` | Public low-bandwidth booleans, path allowlists and limits (`Cache-Control: public, max-age=300`) |
+| POST | `/api/core/public-enquiries/` | Anonymous contact-form submission → real enquiry reference |
 | POST | `/api/auth/login/` | Username + password → session cookie and user (CSRF cookie set) |
 | POST | `/api/auth/register/` | Public self-service signup (learner, guardian or provisional teacher only) |
 | POST | `/api/auth/password/reset/` | Email a reset link (console in dev) |
 | POST | `/api/auth/password/reset/confirm/` | Set a new password |
+
+### Public enquiries
+
+`POST /api/core/public-enquiries/` is the managed `/contact` form's submission
+endpoint. It uses `AllowAny` with no authentication classes, so no session,
+token or learner record is needed. It is throttled by
+`PUBLIC_ENQUIRY_THROTTLE_RATE` (default `10/hour` in `config.settings`) through
+`PublicEnquiryThrottle`; the rate is keyed by the requester identity DRF obtains
+from the request.
+
+| Field | Required | Notes |
+|---|---|---|
+| `full_name` | Yes | Contact name |
+| `email` | Yes | Valid email address |
+| `phone` | No | Optional contact phone |
+| `organisation` | No | Optional school or organisation |
+| `category` | Yes | One of the options managed at `/admin/appearance` |
+| `subject` | Yes | Short subject line |
+| `message` | Yes | The enquiry itself |
+
+Strings are whitespace-normalised before saving. `reference`, `status`, `id` and
+`created_at` are server-controlled; unknown fields and client-supplied values
+for those fields are ignored. A successful save returns HTTP 201 with a real
+server-generated `ENQ` reference:
+
+```json
+{
+  "reference": "<server-generated ENQ reference>",
+  "message": "Your enquiry has been received. Keep your reference number for any follow-up communication."
+}
+```
+
+The reference shown above is illustrative; the value comes from the reference
+generator. No response time is promised. The frontend displays the managed
+confirmation wording from `publicPages.contact.confirmation` alongside the
+returned reference. The save and its audit entry are one transaction, so a
+failed submission leaves no partial record. The `public_enquiry.received` audit
+row records only the reference and category: no `full_name`, `email`, `phone`,
+`organisation` or message text is written to `AuditLog`. The contact details
+themselves live on the `PublicEnquiry` record, not in browser storage.
 
 ### Public registration
 
@@ -401,6 +443,28 @@ audited; no record is deleted. `GET /api/core/audit/` accepts `action`,
 `entity_type`, `entity_id`, `user`, `search` and `ordering`. Platform
 administrators may pass `institution=<id>` to the data-quality scan; other
 administrators are silently scoped to their own school.
+
+### Public enquiry review queue
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/core/enquiries/` | `SUPER_ADMIN` only | Platform-admin review queue for public enquiries |
+| GET | `/api/core/enquiries/{id}/` | `SUPER_ADMIN` only | Inspect one enquiry |
+| PATCH | `/api/core/enquiries/{id}/` | `SUPER_ADMIN` only | Change the workflow status |
+
+The viewset is restricted by `IsSuperAdmin`: anonymous callers receive 401 and
+institution `ADMIN` accounts receive 403. Institution-scoped staff and custom
+roles have no access to this queue; no admin screen is provided for it, so
+review uses this API. Records are ordered newest first and support filters on
+`status` and `category`, search on `reference`, `full_name`, `email`,
+`organisation` and `subject`, and ordering by `created_at` or `subject`.
+
+Only `status` is writable, with values `NEW`, `IN_REVIEW` and `RESOLVED`.
+Reference, contact fields, category, subject, message and timestamps are
+read-only. Every successful update writes a `public_enquiry.status_changed`
+audit entry containing the reference and new status; the actor is the platform
+administrator making the change. Submission itself writes only the non-PII
+`public_enquiry.received` details described above.
 
 ## Interoperability and governed AI
 

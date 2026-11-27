@@ -9,7 +9,7 @@ vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({ user: mocks.user, signOut: vi.fn(async () => {}) }),
 }));
 vi.mock("../context/SiteContentContext", () => ({
-  useSiteContent: () => ({ content: { app: { adminBrand: "LMS" } } }),
+  useSiteContent: () => ({ content: { app: { adminBrand: "KLB Elimu" } } }),
 }));
 
 function renderLayout() {

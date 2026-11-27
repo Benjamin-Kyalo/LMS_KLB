@@ -1,7 +1,7 @@
 # Handover report
 
 **Date:** 24 November 2026
-**Project:** Kenyan Digital Learning Ecosystem (KLB LMS)
+**Project:** KLB Elimu (proposed digital learning ecosystem)
 **Repository:** `https://github.com/Benjamin-Kyalo/LMS_KLB.git` (branch `main`)
 **Working folder:** `C:\Users\Admin IT\Downloads\LMS\LMS\kenyan-lms`
 
@@ -88,7 +88,8 @@ PostgreSQL `lms`.
 | PostgreSQL schema + migrations | `backend/apps/*/migrations/` | Applied to `lms` |
 | React 19 + Vite 8 frontend | `frontend/` | Complete, web-only |
 | Public homepage and role-based auth | `frontend/src/pages/Home.jsx`, `Login.jsx`, `Register.jsx`, `AdminSignup.jsx`, `frontend/src/components/ParticleHeadline.jsx`, `frontend/public/images/`, `docs/ASSET_CREDITS.md` | Complete; photographed hero/workspaces, original insights section, accessible canvas headline, interactive role access preview, sparse links, admin portal not advertised publicly |
-| Editable public content | `backend/apps/theming/site_content.py`, `frontend/src/config/publicSite.js`, `frontend/src/context/SiteContentContext.jsx`, `frontend/src/pages/AppearanceManager.jsx`, `frontend/src/pages/SiteContentManager.jsx`, `frontend/src/styles/sectionStyles.js`, `docs/PUBLIC_SITE_CONTENT.md` | `SUPER_ADMIN` and `ADMIN` edit palette, shared photos, wording and safe section styles from one `/admin/appearance` page; a custom role needs `admin.access` plus `appearance.manage`. Legacy aliases open the matching tab. Live API read; no offline cache |
+| Editable public content | `backend/apps/theming/site_content.py`, `frontend/src/config/publicSite.js`, `frontend/src/config/publicContentPack.json`, `frontend/src/context/SiteContentContext.jsx`, `frontend/src/pages/AppearanceManager.jsx`, `frontend/src/pages/SiteContentManager.jsx`, `frontend/src/styles/sectionStyles.js`, `docs/PUBLIC_SITE_CONTENT.md` | `SUPER_ADMIN` and `ADMIN` edit palette, shared photos, wording and safe section styles from one `/admin/appearance` page; a custom role needs `admin.access` plus `appearance.manage`. Legacy aliases open the matching tab. The KLB Elimu pack supplies managed homepage sections, public pages and messages; backend defaults mirror the frontend JSON with a parity test. Live API read; no offline cache by default (see `OFFLINE_MODE_REVERSAL.md`) |
+| Public enquiry flow | `backend/apps/core/`, `frontend/src/pages/PublicPage.jsx`, `docs/API_DOCUMENTATION.md` | `/contact` posts anonymously to `POST /api/core/public-enquiries/`; a real `ENQ` reference is returned, and only `SUPER_ADMIN` reviews the queue through `/api/core/enquiries/` |
 | Public library books and resources | `backend/apps/content/views.py`, `backend/apps/content/serializers.py`, `backend/apps/content/migrations/0003_public_library_thumbnails.py`, `frontend/src/components/PublicBookShelf.jsx`, `frontend/src/components/ResourceCard.jsx`, `frontend/src/pages/Library.jsx` | Published, non-expired book metadata with local covers appears beside filtered resources with local thumbnails; licence-gated access stays in the portal |
 | *(Removed)* PWA manifest + generated service worker | formerly `frontend/public/`, `frontend/dist/sw.js` | Removed; historical only |
 | *(Removed)* Offline mutation queue | formerly `frontend/src/services/offlineQueue.js` | Removed; failed writes show an error and remain unsaved |
@@ -116,7 +117,7 @@ PostgreSQL `lms`.
 | 4 — Kenyan CBE | Complete | Version-aware frameworks, outcomes, competencies, rubrics, evidence |
 | 5 — Digital publishing | Foundation complete | Textbooks, chapters, resources, exercises, licensing; chapter/resource forms added |
 | 6 — Parent & administration | Mostly implemented | Guardian links, scoped reports, announcements, messages; the portal has its own layout |
-| 7 — Offline & mobile | **Removed by product direction change** | Earlier PWA shell, network-first API cache, offline banner and IndexedDB write queue were built, then deleted. There is no sync page, rebase/conflict UI or native wrapper |
+| 7 — Offline & mobile | **Removed by product direction change** | Earlier PWA shell, network-first API cache, offline banner and IndexedDB write queue were built, then deleted. There is no sync page, rebase/conflict UI or native wrapper. A narrow, opt-in low-bandwidth read cache/write queue was documented later; see `OFFLINE_MODE_REVERSAL.md` |
 | 8 — Advanced features | Partial | Reference numbering, charts and dashboard links plus a fee ledger, internal KICD-style review workflow, local KEMIS staging, bounded deterministic tutor and analytics/remediation rules are in place. Scale notifications, official KICD submission, official KEMIS transmission, LTI marketplace and optional hosted AI are not implemented |
 | 9 — Production & handover | Not complete | Docs, tests and production settings exist, but no public deployment, load test, third-party security review or final runtime verification |
 
@@ -148,6 +149,12 @@ removal.
   upload, restore and remove actions, with validated JPG, PNG or WebP uploads
   published immediately. The Styles tab applies allowlisted colours, corners and
   spacing to one public section at a time; see `docs/PUBLIC_SITE_CONTENT.md`.
+- The KLB Elimu content pack adds managed public routes for schools, teachers,
+  learners, parents, about, help, contact, FAQ, privacy, terms, acceptable use
+  and an accessibility statement. `/academic-terms` remains the legacy school-term
+  editor; `/terms` is the public Terms of Use. The `/contact` form sends an
+  anonymous enquiry to `POST /api/core/public-enquiries/` and returns a real
+  reference; only `SUPER_ADMIN` can review the queue at `/api/core/enquiries/`.
 - `/library` is a public catalogue with real OER metadata and locally generated
   book covers and resource thumbnails. Images are responsive, lazy-loaded where
   below the fold, have meaningful alternative text where they convey content and
@@ -186,7 +193,24 @@ removal.
 
 ## 3. Verification actually performed
 
-### Current web-only/security round — 24 November 2026
+### Current KLB Elimu content-pack round — 27 November 2026
+
+| Check | Result |
+|---|---|
+| Full backend suite | `python manage.py test` — **291 tests OK** |
+| Full frontend suite | `npm test -- --run` — **53 files / 186 tests passed** |
+| Production build and audit | `npm run build` passed with no PWA/service-worker output; `npm audit --audit-level=moderate` found **0 vulnerabilities** |
+| Django and migration checks | `python manage.py check` clean; `makemigrations --check --dry-run` reported `No changes detected`; `showmigrations theming` shows `0009_apply_klb_elimu_content_pack` applied |
+| Public and role screens | All 12 public routes plus `/library` rendered in the live browser; admin, teacher, learner and guardian screens rendered without JavaScript console errors after duplicate chart/resource keys were fixed |
+| Accessibility | Lighthouse accessibility, best practices and SEO scored **1 / 1 / 1** with no failures on `/` and `/library`; reduced-motion CSS, focus rings and ARIA naming were retained; the public nav switches to the labelled menu button before tablet-width overflow |
+| API smoke | Health 200, site content 200, public enquiry 201 with a real reference, four temporary role logins 200 with correct roles, review list 200 and status PATCH 200 with a CSRF header |
+| Clean-up and ownership | Temporary verification users and smoke enquiries were deleted; the throwaway smoke script was removed; **no commit or push was made** |
+
+Anonymous 401 responses from the `/api/auth/me/` session probe are expected
+network responses, not JavaScript errors. The numbered rounds below are
+historical and remain for traceability.
+
+### Earlier web-only/security round — 24 November 2026
 
 | Check | Result |
 |---|---|

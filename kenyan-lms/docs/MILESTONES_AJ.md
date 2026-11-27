@@ -144,7 +144,7 @@ Full command reference: `docs/COMMANDS.md`. Backup before any future schema work
 6. `npm audit --audit-level=moderate` → **found 0 vulnerabilities**.
 7. `check --deploy` with `config.settings_prod` → **no issues**.
 8. `seed_sample_data` → **0 new records**; every listed category `[OK]`.
-9. `GET /api/health/` → HTTP 200, `{"status":"ok","service":"KLB Digital Learning Ecosystem","database":"connected","error":null}`; `GET http://127.0.0.1:5173/` → HTTP 200.
+9. `GET /api/health/` → HTTP 200, `{"status":"ok","service":"KLB Elimu","database":"connected","error":null}`; `GET http://127.0.0.1:5173/` → HTTP 200.
 10. CDP browser harness at **1440×900** and **390×844** → all 10 checks passed:
     - desktop and mobile homepage: hero, illustration, three workspaces, four role cards, 0 overflow (facts strip shown in this historical check was later removed);
     - public `/login` and `/register`: 0 `/admin` links; `/admin/login` still rendered the dedicated form;

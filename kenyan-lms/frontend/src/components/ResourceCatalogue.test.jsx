@@ -109,7 +109,7 @@ describe("resource catalogue presentation", () => {
       />
     );
     expect(screen.getByText("Grade 4 · Mathematics")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "View Fraction guide details" }));
+    fireEvent.click(screen.getByRole("button", { name: "View resource: Fraction guide" }));
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
   });
 

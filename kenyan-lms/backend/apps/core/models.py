@@ -71,3 +71,34 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.action} on {self.entity_type} by {self.user}"
+
+
+class PublicEnquiry(AutoReferenceModelMixin, TimeStampedModel):
+    """A public contact-form message, visible to platform administrators only.
+
+    This is deliberately not institution-scoped: a visitor may not have an
+    account yet. No credentials, payment details or learner records are stored.
+    """
+
+    STATUS_CHOICES = (
+        ("NEW", "New"),
+        ("IN_REVIEW", "In review"),
+        ("RESOLVED", "Resolved"),
+    )
+
+    reference = models.CharField(max_length=30, unique=True, blank=True)
+    full_name = models.CharField(max_length=150)
+    email = models.EmailField()
+    phone = models.CharField(max_length=50, blank=True)
+    organisation = models.CharField(max_length=200, blank=True)
+    category = models.CharField(max_length=80)
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="NEW")
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["status", "created_at"])]
+
+    def __str__(self):
+        return f"{self.reference} - {self.subject}"

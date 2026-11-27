@@ -243,6 +243,21 @@ date. **Preview fix** always runs first and shows each before/after value. The
 fix is applied only after an explicit hold/Enter confirmation, in one
 transaction, with an audit entry per change. Nothing is deleted.
 
+## Public KLB Elimu pages and enquiries
+
+The public KLB Elimu pages (`/for-schools`, `/for-teachers`, `/for-learners`,
+`/for-parents`, `/about`, `/help`, `/contact`, `/faq`, `/privacy`, `/terms`,
+`/acceptable-use` and `/accessibility-statement`) use wording managed at
+`/admin/appearance` → **Words**; see `PUBLIC_SITE_CONTENT.md`. `/academic-terms`
+is the legacy school-term editor, while `/terms` is the public Terms of Use.
+
+A visitor can submit a message from `/contact` without signing in. Submission
+returns a real reference and is stored as an enquiry. Platform administrators
+(`SUPER_ADMIN`) review and set the status through
+`GET /api/core/enquiries/` and `PATCH /api/core/enquiries/{id}/`; there is no
+separate admin page for the queue, and institution administrators do not have
+access. See `API_DOCUMENTATION.md`.
+
 ## Audit trail
 
 `/admin/audit` shows a read-only, institution-scoped history. Each row names
@@ -250,5 +265,8 @@ the actor, action, record, time and changed fields; opening a row shows the
 field-level before/after values. Platform administrators may review all
 schools; other users see only their own school. Passwords and other sensitive
 fields are never captured. Important actions are recorded in `core_auditlog`
-(user, action, entity, IP, timestamp). Never delete audit rows or add a client
-write path to this API.
+(user, action, entity, IP, timestamp). Public enquiries add
+`public_enquiry.received` (reference and category only, no contact details) and
+`public_enquiry.status_changed` (reference and new status) entries; the latter
+names the platform administrator who changed the status. Never delete audit
+rows or add a client write path to this API.

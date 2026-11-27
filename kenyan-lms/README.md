@@ -1,9 +1,10 @@
-# Kenyan Digital Learning Ecosystem (KLB LMS)
+# KLB Elimu
 
-An integrated, offline-friendly digital education platform for Kenyan
-learning institutions. It combines a **Learning Management System (LMS)**,
-a **Student Information System (SIS)** and a **Digital Content and
-Publishing Platform** in one maintainable codebase.
+An integrated, browser-based digital education platform for Kenyan learning
+institutions. It combines a **Learning Management System (LMS)**, a **Student
+Information System (SIS)** and a **Digital Content and Publishing Platform** in
+one maintainable codebase. KLB Elimu is a proposed digital learning initiative,
+subject to organisational approval.
 
 > **Location:** `C:\Users\Admin IT\Downloads\LMS\LMS\kenyan-lms`
 > This folder sits inside the GitHub Desktop repository, so changes sync
@@ -20,26 +21,32 @@ Publishing Platform** in one maintainable codebase.
 | Phase 4 — Kenyan CBE | Complete (configurable structures) |
 | Phase 5 — Digital publishing | Foundation complete; chapter/resource forms added |
 | Phase 6 — Parent & administration | Mostly implemented (foundation) |
-| Phase 7 — Offline & mobile | Foundation only; offline queue exists, automatic conflict resolution pending |
+| Phase 7 — Offline & mobile | Superseded by the web-only direction; only a narrow opt-in low-bandwidth mode remains (see below) |
 | Phase 8 — Advanced features | Partial: reference numbers, charts, smoke tests and hardening added; analytics/remediation pending |
 | Phase 9 — Production & handover | Not complete: production settings and docs ready; no deployment, load test or security review |
 
-Phases 0–6 are mostly implemented; Phase 7 is a foundation, Phase 8 is partial
-and Phase 9 is not complete. **This project is not 100% complete.** See
-`docs/HANDOVER_REPORT.md` for the honest status.
+Phases 0–6 are mostly implemented; the old Phase 7 offline/mobile scope was
+superseded by the web-only direction and its narrow documented low-bandwidth
+mode, Phase 8 is partial and Phase 9 is not complete. **This project is not
+100% complete.** See `docs/HANDOVER_REPORT.md` for the honest status.
 
 ## Two sides of the app
 
 - Staff (`SUPER_ADMIN`, `ADMIN`, custom roles with `admin.access`, teachers) use
   `/admin/...` with `DashboardLayout`.
 - Learners and guardians use `/portal/...` with `PortalLayout`.
-- `/` is the public homepage, with no administrator link. A role selector shows
-  the rights and content for each audience. Administrators edit the header,
-  footer, homepage, role cards, library and sign in wording at
-  `/admin/appearance`; defaults stay in `frontend/src/config/publicSite.js`.
-  Century Gothic is the preferred typeface with system fallbacks. Sign-in and
-  registration send each role to the right side. Old root URLs such as
-  `/learners`, `/courses` and `/reports` still redirect by role.
+- `/` is the public KLB Elimu homepage, with no administrator link. A role
+  selector shows the rights and content for each audience. Managed public pages
+  include `/for-schools`, `/for-teachers`, `/for-learners`, `/for-parents`,
+  `/about`, `/help`, `/contact`, `/faq`, `/privacy`, `/terms`,
+  `/acceptable-use` and `/accessibility-statement`; `/academic-terms` is the
+  legacy school-term editor, not the public Terms of Use. Administrators edit
+  the header, footer, homepage, public pages, role cards, library and sign in
+  wording at `/admin/appearance`; defaults stay in
+  `frontend/src/config/publicContentPack.json`. Century Gothic is the preferred
+  typeface with system fallbacks. Sign-in and registration send each role to the
+  right side. Old root URLs such as `/learners`, `/courses` and `/reports` still
+  redirect by role. See `docs/PUBLIC_SITE_CONTENT.md`.
 
 ## Technology stack
 
@@ -48,7 +55,11 @@ and Phase 9 is not complete. **This project is not 100% complete.** See
 - **Database:** PostgreSQL 18 (database name: `lms`)
 - **Architecture:** modular monolith, 20 Django apps, one React SPA
 - **Configuration:** environment variables in a local `.env` file
-- **Delivery:** normal responsive web app; no service worker, PWA manifest, offline queue or native wrapper
+- **Delivery:** normal responsive web app; no service worker, PWA manifest or
+  native wrapper. A documented reversal adds an opt-in low-bandwidth mode: a
+  narrow read cache and write queue only for allowlisted public/theming paths,
+  with no credential, CSRF or personal-field persistence. See
+  `docs/OFFLINE_MODE_REVERSAL.md`
 
 ## Quick start
 
@@ -113,7 +124,9 @@ Latest recorded round — 24 November 2026 (theme manager and school-admin acces
 
 - Frontend: `npm test -- --run` → **62 passed across 22 files**
 - Frontend production build: `npm run build` → success; one chunk >500 kB is a
-  Vite warning, not a failure; PWA generated **7** precache entries
+  Vite warning, not a failure. Current builds have no service worker, manifest
+  or workbox files; the PWA precache entries recorded in older rounds are
+  historical only
 - Dependency audit: `npm audit --audit-level=moderate` → **0 vulnerabilities**
 - Backend: `manage.py check` → clean; `makemigrations --check --dry-run` → no changes
 - Backend full suite: `python -m pytest -q` → **100 passed**

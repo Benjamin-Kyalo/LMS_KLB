@@ -41,7 +41,7 @@ SMTP_HOST=smtp.your-provider.com
 SMTP_PORT=587
 SMTP_USER=your-smtp-user
 SMTP_PASSWORD=your-smtp-password
-DEFAULT_FROM_EMAIL=KLB LMS <no-reply@your-domain.co.ke>
+DEFAULT_FROM_EMAIL=KLB Elimu <no-reply@your-domain.co.ke>
 ```
 
 `SECURE_SSL_REDIRECT` defaults to `True`, HSTS to one year, and secure cookies

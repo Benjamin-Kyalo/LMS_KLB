@@ -1,5 +1,34 @@
 # Testing checklist
 
+## Verified — KLB Elimu content pack and public enquiry flow, 27 November 2026
+
+All checks below were run locally against the uncommitted working tree; no
+commit or push was made. Browser console 401 responses from the anonymous
+`/api/auth/me/` session probe are expected and are handled without a
+user-visible error; no JavaScript errors were observed.
+
+| Check | Command / method | Result |
+|---|---|---|
+| Content-pack parity | Backend theming parity test comparing `backend/apps/theming/site_content.py` with `frontend/src/config/publicContentPack.json` | **Passed**; included in the full backend suite below |
+| Migration forward and reverse | `python manage.py showmigrations theming` for `theming.0009_apply_klb_elimu_content_pack`, plus the round-trip test for the `public_before_klb_elimu_content_pack` snapshot and preserved administrator edits | **Passed**; 0009 is applied and the backup/restore round trip is covered by the backend suite |
+| Public enquiry API | Focused backend tests for `POST /api/core/public-enquiries/` (fields, real reference, ignored unknown fields, no PII in `AuditLog`, throttle) and the `SUPER_ADMIN`-only `GET`/`PATCH /api/core/enquiries/` review queue | **Passed**; live POST returned a real `ENQ-…` reference and the admin status PATCH succeeded with a CSRF header |
+| Public routes and contact form | Frontend tests for `/for-schools`, `/for-teachers`, `/for-learners`, `/for-parents`, `/about`, `/help`, `/contact`, `/faq`, `/privacy`, `/terms`, `/acceptable-use`, `/accessibility-statement`, plus submit/error/reference states on `/contact` | **Passed**; all public routes and `/library` rendered in the live browser; the browser contact submission displayed its reference and temporary records were removed |
+| Link sanitisation | Backend and frontend checks that links allow only site paths or full HTTPS; script, data and protocol-relative links are rejected; raw CSS is rejected; background/text pairs meet 4.5:1 contrast | **Passed**; backend/frontend tests and live browser checks found no unsafe links, no raw CSS and no visible `SAMPLE DATA` |
+| Accessibility details | `aria-*` state and accessible-name checks, reduced-motion browser pass, keyboard/focus review and Lighthouse accessibility check | **Passed**; Lighthouse accessibility, best practices and SEO scored **1 / 1 / 1** with zero failures on `/` and `/library`; accessible names were corrected for resource actions and the duplicate chart keys were removed |
+| Full backend suite | `python manage.py test` from `backend/` | **291 tests OK** in 630.934 s |
+| Full frontend suite | `npm test -- --run` from `frontend/` | **53 files / 186 tests passed** in 57.12 s; explicit 20 s timeouts on the longer homepage and registration tests prevent CPU-contention flakes |
+| Production build | `npm run build` from `frontend/` | **Passed**; no service worker, PWA manifest, workbox or precache output |
+| Dependency audit | `npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Django checks | `python manage.py check` and `python manage.py makemigrations --check --dry-run` | **Passed**; no issues and `No changes detected` |
+| Whitespace check | `git diff --check` | **Passed**; only CRLF conversion warnings, no whitespace errors |
+| API smoke tests | Live requests for health, theming site content, public enquiry submission and the platform-admin review queue | **Passed**; health 200, site-content 200, enquiry 201 with reference, four temporary role logins 200 with correct roles, `/auth/me/` 200, review list 200 and status PATCH 200; temporary users and enquiries were deleted afterwards |
+| Live browser / Lighthouse | Desktop and narrow-viewport passes over the new public routes and contact form, console check and Lighthouse scores | **Passed**; the public menu switches to its labelled button before tablet-width overflow, `/` and `/library` scored 1 / 1 / 1 with no failures, and admin/teacher/learner/guardian screens rendered without JavaScript console errors |
+
+Operational items needing owner/production access remain listed in
+`PRODUCTION_CONFIGURATION.md` and `HANDOVER_REPORT.md`; they are not claimed as
+verified here. Assistive-technology review still requires the owner's own AT
+environment.
+
 ## Second homepage enhancement set, 27 November 2026
 
 | Check | Command / method | Result |

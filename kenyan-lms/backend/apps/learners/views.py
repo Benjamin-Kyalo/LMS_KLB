@@ -198,8 +198,9 @@ class GuardianLinkRequestViewSet(viewsets.ModelViewSet):
         )
         notify_user(
             guardian.user,
-            "Link request submitted",
-            f"Your request to link {learner.user.full_name} is waiting for school approval.",
+            "Parent link request received",
+            f"Your request to link {learner.user.full_name} is waiting for school "
+            "verification. You will be notified when a decision has been made.",
             "GENERAL",
             "/portal",
         )
@@ -294,8 +295,9 @@ class GuardianLinkRequestViewSet(viewsets.ModelViewSet):
         )
         notify_user(
             link_request.guardian.user,
-            "Guardian link approved",
-            f"You can now see {link_request.learner.user.full_name} in your portal.",
+            "Your school account is ready",
+            f"You can now see {link_request.learner.user.full_name} in your "
+            "parent portal.",
             "GENERAL",
             "/portal",
         )
@@ -328,8 +330,9 @@ class GuardianLinkRequestViewSet(viewsets.ModelViewSet):
         )
         notify_user(
             link_request.guardian.user,
-            "Guardian link request not approved",
-            f"Your request for {link_request.learner.user.full_name} was not approved. Reason: {notes}",
+            "Parent link request not approved",
+            f"Your request for {link_request.learner.user.full_name} was not "
+            f"approved. Reason: {notes} Contact the school if you need clarification.",
             "GENERAL",
             "/portal",
         )

@@ -2,18 +2,24 @@
 import logging
 
 from django.conf import settings
-from django.db import connection
-from rest_framework.decorators import api_view, permission_classes
+from django.db import connection, transaction
+from rest_framework import status as http_status
+from rest_framework.decorators import (
+    api_view, authentication_classes, permission_classes, throttle_classes,
+)
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.viewsets import ReadOnlyModelViewSet
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from apps.core.audit import log_audit
 from apps.core.data_quality import SAFE_FIXES, apply_fix, preview_fix, scan_institution
-from apps.core.models import AuditLog
-from apps.core.permissions import is_institution_admin, is_platform_admin
-from apps.core.serializers import AuditLogSerializer
+from apps.core.models import AuditLog, PublicEnquiry
+from apps.core.permissions import IsSuperAdmin, is_institution_admin, is_platform_admin
+from apps.core.serializers import (
+    AuditLogSerializer, PublicEnquiryAdminSerializer, PublicEnquiryCreateSerializer,
+)
+from apps.core.throttling import PublicEnquiryThrottle
 from apps.institutions.models import Institution
 
 logger = logging.getLogger(__name__)
@@ -76,6 +82,66 @@ def client_config(request):
     })
     response["Cache-Control"] = "public, max-age=300"
     return response
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([PublicEnquiryThrottle])
+def public_enquiry_submit(request):
+    """Store a public contact message and return its real reference number.
+
+    No session, token or learner record is required. Only the contact fields
+    shown on the public form are accepted, and the save plus audit entry are
+    one transaction so a failed submission cannot leave a partial record.
+    """
+    serializer = PublicEnquiryCreateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    with transaction.atomic():
+        enquiry = serializer.save()
+        log_audit(
+            None, "public_enquiry.received", "PublicEnquiry", enquiry.reference,
+            {"reference": enquiry.reference, "category": enquiry.category},
+            request=request,
+        )
+    return Response(
+        {
+            "reference": enquiry.reference,
+            "message": "Your enquiry has been received. Keep your reference number for any follow-up communication.",
+        },
+        status=http_status.HTTP_201_CREATED,
+    )
+
+
+class PublicEnquiryViewSet(ModelViewSet):
+    """Platform-administrator review queue for public enquiries."""
+
+    serializer_class = PublicEnquiryAdminSerializer
+    permission_classes = [IsSuperAdmin]
+    http_method_names = ["get", "patch", "head", "options"]
+    filterset_fields = ["status", "category"]
+    search_fields = ["reference", "full_name", "email", "organisation", "subject"]
+    ordering_fields = ["created_at", "subject"]
+
+    def get_queryset(self):
+        return PublicEnquiry.objects.all()
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @transaction.atomic
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        enquiry = serializer.save()
+        log_audit(
+            self.request.user, "public_enquiry.status_changed", "PublicEnquiry",
+            enquiry.reference,
+            {"reference": enquiry.reference, "status": enquiry.status},
+            request=self.request,
+        )
 
 
 class AuditLogViewSet(ReadOnlyModelViewSet):

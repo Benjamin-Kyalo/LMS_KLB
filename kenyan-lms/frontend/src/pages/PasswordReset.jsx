@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../services/api";
+import { useSiteContent } from "../context/SiteContentContext";
 import { useToast } from "../context/ToastContext";
 import PublicHeader from "../components/PublicHeader";
 import PublicFooter from "../components/PublicFooter";
@@ -10,6 +11,7 @@ export default function PasswordReset() {
   const { uid, token } = useParams();
   const navigate = useNavigate();
   const { push } = useToast();
+  const { content } = useSiteContent();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -30,11 +32,14 @@ export default function PasswordReset() {
     setError(null);
     setMessage(null);
     try {
-      await api.post("/auth/password/reset/request/", { email });
-      setMessage("If the account exists, a reset message has been sent.");
+      const result = await api.post("/auth/password/reset/request/", { email });
+      setMessage(
+        result?.detail
+        || "Password reset instructions have been sent to the registered email address, if an account matches the details provided."
+      );
       push("Reset request submitted.", "success");
     } catch (err) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || content.messages.errors.somethingWrong);
     } finally {
       setSaving(false);
     }
@@ -57,7 +62,7 @@ export default function PasswordReset() {
       push("Password reset. You may now sign in.", "success");
       navigate("/login");
     } catch (err) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || content.messages.errors.somethingWrong);
     } finally {
       setSaving(false);
     }

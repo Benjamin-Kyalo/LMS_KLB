@@ -21,6 +21,34 @@ no service worker, PWA shell or native wrapper. See `OFFLINE_MODE_REVERSAL.md`.
 See `README.md` and `SECURITY_AUDIT.md` for the current security posture and
 verification limits.
 
+## KLB Elimu blueprint — proposed initiative
+
+**Disclaimer:** KLB Elimu is the product name used by the current content pack.
+It describes a proposed digital learning initiative subject to organisational
+approval. Nothing in this section claims KLB approval, a partnership or
+endorsement, or official curriculum status. No national statistics or promised
+enquiry response times are asserted.
+
+The supplied brand message is managed copy on the public About page
+(`publicPages.about.brandMessage`) and is quoted here as the blueprint's voice:
+
+> A good lesson should not end when the bell rings.
+>
+> There is always another question to explore, another idea to understand and
+> another opportunity to grow.
+>
+> KLB Elimu brings learning resources, classroom activities, assessments and
+> educational publishing together in one place, giving teachers and learners
+> more ways to make every learning moment count.
+
+The blueprint's public shape is the managed homepage and audience pages
+(`/for-schools`, `/for-teachers`, `/for-learners`, `/for-parents`, `/about`,
+`/help`, `/contact`, `/faq`, `/privacy`, `/terms`, `/acceptable-use` and
+`/accessibility-statement`), a Digital Library feature section, and a public
+contact form that returns a reference for later follow-up. Wording is changed
+through `/admin/appearance`, not source edits; see `PUBLIC_SITE_CONTENT.md`.
+The three-experience rule below still governs what may be built.
+
 ## What we are building
 
 A single, maintainable **Learners Management System (LMS)** for a Kenyan

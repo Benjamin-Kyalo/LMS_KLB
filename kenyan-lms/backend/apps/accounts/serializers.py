@@ -327,7 +327,10 @@ class LoginSerializer(serializers.Serializer):
                         "Your teacher account is awaiting school administrator approval."
                     )
                 raise serializers.ValidationError("This account has been deactivated.")
-            raise serializers.ValidationError("Invalid username or password.")
+            raise serializers.ValidationError(
+                "We could not verify those sign-in details. Check your username "
+                "and password and try again."
+            )
         if not user.is_active:
             if user.role == Roles.TEACHER:
                 raise serializers.ValidationError(

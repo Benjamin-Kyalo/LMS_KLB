@@ -20,6 +20,14 @@ STYLE_SECTION_KEYS = (
     "header",
     "footer",
     "hero",
+    "introduction",
+    "capabilities",
+    "library-feature",
+    "teachers",
+    "learners",
+    "parents",
+    "how-it-works",
+    "closing-cta",
     "announcement",
     "quick-links",
     "trust",
@@ -891,7 +899,7 @@ DEFAULT_SITE_CONTENT = {
             "features": [
                 "Find lessons and subjects.",
                 "Read available digital textbooks.",
-                "Download permitted learning materials.",
+                "Access permitted learning materials.",
                 "Watch or listen to educational resources.",
                 "Submit assignments.",
                 "Complete practice activities.",
@@ -1027,6 +1035,7 @@ DEFAULT_SITE_CONTENT = {
                 )
             ],
             "searchPlaceholder": "What would you like help with?",
+            "noResults": "No help articles match that search. Try another phrase or contact support.",
             "suggestedSearches": [
                 "I cannot sign in.",
                 "How do I register my school?",
@@ -1074,7 +1083,7 @@ DEFAULT_SITE_CONTENT = {
                         "How to search for a book.",
                         "How to preview a resource.",
                         "How to access licensed content.",
-                        "How to download permitted resources.",
+                        "How to access permitted resources.",
                         "How to use the digital reader.",
                     ],
                 },
@@ -1218,10 +1227,9 @@ DEFAULT_SITE_CONTENT = {
                         {
                             "question": "Can I study without internet access?",
                             "answer": (
-                                "Some resources can be made available offline where "
-                                "downloading and offline use are permitted. Access "
-                                "and synchronisation depend on the resource format and "
-                                "licence conditions."
+                                "Offline downloads and synchronisation are not part of "
+                                "this application. Resources are available through the "
+                                "web interface where your account has access."
                             ),
                         },
                         {
@@ -1272,10 +1280,11 @@ DEFAULT_SITE_CONTENT = {
                             ),
                         },
                         {
-                            "question": "Can I download every book?",
+                            "question": "Can I access every book?",
                             "answer": (
-                                "Download options depend on the relevant publishing "
-                                "and licensing conditions."
+                                "Access depends on the relevant publishing and "
+                                "licensing conditions. Each book should clearly "
+                                "indicate its access requirements."
                             ),
                         },
                         {
@@ -1321,6 +1330,58 @@ DEFAULT_SITE_CONTENT = {
                 "Where a learner requires additional support, schools should be able "
                 "to make appropriate arrangements without unnecessarily exposing "
                 "sensitive personal information."
+            ),
+        },
+        "terms": {
+            "pageTitle": "Terms of Use",
+            "title": "Terms of Use",
+            "introduction": [
+                (
+                    "These terms set out the expected way to use KLB Elimu while "
+                    "the proposed initiative is being reviewed."
+                )
+            ],
+            "usageTitle": "Using the platform",
+            "usage": [
+                "Use an account only if it was issued to you.",
+                "Keep account credentials private.",
+                "Follow the access rules set by your school.",
+                "Use educational resources in line with their permissions.",
+                "Report suspicious activity to the appropriate administrator.",
+            ],
+            "availabilityTitle": "Availability",
+            "availability": (
+                "The platform is designed for use on computers, tablets and "
+                "smartphones. Some services may be temporarily unavailable "
+                "during maintenance."
+            ),
+            "note": (
+                "The final Terms of Use must be reviewed and approved by KLB's "
+                "legal team before publication."
+            ),
+        },
+        "acceptableUse": {
+            "pageTitle": "Acceptable Use Policy",
+            "title": "Acceptable Use Policy",
+            "introduction": [
+                (
+                    "KLB Elimu is a learning environment. Everyone who uses it "
+                    "should help keep that environment safe and respectful."
+                )
+            ],
+            "rulesTitle": "Expected conduct",
+            "rules": [
+                "Protect your account credentials.",
+                "Respect other users.",
+                "Use educational resources only in accordance with your access rights.",
+                "Do not upload inappropriate or unauthorised content.",
+                "Do not attempt to access records outside your role.",
+                "Report suspicious activity.",
+                "Follow school and platform rules.",
+            ],
+            "note": (
+                "The final Acceptable Use Policy must be reviewed and approved "
+                "by KLB's legal and data protection teams before publication."
             ),
         },
         "privacy": {
@@ -1411,7 +1472,7 @@ DEFAULT_SITE_CONTENT = {
             "Submitting your assignment...",
             "Preparing your report...",
             "Checking your account...",
-            "Synchronising your offline activity...",
+            "Preparing a lighter view of your work...",
         ],
         "success": {
             "recordSaved": "Your changes have been saved successfully.",
@@ -1499,7 +1560,7 @@ DEFAULT_SITE_CONTENT = {
             "teacherCreated": "A new teacher account has been created for your school. The teacher can complete the account activation process using the invitation sent to their registered contact.",
             "learnerRegistered": "A new learner has been added to your school records. Review the learner's profile to confirm that the class placement and contact details are correct.",
             "incompleteSetup": "Your school's initial setup is not yet complete. Review the outstanding items to prepare the learning environment for teachers and learners.",
-            "subscriptionReminder": "Your school's subscription is approaching its renewal date. Review your current package and plan the next renewal.",
+            "subscriptionReminder": "Your school's package is approaching its review date. Review the current configuration with your administrator.",
             "newClass": "You have been assigned to [Class Name]. Open your class dashboard to review the learners and assigned learning areas.",
             "newLearner": "A new learner has joined [Class Name]. Review the updated class register.",
             "submissionReceived": "[Learner Name] has submitted the assignment \"[Assignment Title]\". It is now available for review.",

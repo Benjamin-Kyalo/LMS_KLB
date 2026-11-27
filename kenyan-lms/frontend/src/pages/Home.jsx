@@ -9,7 +9,7 @@ import PublicFooter from "../components/PublicFooter";
 import ParticleHeadline from "../components/ParticleHeadline";
 import RollingLabel from "../components/RollingLabel";
 import { useSiteContent } from "../context/SiteContentContext";
-import { sectionStyleVars } from "../styles/sectionStyles";
+import { useSectionStyle } from "../styles/sectionStyles";
 
 const ROLE_ICONS = {
   learners: GraduationCap,
@@ -94,6 +94,26 @@ function useReadingProgress() {
   return progress;
 }
 
+function WorkspaceCard({ item }) {
+  const style = useSectionStyle(`workspace-${item.key}`);
+  return (
+    <article className={`workspace-card workspace-${item.key} section-styled`} style={style}>
+      <div className="workspace-media">
+        <img src={item.image || item.imageSrc} alt={item.imageAlt} loading="lazy" />
+        <span className="workspace-index" aria-hidden="true">{item.index}</span>
+      </div>
+      <div className="workspace-body">
+        <span className="workspace-icon" aria-hidden="true">
+          <Icon name={item.key} mapping={WORKSPACE_ICONS} />
+        </span>
+        <div className="overline">{item.label}</div>
+        <h3>{item.title}</h3>
+        <p>{item.copy}</p>
+      </div>
+    </article>
+  );
+}
+
 export default function Home() {
   const { content } = useSiteContent();
   const roles = content.roles?.cards || [];
@@ -103,33 +123,47 @@ export default function Home() {
   const selectedRole = roles.find((item) => item.key === selectedRoleKey) || roles[0];
   const announcement = content.announcement || {};
   const quickLinks = content.quickLinks || {};
-  const hero = content.hero;
-  const trust = content.trust;
-  const workspaces = content.workspaces;
-  const routines = content.routines;
-  const access = content.access;
-  const journey = content.journey;
-  const insights = content.insights;
-  const accessibility = content.accessibility;
-  const spotlight = content.spotlight;
-  const roleCopy = content.roles;
-  const support = content.support;
-  const faq = content.faq;
+  const hero = content.hero || {};
+  const introduction = content.introduction || {};
+  const capabilities = content.capabilities || {};
+  const libraryFeature = content.libraryFeature || {};
+  const audiences = content.audiences || {};
+  const steps = content.steps || {};
+  const closingCta = content.closingCta || {};
+  const trust = content.trust || {};
+  const workspaces = content.workspaces || {};
+  const routines = content.routines || {};
+  const access = content.access || {};
+  const journey = content.journey || {};
+  const insights = content.insights || {};
+  const accessibility = content.accessibility || {};
+  const spotlight = content.spotlight || {};
+  const roleCopy = content.roles || {};
+  const support = content.support || {};
+  const faq = content.faq || {};
 
-  const announcementStyle = sectionStyleVars(content.styles, "announcement");
-  const quickStyle = sectionStyleVars(content.styles, "quick-links");
-  const heroStyle = sectionStyleVars(content.styles, "hero");
-  const trustStyle = sectionStyleVars(content.styles, "trust");
-  const workspaceHeadingStyle = sectionStyleVars(content.styles, "workspaces");
-  const routineStyle = sectionStyleVars(content.styles, "routines");
-  const accessStyle = sectionStyleVars(content.styles, "access");
-  const journeyStyle = sectionStyleVars(content.styles, "journey");
-  const insightStyle = sectionStyleVars(content.styles, "insights");
-  const accessibilityStyle = sectionStyleVars(content.styles, "accessibility");
-  const spotlightStyle = sectionStyleVars(content.styles, "spotlight");
-  const roleStyle = sectionStyleVars(content.styles, "roles");
-  const supportStyle = sectionStyleVars(content.styles, "support");
-  const faqStyle = sectionStyleVars(content.styles, "faq");
+  const announcementStyle = useSectionStyle("announcement");
+  const quickStyle = useSectionStyle("quick-links");
+  const heroStyle = useSectionStyle("hero");
+  const introductionStyle = useSectionStyle("introduction");
+  const capabilitiesStyle = useSectionStyle("capabilities");
+  const libraryFeatureStyle = useSectionStyle("library-feature");
+  const teachersStyle = useSectionStyle("teachers");
+  const learnersStyle = useSectionStyle("learners");
+  const parentsStyle = useSectionStyle("parents");
+  const stepsStyle = useSectionStyle("how-it-works");
+  const closingCtaStyle = useSectionStyle("closing-cta");
+  const trustStyle = useSectionStyle("trust");
+  const workspaceHeadingStyle = useSectionStyle("workspaces");
+  const routineStyle = useSectionStyle("routines");
+  const accessStyle = useSectionStyle("access");
+  const journeyStyle = useSectionStyle("journey");
+  const insightStyle = useSectionStyle("insights");
+  const accessibilityStyle = useSectionStyle("accessibility");
+  const spotlightStyle = useSectionStyle("spotlight");
+  const roleStyle = useSectionStyle("roles");
+  const supportStyle = useSectionStyle("support");
+  const faqStyle = useSectionStyle("faq");
 
   return (
     <div className="public-home">
@@ -189,6 +223,9 @@ export default function Home() {
             <span className="hero-eyebrow">{hero.eyebrow}</span>
             <ParticleHeadline text={hero.title} />
             <p>{hero.description}</p>
+            {hero.supportingStatement && (
+              <p className="hero-supporting-statement">{hero.supportingStatement}</p>
+            )}
             <div className="public-hero-actions">
               <ManagedLink to={hero.primaryHref} className="button-link light">
                 <RollingLabel>{hero.primaryLabel}</RollingLabel>
@@ -239,6 +276,140 @@ export default function Home() {
         </section>
 
         <section
+          className="public-introduction section-styled"
+          id="introduction"
+          aria-labelledby="introduction-title"
+          style={introductionStyle}
+        >
+          <div className="overline">{introduction.overline}</div>
+          <h2 id="introduction-title">{introduction.title}</h2>
+          <div className="public-prose">
+            {(introduction.paragraphs || []).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+          </div>
+        </section>
+
+        <section
+          className="public-capabilities section-styled"
+          id="capabilities"
+          aria-labelledby="capabilities-title"
+          style={capabilitiesStyle}
+        >
+          <div className="overline">{capabilities.overline}</div>
+          <h2 id="capabilities-title">{capabilities.title}</h2>
+          <ul className="capability-grid">
+            {(capabilities.cards || []).map((card) => (
+              <li className="capability-card" key={card.key || card.title}>
+                <article>
+                  <h3>{card.title}</h3>
+                  <p>{card.copy}</p>
+                  {card.actionLabel && (
+                    <ManagedLink to={card.actionHref} className="button-link secondary">
+                      <RollingLabel>{card.actionLabel}</RollingLabel>
+                    </ManagedLink>
+                  )}
+                </article>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section
+          className="public-library-feature section-styled"
+          id="library"
+          aria-labelledby="library-feature-title"
+          style={libraryFeatureStyle}
+        >
+          <div className="library-feature-copy">
+            <div className="overline">{libraryFeature.overline}</div>
+            <h2 id="library-feature-title">{libraryFeature.title}</h2>
+            <div className="public-prose">
+              {(libraryFeature.paragraphs || []).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            </div>
+            <div className="public-section-actions">
+              {libraryFeature.primaryLabel && (
+                <ManagedLink to={libraryFeature.primaryHref} className="button-link">
+                  <RollingLabel>{libraryFeature.primaryLabel}</RollingLabel>
+                </ManagedLink>
+              )}
+              {libraryFeature.secondaryLabel && (
+                <ManagedLink to={libraryFeature.secondaryHref} className="button-link secondary">
+                  <RollingLabel>{libraryFeature.secondaryLabel}</RollingLabel>
+                </ManagedLink>
+              )}
+            </div>
+          </div>
+          <div className="library-feature-visual" aria-hidden="true">
+            <Library size={72} strokeWidth={1.2} />
+          </div>
+        </section>
+
+        {[
+          { key: "teachers", copy: audiences.teachers, style: teachersStyle },
+          { key: "learners", copy: audiences.learners, style: learnersStyle },
+          { key: "parents", copy: audiences.parents, style: parentsStyle },
+        ].map(({ key, copy, style }) => (
+          <section
+            className="public-audience section-styled"
+            id={key}
+            aria-labelledby={`${key}-title`}
+            key={key}
+            style={style}
+          >
+            <div className="overline">{copy?.overline}</div>
+            <h2 id={`${key}-title`}>{copy?.title}</h2>
+            <div className="public-prose">
+              {(copy?.paragraphs || []).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            </div>
+            {copy?.actionLabel && (
+              <ManagedLink to={copy.actionHref} className="button-link secondary">
+                <RollingLabel>{copy.actionLabel}</RollingLabel>
+              </ManagedLink>
+            )}
+          </section>
+        ))}
+
+        <section
+          className="public-steps section-styled"
+          id="how-it-works"
+          aria-labelledby="steps-title"
+          style={stepsStyle}
+        >
+          <div className="overline">{steps.overline}</div>
+          <h2 id="steps-title">{steps.title}</h2>
+          <ol className="step-grid">
+            {(steps.steps || []).map((step, index) => (
+              <li className="step-item" key={step.title}>
+                <span className="step-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                <h3>{step.title}</h3>
+                <p>{step.copy}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section
+          className="public-closing-cta section-styled"
+          aria-labelledby="closing-cta-title"
+          style={closingCtaStyle}
+        >
+          <div className="overline">{closingCta.overline}</div>
+          <h2 id="closing-cta-title">{closingCta.title}</h2>
+          <p>{closingCta.copy}</p>
+          <div className="public-section-actions">
+            {closingCta.primaryLabel && (
+              <ManagedLink to={closingCta.primaryHref} className="button-link light">
+                <RollingLabel>{closingCta.primaryLabel}</RollingLabel>
+              </ManagedLink>
+            )}
+            {closingCta.secondaryLabel && (
+              <ManagedLink to={closingCta.secondaryHref} className="button-link light outline">
+                <RollingLabel>{closingCta.secondaryLabel}</RollingLabel>
+              </ManagedLink>
+            )}
+          </div>
+        </section>
+
+        <section
           className="public-workspaces section-styled"
           id="workspaces"
           aria-labelledby="workspaces-title"
@@ -251,26 +422,7 @@ export default function Home() {
             </div>
           </div>
           <div className="workspace-grid">
-            {(workspaces.cards || []).map((item) => (
-              <article
-                className={`workspace-card workspace-${item.key} section-styled`}
-                key={item.key}
-                style={sectionStyleVars(content.styles, `workspace-${item.key}`)}
-              >
-                <div className="workspace-media">
-                  <img src={item.image || item.imageSrc} alt={item.imageAlt} loading="lazy" />
-                  <span className="workspace-index" aria-hidden="true">{item.index}</span>
-                </div>
-                <div className="workspace-body">
-                  <span className="workspace-icon" aria-hidden="true">
-                    <Icon name={item.key} mapping={WORKSPACE_ICONS} />
-                  </span>
-                  <div className="overline">{item.label}</div>
-                  <h3>{item.title}</h3>
-                  <p>{item.copy}</p>
-                </div>
-              </article>
-            ))}
+            {(workspaces.cards || []).map((item) => <WorkspaceCard item={item} key={item.key} />)}
           </div>
         </section>
 

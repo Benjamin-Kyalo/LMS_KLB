@@ -2,6 +2,9 @@
 
 This folder is the operating manual for the project. Every guide reflects
 the code that actually exists; unimplemented ideas are labelled as such.
+The current product name is **KLB Elimu**, a proposed digital learning
+initiative subject to organisational approval; older product names appear only
+where they describe historical data or retired roles.
 
 ## Two sides of the application
 
@@ -12,6 +15,11 @@ the code that actually exists; unimplemented ideas are labelled as such.
   user categories; administrator access is intentionally not advertised there.
 - `/library` is the public resource catalogue. Legacy `/resources` keeps a
   role-aware redirect; authenticated readers use the scoped `/portal` lists.
+  The managed KLB Elimu public pages include `/for-schools`, `/for-teachers`,
+  `/for-learners`, `/for-parents`, `/about`, `/help`, `/contact`, `/faq`,
+  `/privacy`, `/terms`, `/acceptable-use` and `/accessibility-statement`.
+  `/academic-terms` is the legacy school-term editor; `/terms` is the public
+  Terms of Use.
 - Sign-in and registration route each role to `/admin` or `/portal`. Old root
   URLs such as `/learners`, `/courses` and `/reports` redirect by role.
 
@@ -125,7 +133,7 @@ and 390 px. Current verification figures are in `TESTING_CHECKLIST.md`.
 | `OCEAN_PALETTE.md` | Approved blue-only palette, exact extracted values and semantic decision | Written |
 | `REFERENCE_MODELS.md` | Five reference systems, borrowed ideas, original design, accessibility and low-bandwidth guidance | Written |
 | `ASSET_CREDITS.md` | Locally hosted photographs, original SVG and reference-use statement | New |
-| `PUBLIC_SITE_CONTENT.md` | Admin-managed header, footer, homepage, role, library, auth and portal wording | Updated |
+| `PUBLIC_SITE_CONTENT.md` | Admin-managed KLB Elimu content pack: header, footer, homepage sections, public pages, messages, library, auth, portal wording, migrations and style allowlist | Updated |
 | `REFERENCE_NUMBERING.md` | Automatic admission, staff and other business codes | Written |
 | `INSTALLATION_GUIDE.md` | Step-by-step setup on Windows | Written |
 | `COMMANDS.md` | Complete PowerShell command list with working directories | Written |
@@ -138,7 +146,7 @@ and 390 px. Current verification figures are in `TESTING_CHECKLIST.md`.
 | `SAMPLE_DATA.md` | Labelled sample records, counts, idempotent seeder and caveats | New |
 | `TROUBLESHOOTING.md` | Common errors and fixes | Written |
 | `BACKUP_AND_RESTORE.md` | Safe backup and recovery | Written |
-| `API_DOCUMENTATION.md` | Endpoints, roles/capabilities, custom-role CRUD, onboarding/verification, resource discovery, school profile and frontend usage | Updated for the simplified role model |
+| `API_DOCUMENTATION.md` | Endpoints, roles/capabilities, custom-role CRUD, onboarding/verification, public enquiries and review queue, resource discovery, school profile and frontend usage | Updated for the simplified role model |
 | `RUBRICS_MASTERY.md` | Rubric builder, criterion marking, publication, resubmission and mastery evidence | New |
 | `OFFLINE_MODE_REVERSAL.md` | Documented narrow reversal of the 24 Nov removal: public cache, allowlisted writes, conflicts and exclusions | New; off by default |
 | `INTEROPERABILITY_AI.md` | Env-only HS256 OneRoster groundwork, rejected protocols and governed tutor policy | New |

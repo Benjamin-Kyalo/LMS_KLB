@@ -317,8 +317,9 @@ def refresh_early_warning(institution, actor=None, request=None):
         ]
         notify_users(
             admins,
-            f"{len(created)} learner(s) need attention",
-            "New early-warning intervention tasks were created. Review them in the dashboard.",
+            "Learners needing attention",
+            "New support tasks were created. Review the dashboard to see which "
+            "learners may need additional guidance.",
             "SYSTEM",
             "/admin/early-warning",
         )

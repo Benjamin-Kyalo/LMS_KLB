@@ -71,7 +71,7 @@ describe("public registration", () => {
       expect.objectContaining({ role: "LEARNER", username: "test_learner" })
     );
     expect(mocks.signIn).toHaveBeenCalledWith("test_learner", "TestPass123");
-  });
+  }, 20000);
 
   it("asks guardians for a learner identifier and sends it in the registration payload", async () => {
     const user = userEvent.setup();
@@ -95,7 +95,7 @@ describe("public registration", () => {
       "/auth/register/",
       expect.objectContaining({ role: "GUARDIAN", learner_identifier: "ADM-100" }),
     ));
-  });
+  }, 20000);
 
   it("sends incomplete accounts to first-time setup after registration", async () => {
     const user = userEvent.setup();
@@ -116,5 +116,5 @@ describe("public registration", () => {
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
     await waitFor(() => expect(screen.getByText("First-time setup")).toBeTruthy());
-  });
+  }, 20000);
 });

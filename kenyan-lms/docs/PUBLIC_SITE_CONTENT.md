@@ -1,15 +1,69 @@
 # Public site content
 
 Public wording and appearance are data, not source edits. A single editable
-document stores the header, footer, homepage sections, managed photo addresses,
-role cards, library book and resource headings, sign in and registration copy,
-the signed-in brand and portal menu labels, and safe per-section style controls.
-The homepage includes a dismissal-friendly announcement, an on-page quick-link
-strip, a hero, a short trust strip, three workspace cards, an everyday routines
-guide, a plain-language access table, a preparation checklist beside the
-three-step guide, a progress panel, an accessibility commitment, a library
-spotlight, the role selector, a support callout, a small question list and a
-back-to-top control. The former quick-facts strip was removed.
+document stores the header and footer, homepage sections, managed photo
+addresses, role cards, library book and resource headings, sign in and
+registration copy, signed-in brand and portal menu labels, user-facing messages
+and safe per-section style controls. The shipped wording is the **KLB Elimu
+content pack**, a proposed digital learning initiative subject to organisational
+approval; it does not claim official curriculum status.
+
+The pack documents every managed section: `introduction`, `capabilities`,
+`libraryFeature`, `audiences`, `steps`, `closingCta`, all entries under
+`publicPages`, and `messages`. The homepage also carries a dismissal-friendly
+announcement, an on-page quick-link strip, a hero, a short trust strip, three
+workspace cards, an everyday routines guide, a plain-language access table, a
+preparation checklist beside the three-step guide, a progress panel, an
+accessibility commitment, a library spotlight, the role selector, a support
+callout, a question list and a back-to-top control. The former quick-facts strip
+was removed.
+
+## Managed content sections
+
+These keys are part of the editable document. Administrators change wording and
+links through the Words tab; source edits are not needed.
+
+| Section | What it controls |
+|---|---|
+| `header` | Brand mark, name and subtitle, public menu links, sign-in and school-registration actions |
+| `footer` | Introduction, four link groups, photo credit, closing line and disclaimer |
+| `hero` | Overline, eyebrow, headline, description, two actions, supporting statement, highlights and managed photograph |
+| `announcement`, `quickLinks` | Dismissible notice and the on-page link ribbon |
+| `introduction` | Connected-learning explanation under the hero |
+| `capabilities` | Four cards for schools, teachers, learners and parents, each with an action link |
+| `libraryFeature` | Homepage introduction to the KLB Digital Library, with primary and secondary actions |
+| `audiences` | `teachers`, `learners` and `parents` sections with paragraphs and audience actions |
+| `steps` | Five getting-started steps under “How it works” |
+| `closingCta` | Final invitation, school-registration action and sign-in action |
+| `trust`, `workspaces`, `routines`, `access`, `journey`, `insights`, `accessibility`, `spotlight`, `roles`, `support`, `faq` | Remaining homepage panels, guides, role preview and question list |
+| `publicPages` | Wording and lists for the managed public routes listed below |
+| `messages` | Page introductions, search placeholders, global actions, loading, success, errors, confirmations, empty states, first-time notes and notifications |
+| `library`, `auth`, `portal`, `app` | Library fields, sign-in/registration/invitation stories, portal tutor wording, signed-in brand and portal menu labels |
+| `styles` | Section-scoped appearance controls described below |
+
+The managed `publicPages` keys map to these public routes:
+
+| Key | Route | Page |
+|---|---|---|
+| `about` | `/about` | About KLB Elimu and its proposed brand message |
+| `schools` | `/for-schools` | School audience page |
+| `teachers` | `/for-teachers` | Teacher audience page |
+| `learners` | `/for-learners` | Learner audience page |
+| `parents` | `/for-parents` | Parent audience page |
+| `library` | `/library` | Public book and resource catalogue introduction |
+| `contact` | `/contact` | Contact form, categories, confirmation and enquiry fields |
+| `help` | `/help` | Searchable help topics and support callout |
+| `faq` | `/faq` | Expandable common questions |
+| `privacy` | `/privacy` | Privacy Notice |
+| `terms` | `/terms` | public Terms of Use |
+| `acceptableUse` | `/acceptable-use` | Acceptable Use Policy |
+| `accessibility` | `/accessibility-statement` | Accessibility Statement |
+
+`/academic-terms` remains the legacy school-term editor in the admin side; it
+is not the public Terms of Use. The public `/terms` route renders the managed
+Terms of Use. Policy pages may carry a legal-review note; implementer-only notes
+are never rendered on a public page. No outcome is promised for an enquiry,
+including a response time.
 
 ## Admin editor
 
@@ -42,8 +96,12 @@ the learner portal. `SUPER_ADMIN` and `ADMIN` can manage the shared photographs,
 wording and section styles; a custom role needs `admin.access` plus
 `appearance.manage`.
 
-This is a normal web app: there is no service worker or offline queue. A failed
-save shows an error and the old values stay on the server.
+This is a normal web app: there is no service worker, PWA shell or native app.
+By default a failed save shows an error and the old values stay on the server.
+The separately documented low-bandwidth reversal is off by default; when
+enabled, it may cache allowlisted public reads and queue allowlisted theming
+writes, never credentials, CSRF tokens or personal fields. See
+`OFFLINE_MODE_REVERSAL.md`.
 
 Every save writes a `site_content.updated` audit entry. Links are limited to
 site paths such as `/library` or full HTTPS addresses. Script, data and
@@ -97,32 +155,43 @@ active palette stays in charge. The saved values are applied as CSS custom
 properties on that one section element, so changing the portal tutor card does
 not change the homepage hero or the global palette. No raw CSS is accepted.
 
-| Section | Where it applies |
-|---|---|
-| Public header | Brand, menu and sign in bar |
-| Public footer | Closing strip on public pages |
-| Homepage announcement | Short notice and action under the header |
-| Quick links | On-page link ribbon under the announcement |
-| Homepage hero | First panel and its buttons |
-| Homepage trust strip | Three short value points under the hero |
-| Workspace introduction | Heading above the workspace cards |
-| Learning workspace | First workspace card only |
-| School day | Second workspace card only |
-| Digital publishing | Third workspace card only |
-| Daily routines | Three everyday routine cards |
-| Access guide | Who-sees-what table |
-| Getting started | Three-step guide and readiness checklist |
-| Progress insight | Homepage progress points and photo |
-| Usability commitment | Keyboard, motion and connection notes |
-| Library spotlight | Library invitation and photo on the homepage |
-| Where do you fit? | Role selector and preview |
-| Support callout | Help invitation before the questions |
-| Common questions | Expandable question list near the end of the homepage |
-| Library | Public book and resource library |
-| Sign-in story | Story panel beside the sign in form |
-| Registration story | Registration story panel |
-| Invitation story | Administrator invitation story panel |
-| Portal tutor | Tutor introduction in the learner portal |
+Only these allowlisted IDs can carry section styles:
+
+| ID | Section | Where it applies |
+|---|---|---|
+| `header` | Public header | Brand, menu and sign in bar |
+| `footer` | Public footer | Closing strip on public pages |
+| `hero` | Homepage hero | First panel and its buttons |
+| `introduction` | Homepage introduction | Connected-learning explanation beneath the hero |
+| `capabilities` | What you can do | Four school, teacher, learner and parent cards |
+| `library-feature` | Digital library feature | Section introducing the KLB Digital Library |
+| `teachers` | Teacher audience | Teacher section on the homepage |
+| `learners` | Learner audience | Learner section on the homepage |
+| `parents` | Parent audience | Parent section on the homepage |
+| `how-it-works` | Getting started steps | Five-step setup guide on the homepage |
+| `closing-cta` | Closing invitation | Final invitation before the questions |
+| `announcement` | Homepage announcement | Short notice and action under the header |
+| `quick-links` | Quick links | On-page link ribbon under the announcement |
+| `trust` | Homepage trust strip | Three short value points under the hero |
+| `workspaces` | Workspace introduction | Heading above the workspace cards |
+| `routines` | Daily routines | Three everyday routine cards |
+| `access` | Access guide | Who-sees-what table |
+| `workspace-learning` | Learning workspace | First workspace card only |
+| `workspace-school` | School day | Second workspace card only |
+| `workspace-publishing` | Digital publishing | Third workspace card only |
+| `journey` | Getting started | Three-step guide and readiness checklist |
+| `insights` | Progress insight | Homepage progress points and photo |
+| `accessibility` | Usability commitment | Keyboard, motion and connection notes |
+| `info` | Public information pages | About, role, help, contact and policy pages |
+| `spotlight` | Library spotlight | Library invitation and photo on the homepage |
+| `roles` | Where do you fit? | Role selector and preview |
+| `support` | Support callout | Help invitation before the questions |
+| `faq` | Common questions | Expandable question list near the end of the homepage |
+| `library` | Library | Public book and resource library |
+| `login` | Sign-in story | Story panel beside the sign in form |
+| `register` | Registration story | Registration story panel |
+| `invite` | Invitation story | Administrator invitation story panel |
+| `tutor` | Portal tutor | Tutor introduction in the learner portal |
 
 Colours must be six-digit hex values. Corner choices are `0px`, `8px`, `16px`
 and `24px`; spacing choices are `compact`, `comfortable` and `relaxed`. If both
@@ -147,8 +216,12 @@ with `aria-expanded`, closes on link selection or Escape, and never hides the
 sign-in link from keyboard or screen-reader users. Signed-in visitors keep the
 same session and see a workspace link instead of a second sign-in action.
 
-The footer has an introduction, contact lines and two small link columns. A
-labelled **Back to top** button returns to the homepage start and honours a
+The footer has a name, tagline and contact lines, then four link groups:
+**Explore** (`exploreLinks`, titled “Platform”), **Resources** (`learnLinks`),
+**Information** (`infoLinks`) and **Contact** (`supportLinks`). It also manages a
+photo credit, a `closingLine` (“Every lesson opens a door.”) and a `disclaimer`
+describing the initiative as proposed and subject to organisational approval.
+A labelled **Back to top** button returns to the homepage start and honours a
 reduced-motion preference. It uses the same safe-link check as the header. Link
 columns stay on site paths or full HTTPS addresses; they do not expose
 administration links or repeat the sign-in and registration actions. If a
@@ -196,27 +269,61 @@ A PATCH may send the whole document or only the sections being changed. Omitted
 fields keep their current values. GET always returns the full document so the
 frontend can render it directly.
 
-## Defaults and connection failures
+The managed `/contact` page posts to `POST /api/core/public-enquiries/`.
+Submission is public and throttled; it returns a real reference number. Only
+`SUPER_ADMIN` can read or update the review queue. See
+`API_DOCUMENTATION.md`.
 
-Defaults live in `frontend/src/config/publicSite.js` and
-`backend/apps/theming/site_content.py`. They are intentionally the same values.
-Migration `theming.0007_refresh_public_homepage` installs the redesigned hero,
-navigation, trust strip, guide, spotlight, questions and footer fields into an
-existing saved document. Migration `theming.0008_add_public_homepage_extras`
-adds the announcement, quick links, routines, access guide, accessibility notes,
-support callout and readiness checklist, and adds the new "Who sees what" footer
-link. Both migrations only replace known old values or fill missing fields, so
-administrator photos, credits and other custom wording are kept.
+## Safety rules
+
+Every managed link is allowlisted: it must be a site path such as `/library` or
+a full `https://` address. Script, data and protocol-relative links are
+rejected with a field error, and unknown fields are discarded. Raw CSS is not
+accepted anywhere: section styles offer only six-digit hex colours plus the
+listed corner and spacing choices, and a background/text pair must reach 4.5:1
+contrast. Focus rings, accessible names, status colours and reduced-motion
+behaviour are not editable. Retired role cards and retired navigation items are
+stripped from defaults, saved data and PATCH payloads. See
+`OFFLINE_MODE_REVERSAL.md` for the opt-in cache/outbox and what it refuses to
+store.
+
+## Defaults, migrations and connection failures
+
+The frontend content-pack defaults live in
+`frontend/src/config/publicContentPack.json` and are loaded through
+`frontend/src/config/publicSite.js`. The backend defaults in
+`backend/apps/theming/site_content.py` mirror that JSON exactly; a parity test
+(`test_frontend_default_pack_matches_backend_defaults`) compares the two.
+
+Earlier migrations still matter: `theming.0007_refresh_public_homepage`
+installs the redesigned hero, navigation, trust strip, guide, spotlight,
+questions and footer fields, and `theming.0008_add_public_homepage_extras` adds
+the announcement, quick links, routines, access guide, accessibility notes,
+support callout, readiness checklist and "Who sees what" footer link. Both only
+replace known old values or fill missing fields.
+
+Migration `theming.0009_apply_klb_elimu_content_pack` applies the KLB Elimu pack
+to an existing saved document. It freezes the pack values in the migration file,
+replaces only known old brand and path values, fills missing sections and new
+fields, and keeps administrator edits such as custom wording, photos and
+credits. Before changing anything, it stores the exact pre-migration document at
+the SiteContent key `public_before_klb_elimu_content_pack`. The reverse operation
+restores that stored snapshot verbatim and removes the backup key, so the
+migration can be reversed without losing administrator edits. A round-trip test
+covers this behaviour.
+
 The frontend merges, in order:
 
-1. built-in defaults
+1. built-in defaults from the content pack
 2. an optional `window.__KLB_SITE_CONFIG__` deployment override
 3. the live `/api/theming/site-content/` response
 
 If the API is unreachable, the defaults are used and the page reports that the
-content could not be loaded. There is no local content cache, queue or replay:
-a failed PATCH leaves the server copy unchanged and shows an error to the
-administrator.
+content could not be loaded. By default there is no local content cache, queue
+or replay: a failed PATCH leaves the server copy unchanged and shows an error to
+the administrator. If low-bandwidth mode is explicitly enabled, only the
+allowlisted public reads and theming writes in `OFFLINE_MODE_REVERSAL.md` may use
+device storage.
 
 ## Optional runtime override
 

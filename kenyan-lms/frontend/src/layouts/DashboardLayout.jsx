@@ -232,7 +232,7 @@ export default function DashboardLayout() {
               {siteContent.app.adminBrand}
             </div>
             <div className="muted" style={{ fontSize: "0.75rem" }}>
-              {user?.institution_name || "Kenya · LMS + SIS + Publishing"}
+              {user?.institution_name || siteContent.app.adminBrand || "KLB Elimu"}
             </div>
           </div>
         </div>

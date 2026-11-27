@@ -7,6 +7,7 @@ import Loading from "../components/Loading";
 import RollingLabel from "../components/RollingLabel";
 import { isAdmin, isLearner, isGuardian, isTeacher } from "../utilities/roles";
 import { useTheme } from "../context/ThemeContext";
+import { useSiteContent } from "../context/SiteContentContext";
 
 function stepsFor(user) {
   if (isLearner(user)) {
@@ -41,12 +42,19 @@ function stepsFor(user) {
 export default function Dashboard() {
   const { user } = useAuth();
   const { colors } = useTheme();
+  const { content } = useSiteContent();
+  const messages = content.messages || {};
+  const overview = messages.pageIntroductions?.overview
+    || "Here is a summary of the activities and information available to your account.";
+  const dashboardLoading = messages.loading?.[0] || "Preparing your dashboard...";
+  const somethingWrong = messages.errors?.somethingWrong
+    || "We could not complete that action. Try again, or contact support if the problem continues. Include the reference number shown on this page.";
   const staffView = !(isLearner(user) || isGuardian(user));
   const summary = useResource(staffView ? "/reports/dashboard/" : null);
   const charts = useResource(staffView ? "/reports/analytics/" : null);
 
-  if (!user) return <Loading />;
-  if (staffView && (summary.loading || charts.loading)) return <Loading />;
+  if (!user) return <Loading label={messages.loading?.[6] || "Checking your account..."} />;
+  if (staffView && (summary.loading || charts.loading)) return <Loading label={dashboardLoading} />;
 
   const chartData = charts.data || {};
   const trend = (chartData.attendance_trend || []).map((item) => ({
@@ -73,7 +81,7 @@ export default function Dashboard() {
         <div>
           <div className="overline">Overview</div>
           <h1>Karibu, {user.first_name || user.username}</h1>
-          <p>Your school at a glance, with the next useful action close at hand.</p>
+          <p>{overview}</p>
         </div>
         <div className="actions">
           {staffView && (
@@ -86,7 +94,7 @@ export default function Dashboard() {
 
       {staffView && (summary.error || charts.error) ? (
         <div className="notice error" role="alert" style={{ marginBottom: "1rem" }}>
-          {summary.error || charts.error}{" "}
+          {somethingWrong}{" "}
           <button className="ghost small" onClick={refresh}><RollingLabel>Try again</RollingLabel></button>
         </div>
       ) : null}

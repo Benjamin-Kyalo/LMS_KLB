@@ -58,7 +58,7 @@ export default function PublicHeader({
   const sectionStyle = useSectionStyle("header");
   const navId = useId();
   const [menuOpen, setMenuOpen] = useState(false);
-  const hasNav = items.length > 0 || showSignIn;
+  const hasNav = items.length > 0 || showSignIn || Boolean(header.primaryCtaLabel);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -122,6 +122,13 @@ export default function PublicHeader({
                     onNavigate={closeMenu}
                   />
                 )
+              )}
+              {header.primaryCtaLabel && (
+                <HeaderLink
+                  item={{ label: header.primaryCtaLabel, href: header.primaryCtaHref }}
+                  className="button-link public-nav-primary"
+                  onNavigate={closeMenu}
+                />
               )}
             </nav>
           </>

@@ -1,8 +1,11 @@
 # User guide
 
 **This is a normal web app.** There is no offline mode, service worker, PWA
-install or mobile/native app. Work that cannot be saved shows an error and is
-not kept on your device. Uploads need a live connection.
+install or mobile/native app. By default, work that cannot be saved shows an
+error and is not kept on your device; uploads need a live connection. An
+optional low-bandwidth mode may cache allowlisted public reads and queue
+allowlisted theming writes, but stores no credentials or personal fields. See
+`OFFLINE_MODE_REVERSAL.md`.
 
 ## Where to go after sign in
 

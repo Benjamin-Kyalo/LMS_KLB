@@ -20,6 +20,11 @@ function asText(value) {
 export default function TutorWorkspace({ portal = false }) {
   const { push } = useToast();
   const { content } = useSiteContent();
+  const siteMessages = content.messages || {};
+  const somethingWrong = siteMessages.errors?.somethingWrong
+    || "We could not complete that action. Try again, or contact support if the problem continues. Include the reference number shown on this page.";
+  const resourcesLoading = siteMessages.loading?.[2] || "Opening your learning resources...";
+  const tutorNavLabel = (content.app?.portalNav || []).find((item) => item.key === "tutor")?.label || "Ask the tutor";
   const sectionStyle = useSectionStyle("tutor");
   const conversations = useList("/tutor/conversations/");
   const health = useResource("/tutor/conversations/health/");
@@ -43,13 +48,13 @@ export default function TutorWorkspace({ portal = false }) {
       setQuestion("");
       messages.reload();
     } catch (err) {
-      push(err.message || "Something went wrong. Please try again.", "error");
+      push(err.message || somethingWrong, "error");
     } finally {
       setBusy(false);
     }
   }
 
-  if (conversations.loading) return <Loading />;
+  if (conversations.loading) return <Loading label={resourcesLoading} />;
 
   const messageRows = Array.isArray(messages.data)
     ? messages.data
@@ -61,7 +66,7 @@ export default function TutorWorkspace({ portal = false }) {
       <div className="page-head">
         <div>
           <div className="overline">Learning support</div>
-          <h1>{portal ? "Ask the tutor" : "Curriculum tutor"}</h1>
+          <h1>{portal ? tutorNavLabel : "Curriculum tutor"}</h1>
         </div>
       </div>
 
@@ -122,7 +127,7 @@ export default function TutorWorkspace({ portal = false }) {
                 conversations.reload();
                 setActiveId(created.id);
                 setNewTitle("");
-              } catch (err) { push(err.message, "error"); }
+              } catch (err) { push(err.message || somethingWrong, "error"); }
             }}
           >
             <FormField label="New conversation" full>

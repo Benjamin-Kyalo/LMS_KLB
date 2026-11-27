@@ -45,7 +45,7 @@ describe("site content provider", () => {
     });
 
     render(<SiteContentProvider><Consumer /></SiteContentProvider>);
-    expect(screen.getByText(/KLB Digital Learning Ecosystem/)).toBeTruthy();
+    expect(screen.getByText(/KLB Elimu/)).toBeTruthy();
 
     expect(await screen.findByText("Stored footer|Stored role title")).toBeTruthy();
     expect(mocks.get).toHaveBeenCalledWith("/theming/site-content/");

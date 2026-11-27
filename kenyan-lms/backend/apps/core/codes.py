@@ -313,6 +313,7 @@ def ensure_reference(instance):
             "RemediationTask": "RMT",
             "TeacherApproval": "TAP",
             "GuardianLinkRequest": "GLR",
+            "PublicEnquiry": "ENQ",
         }
         options = {"digits": 5}
         institution = getattr(instance, "institution", None)

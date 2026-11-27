@@ -20,6 +20,10 @@ export default function Register() {
   const { content } = useSiteContent();
   const sectionStyle = useSectionStyle("register");
   const registerCopy = content.auth.register;
+  const messages = content.messages || {};
+  const somethingWrong = messages.errors?.somethingWrong
+    || "We could not complete that action. Try again, or contact support if the problem continues. Include the reference number shown on this page.";
+  const checkingAccount = messages.loading?.[6] || "Checking your account...";
   const roleOptions = registerCopy.roleOptions || [];
   const [schools, setSchools] = useState([]);
   const [loadingSchools, setLoadingSchools] = useState(true);
@@ -41,7 +45,7 @@ export default function Register() {
     let active = true;
     listAll("/institutions/public-institutions/")
       .then((rows) => { if (active) setSchools(rows); })
-      .catch((err) => { if (active) setError(err.message); })
+      .catch((err) => { if (active) setError(err.message || somethingWrong); })
       .finally(() => { if (active) setLoadingSchools(false); });
     return () => { active = false; };
   }, []);
@@ -69,7 +73,7 @@ export default function Register() {
       setLearnerPreview(data.learner);
     } catch (err) {
       setLearnerPreview(null);
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || somethingWrong);
     } finally {
       setLookingUpLearner(false);
     }
@@ -107,7 +111,7 @@ export default function Register() {
       const data = await signIn(form.username, form.password);
       navigate(data.user?.onboarding?.is_complete === false ? "/onboarding" : homeFor(data.user));
     } catch (err) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || somethingWrong);
     } finally {
       setSaving(false);
     }
@@ -117,7 +121,7 @@ export default function Register() {
     return (
       <div className="public-auth-page">
         <PublicHeader links={[]} ariaLabel="Registration navigation" showSignIn={false} />
-        <main className="public-auth-main"><div className="public-auth-card"><h2>Loading…</h2></div></main>
+        <main className="public-auth-main"><div className="public-auth-card"><h2 role="status">{checkingAccount}</h2></div></main>
         <PublicFooter />
       </div>
     );
@@ -219,7 +223,7 @@ export default function Register() {
                   required
                   hint="Enter this first. Your school verifies this link before any learner data is shown."
                 />
-                {lookingUpLearner && <p className="muted">Checking learner details…</p>}
+                {lookingUpLearner && <p className="muted" role="status">{checkingAccount}</p>}
                 {learnerPreview && (
                   <div className="notice info" role="status" style={{ gridColumn: "1 / -1" }}>
                     <strong>{learnerPreview.full_name}</strong>

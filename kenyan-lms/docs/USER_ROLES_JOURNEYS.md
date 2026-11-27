@@ -251,6 +251,23 @@ Every tool keeps the signed-in session on the public site and uses the same
 institution scoping as the rest of the API. Empty states explain the next step
 instead of showing raw JSON. Errors are field-prefixed, plain-language messages.
 
+## Public KLB Elimu pages and enquiries
+
+Anyone can open the managed public pages without an account: `/for-schools`,
+`/for-teachers`, `/for-learners`, `/for-parents`, `/about`, `/help`, `/contact`,
+`/faq`, `/privacy`, `/terms`, `/acceptable-use` and
+`/accessibility-statement`. `/academic-terms` is the legacy school-term editor;
+`/terms` is the public Terms of Use. Public pages never expose an administrator
+link or another user's records.
+
+The `/contact` form is a public enquiry form: it posts to
+`POST /api/core/public-enquiries/` and shows the returned reference with the
+managed confirmation wording. No response time is promised. Enquiries are
+reviewed only through the platform-admin `GET /api/core/enquiries/` and
+`PATCH /api/core/enquiries/{id}/` endpoints (`SUPER_ADMIN` only); institution
+staff and custom roles have no queue access. These public routes do not change
+any of the role rules above.
+
 ## Onboarding checklist ownership
 
 | Role | Checklist stored where | Completed when |

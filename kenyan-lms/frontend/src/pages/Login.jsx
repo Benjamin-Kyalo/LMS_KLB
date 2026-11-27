@@ -14,6 +14,10 @@ export default function Login({ variant = "standard" }) {
   const { content } = useSiteContent();
   const loginCopy = content.auth.login;
   const hero = content.hero;
+  const messages = content.messages || {};
+  const invalidLogin = messages.errors?.invalidLogin
+    || "We could not verify those sign-in details. Check your username and password and try again.";
+  const checkingAccount = messages.loading?.[6] || "Checking your account...";
   const navigate = useNavigate();
   const sectionStyle = useSectionStyle("login");
   const [params] = useSearchParams();
@@ -41,7 +45,9 @@ export default function Login({ variant = "standard" }) {
         return;
       }
       navigate(variant === "portal" ? "/portal" : homeFor(data.user));
-    } catch { /* error shown from context */ }
+    } catch {
+      setLocalError(invalidLogin);
+    }
   }
 
   return (
@@ -74,7 +80,7 @@ export default function Login({ variant = "standard" }) {
 
         <div className="login-panel">
           <form className="auth-card-enter" onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 380 }}>
-            <div className="overline">{isAdmin ? "Administration portal" : "Sign in"}</div>
+            <div className="overline">{isAdmin ? (content.auth.admin?.overline || "Administration portal") : "Sign in"}</div>
             <h2>{isAdmin ? "Administrator sign in" : "Welcome back"}</h2>
             <p className="muted">
               {isAdmin ? loginCopy.adminIntro : loginCopy.publicIntro}
@@ -87,9 +93,14 @@ export default function Login({ variant = "standard" }) {
                 Your teacher account was created. It becomes active after approval by a school administrator.
               </div>
             )}
+            {loading && (
+              <div className="notice info" role="status" style={{ margin: "0.75rem 0" }}>
+                {checkingAccount}
+              </div>
+            )}
             {(error || localError) && (
               <div className="notice error" role="alert" style={{ margin: "0.75rem 0" }}>
-                {localError || error}
+                {localError || (error && invalidLogin)}
               </div>
             )}
             <div style={{ margin: "0.9rem 0" }}>
@@ -100,8 +111,8 @@ export default function Login({ variant = "standard" }) {
               <label htmlFor="password">Password</label>
               <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
-            <AnimatedSubmitButton disabled={loading} style={{ width: "100%" }}>
-              {loading ? "Signing in…" : "Sign in"}
+            <AnimatedSubmitButton disabled={loading} aria-busy={loading || undefined} style={{ width: "100%" }}>
+              Sign in
             </AnimatedSubmitButton>
             <div className="login-links">
               {isAdmin ? (

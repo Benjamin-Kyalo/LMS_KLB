@@ -3,13 +3,15 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Login from "./Login";
+import { getSiteContent } from "../config/publicSite";
 
 const mocks = vi.hoisted(() => ({
   signIn: vi.fn(async () => ({ user: { id: 1, role: "LEARNER" } })),
+  authError: null,
 }));
 
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ signIn: mocks.signIn, loading: false, error: null }),
+  useAuth: () => ({ signIn: mocks.signIn, loading: false, error: mocks.authError }),
 }));
 
 function renderPage() {
@@ -29,6 +31,7 @@ describe("public sign-in page", () => {
     cleanup();
     delete window.__KLB_SITE_CONFIG__;
     mocks.signIn.mockClear();
+    mocks.authError = null;
   });
 
   it("does not advertise the internal administration portal", () => {
@@ -69,6 +72,23 @@ describe("public sign-in page", () => {
     expect(screen.getByText("Custom sign in story")).toBeTruthy();
     expect(screen.getByText("Custom sign in footnote")).toBeTruthy();
     expect(screen.getByText("Custom sign in note")).toBeTruthy();
+  });
+
+  it("shows the supplied sign-in error and keeps the form usable after a failed attempt", async () => {
+    const user = userEvent.setup();
+    mocks.signIn.mockRejectedValueOnce(new Error("Invalid credentials"));
+    mocks.authError = "Invalid credentials";
+    renderPage();
+
+    await user.type(screen.getByLabelText("Username"), "amina");
+    await user.type(screen.getByLabelText("Password"), "wrong-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(getSiteContent().messages.errors.invalidLogin);
+    expect(alert.textContent).not.toContain("Invalid credentials");
+    expect(screen.getByLabelText("Username")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
   });
 
   it("sends an incomplete account to first-time setup", async () => {

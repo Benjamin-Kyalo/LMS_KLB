@@ -92,8 +92,8 @@ export default function PortalLayout() {
         <PortalNav to="/portal/fees" onNavigate={closeMenu}>{navLabel("fees", "Fees")}</PortalNav>
         <PortalNav to="/portal/tutor" onNavigate={closeMenu}>{navLabel("tutor", "Ask the tutor")}</PortalNav>
         <PortalNav to="/portal/communications" onNavigate={closeMenu}>{navLabel("communications", "Messages")}</PortalNav>
-        <PortalNav to="/portal/notifications" onNavigate={closeMenu}>Notifications</PortalNav>
-        <PortalNav to="/portal/offline" onNavigate={closeMenu}>Low-bandwidth status</PortalNav>
+        <PortalNav to="/portal/notifications" onNavigate={closeMenu}>{navLabel("notifications", "Notifications")}</PortalNav>
+        <PortalNav to="/portal/offline" onNavigate={closeMenu}>{navLabel("offline", "Low-bandwidth status")}</PortalNav>
         <PortalNav to="/portal/profile" onNavigate={closeMenu}>{navLabel("profile", "My profile")}</PortalNav>
         {user?.onboarding?.is_complete === false && (
           <PortalNav to="/onboarding" onNavigate={closeMenu}>Complete setup</PortalNav>

@@ -15,6 +15,10 @@ export default function AdminSignup() {
   const { content } = useSiteContent();
   const sectionStyle = useSectionStyle("invite");
   const adminCopy = content.auth.admin;
+  const messages = content.messages || {};
+  const somethingWrong = messages.errors?.somethingWrong
+    || "We could not complete that action. Try again, or contact support if the problem continues. Include the reference number shown on this page.";
+  const savingChanges = messages.loading?.[3] || "Saving your changes...";
   const [form, setForm] = useState({
     token: params.get("token") || "", username: "", email: "",
     first_name: "", last_name: "", password: "", confirm: "",
@@ -41,7 +45,7 @@ export default function AdminSignup() {
       signInWithData(data);
       navigate("/admin");
     } catch (err) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || somethingWrong);
     } finally {
       setSaving(false);
     }
@@ -86,7 +90,7 @@ export default function AdminSignup() {
           </div>
           <div className="form-actions">
             <AnimatedSubmitButton disabled={saving}>
-              {saving ? "Creating account…" : "Create administrator account"}
+              {saving ? savingChanges : "Create administrator account"}
             </AnimatedSubmitButton>
           </div>
           <p className="muted" style={{ fontSize: "0.82rem" }}>

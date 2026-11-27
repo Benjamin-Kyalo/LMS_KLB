@@ -1,5 +1,5 @@
 """
-Django settings for the Kenyan Digital Learning Ecosystem.
+Django settings for KLB Elimu.
 
 All secrets come from the .env file at the project root. No password is
 ever written in this file. See .env.example for the required keys.
@@ -225,6 +225,7 @@ DEFAULT_THROTTLE_RATES = {
     "auth_login": env("LOGIN_THROTTLE_RATE", default="100/hour"),
     "auth_register": env("REGISTER_THROTTLE_RATE", default="20/hour"),
     "auth_reset": env("RESET_THROTTLE_RATE", default="20/hour"),
+    "public_enquiry": env("PUBLIC_ENQUIRY_THROTTLE_RATE", default="10/hour"),
     "tutor_ask": env("TUTOR_THROTTLE_RATE", default="120/hour"),
     "export_generate": env("EXPORT_THROTTLE_RATE", default="60/hour"),
     "oneroster_read": env("ONEROSTER_THROTTLE_RATE", default="600/hour"),

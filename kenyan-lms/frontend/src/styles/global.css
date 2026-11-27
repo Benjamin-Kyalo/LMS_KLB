@@ -1126,6 +1126,91 @@ button.hold-confirm.is-holding { transform: none; box-shadow: none; }
 .public-main.section-styled .public-section-head { border-color: var(--section-accent, var(--primary)); }
 .public-main.section-styled .muted { color: var(--section-ink, var(--ink-faint)); }
 
+/* Content-pack blueprint sections on the public homepage. These classes only
+   lay out managed wording; colours and spacing stay behind sectionStyleVars. */
+.hero-supporting-statement { margin: -0.35rem 0 0; color: var(--ramp-300); font-family: var(--font-display); font-size: 0.95rem; letter-spacing: 0.01em; }
+.public-introduction, .public-capabilities, .public-library-feature,
+.public-audience, .public-steps { padding: clamp(2rem, 5vw, 4rem) clamp(1rem, 6vw, 5rem); border-bottom: 1px solid var(--line); background: var(--white); }
+.public-introduction + .public-capabilities, .public-audience + .public-audience { background: var(--paper); }
+.public-prose { max-width: 82ch; }
+.public-prose p { margin: 0 0 0.7rem; color: var(--ink-soft); }
+.public-prose p:last-child { margin-bottom: 0; }
+.public-section-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem; }
+.capability-grid, .step-grid { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; margin: 1.5rem 0 0; padding: 0; }
+.capability-card, .step-item { display: flex; flex-direction: column; padding: 1.2rem; background: var(--paper); border: 1px solid var(--line); border-top: 4px solid var(--primary); }
+.capability-card p, .step-item p { margin: 0; color: var(--ink-soft); font-size: 0.88rem; }
+.capability-card .button-link { align-self: flex-start; margin-top: 1.1rem; }
+.step-number { display: block; margin-bottom: 0.6rem; color: var(--link); font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.1em; }
+.step-item h3 { margin: 0 0 0.45rem; }
+.public-library-feature { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 0.45fr); gap: clamp(1.5rem, 4vw, 3rem); align-items: center; }
+.library-feature-visual { display: grid; place-items: center; min-height: 220px; margin: 0; border: 1px solid var(--line); background: var(--tint); color: var(--primary); }
+.public-closing-cta { padding: clamp(2rem, 5vw, 3.5rem) clamp(1rem, 6vw, 5rem); background: var(--primary); color: var(--paper); }
+.public-closing-cta .overline { color: var(--ramp-200); }
+.public-closing-cta p { max-width: 70ch; color: var(--ramp-200); }
+
+.public-introduction.section-styled, .public-capabilities.section-styled,
+.public-library-feature.section-styled, .public-audience.section-styled,
+.public-steps.section-styled, .public-closing-cta.section-styled,
+.public-info-page.section-styled, .public-help.section-styled,
+.public-faq-groups.section-styled, .public-contact.section-styled {
+  background: var(--section-bg, var(--white));
+  color: var(--section-ink, var(--ink));
+  padding: calc(clamp(2rem, 5vw, 4rem) * var(--section-pad-scale, 1)) calc(clamp(1rem, 6vw, 5rem) * var(--section-pad-scale, 1));
+}
+.public-closing-cta.section-styled { background: var(--section-bg, var(--primary)); color: var(--section-ink, var(--paper)); }
+.public-introduction.section-styled .overline, .public-capabilities.section-styled .overline,
+.public-library-feature.section-styled .overline, .public-audience.section-styled .overline,
+.public-steps.section-styled .overline, .public-closing-cta.section-styled .overline { color: var(--section-accent, var(--ink-faint)); }
+.public-introduction.section-styled .public-prose p,
+.public-library-feature.section-styled .public-prose p,
+.public-audience.section-styled .public-prose p,
+.capability-card p, .step-item p { color: var(--section-ink, var(--ink-soft)); }
+.public-closing-cta.section-styled p, .public-closing-cta.section-styled .overline { color: var(--section-ink, var(--ramp-200)); }
+.capability-card, .step-item { border-color: var(--section-border, var(--line)); border-top-color: var(--section-accent, var(--primary)); }
+
+/* Public information pages render exactly the managed publicPages objects. */
+.public-page-head p.public-page-lead { margin-top: 0.5rem; max-width: 74ch; color: var(--ink-soft); font-family: var(--font-display); font-size: 1.15rem; }
+.public-info-page, .public-info-prose, .public-help, .public-faq-groups, .public-contact { max-width: 94ch; }
+.info-section { margin-bottom: 1.8rem; }
+.info-section h2 { margin: 0 0 0.75rem; }
+.public-info-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 1rem; }
+.public-info-card { padding: 1.1rem; }
+.public-info-card h3 { margin: 0 0 0.5rem; }
+.public-info-card p { margin: 0; color: var(--ink-soft); font-size: 0.88rem; }
+.public-list { margin: 0; padding-left: 1.2rem; }
+.public-list li { margin-bottom: 0.45rem; color: var(--ink-soft); }
+.public-info-closing { margin-top: 1rem; font-family: var(--font-display); font-size: 1.05rem; }
+.public-legal-note { margin-top: 2rem; padding: 0.9rem 1.1rem; border-left: 4px solid var(--link); background: var(--tint); }
+.public-legal-note p { margin: 0; color: var(--ink-soft); font-size: 0.85rem; }
+.public-help-search { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 1rem 0; }
+.public-help-search input { flex: 1 1 260px; max-width: 420px; }
+.public-help-count { margin: 0; color: var(--ink-faint); font-size: 0.85rem; }
+.public-help-suggestions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+.public-help-suggestions button { padding: 0.4rem 0.7rem; background: var(--white); color: var(--primary); font-size: 0.8rem; }
+.public-help-groups h2, .public-faq-groups h2 { margin-top: 1.4rem; }
+.public-help-support { margin-top: 2rem; padding: 1.2rem; border: 1px solid var(--line); background: var(--tint); }
+.public-help-support p { max-width: 70ch; color: var(--ink-soft); }
+.public-help-support .button-link { margin-top: 0.5rem; }
+.public-contact-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.public-contact-field.full { grid-column: 1 / -1; }
+.public-contact-field label { display: block; margin-bottom: 0.3rem; font-size: 0.85rem; font-weight: 700; }
+.public-contact-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.85rem; margin-top: 1.1rem; }
+.public-contact-status { color: var(--ink-soft); font-size: 0.85rem; }
+.public-contact-error { margin: 1rem 0 0; padding: 0.7rem 0.9rem; border-left: 4px solid var(--bad); background: var(--tint); color: var(--bad-ink); }
+.public-contact-confirmation { margin: 1.2rem 0; padding: 1rem 1.2rem; border-left: 4px solid var(--primary); background: var(--tint); }
+.public-contact-confirmation p { margin: 0; }
+.public-contact-reference { margin-top: 0.5rem; font-family: var(--font-mono); font-weight: 700; }
+.library-guide { margin-bottom: 2rem; padding: 1.25rem; }
+.library-guide-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+.library-guide-group ul { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.8rem; padding: 0; list-style: none; }
+.library-guide-group li { padding: 0.25rem 0.6rem; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); font-size: 0.8rem; }
+.library-guide-search { margin: 0; color: var(--ink-faint); font-size: 0.82rem; font-style: italic; }
+.public-nav-primary { border-bottom: 2px solid var(--ramp-400); }
+.public-footer-inner { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.public-footer-notes { flex: 1; }
+.public-footer-closing, .public-footer-disclaimer { margin: 0.35rem 0 0; color: var(--ramp-300); }
+.public-footer-credit-link { color: var(--paper); border-bottom: 1px solid var(--ramp-600); }
+
 .login-story.section-styled {
   background: var(--section-bg, var(--primary));
   color: var(--section-ink, var(--paper));
@@ -1160,7 +1245,9 @@ button.hold-confirm.is-holding { transform: none; box-shadow: none; }
 }
 .tutor-intro.section-styled p.muted { color: var(--section-ink, var(--ink-faint)); }
 
-@media (max-width: 900px) {
+/* Tablet widths cannot fit the full public menu and its primary action without
+   horizontal overflow, so the labelled menu button takes over earlier. */
+@media (max-width: 1040px) {
   .app-shell { grid-template-columns: 1fr; }
   .portal-header { flex-direction: column; align-items: flex-start; }
   .portal-account { flex-wrap: wrap; }
@@ -1249,6 +1336,11 @@ button.hold-confirm.is-holding { transform: none; box-shadow: none; }
   .book-cover { flex: none; width: 100%; height: 190px; }
   .book-card-body { padding: 0.9rem; }
   .resource-detail-thumbnail { max-height: 180px; }
+}
+
+@media (max-width: 900px) {
+  .public-library-feature, .library-guide-groups, .public-contact-grid { grid-template-columns: 1fr; }
+  .public-contact-field.full { grid-column: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

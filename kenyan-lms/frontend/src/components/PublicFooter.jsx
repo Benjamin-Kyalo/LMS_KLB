@@ -11,7 +11,7 @@ function safeHref(value) {
   return "/";
 }
 
-function FooterLink({ item }) {
+function FooterLink({ item, className = "" }) {
   const href = safeHref(item?.href);
   const newTabHintId = useId();
   if (/^https:\/\//i.test(href)) {
@@ -19,6 +19,7 @@ function FooterLink({ item }) {
       <>
         <a
           href={href}
+          className={className}
           target="_blank"
           rel="noopener noreferrer"
           aria-describedby={newTabHintId}
@@ -29,14 +30,27 @@ function FooterLink({ item }) {
       </>
     );
   }
-  return <Link to={href}>{item?.label}</Link>;
+  return <Link to={href} className={className}>{item?.label}</Link>;
+}
+
+function FooterColumn({ title, links = [] }) {
+  if (!title) return null;
+  return (
+    <div className="public-footer-column">
+      <h2>{title}</h2>
+      <ul>
+        {links.map((item, index) => (
+          <li key={`${item?.href}-${index}`}><FooterLink item={item} /></li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 export default function PublicFooter() {
   const { content } = useSiteContent();
-  const footer = content.footer;
+  const footer = content.footer || {};
   const sectionStyle = useSectionStyle("footer");
-  const newTabHintId = useId();
   const credit = footer.credit || {};
   const creditText = `${credit.prefix || ""}${credit.linkLabel || ""}${credit.suffix || ""}`.trim();
   const backToTop = () => {
@@ -54,57 +68,35 @@ export default function PublicFooter() {
         <div className="public-footer-column">
           <h2>{footer.contactTitle}</h2>
           <ul>
-            {footer.lines.map((line) => <li key={line}>{line}</li>)}
+            {(footer.lines || []).map((line) => <li key={line}>{line}</li>)}
           </ul>
         </div>
-        <div className="public-footer-column">
-          <h2>{footer.exploreTitle}</h2>
-          <ul>
-            {(footer.exploreLinks || []).map((item, index) => (
-              <li key={`${item?.href}-${index}`}><FooterLink item={item} /></li>
-            ))}
-          </ul>
-        </div>
-        <div className="public-footer-column">
-          <h2>{footer.learnTitle}</h2>
-          <ul>
-            {(footer.learnLinks || []).map((item, index) => (
-              <li key={`${item?.href}-${index}`}><FooterLink item={item} /></li>
-            ))}
-          </ul>
-        </div>
+        <FooterColumn title={footer.exploreTitle} links={footer.exploreLinks} />
+        <FooterColumn title={footer.learnTitle} links={footer.learnLinks} />
+        <FooterColumn title={footer.infoTitle} links={footer.infoLinks} />
+        <FooterColumn title={footer.supportTitle} links={footer.supportLinks} />
       </div>
-      {creditText && (
-        <div className="public-footer-bottom">
-          <span className="public-footer-credit">
-            {credit.prefix}
-            {credit.linkLabel ? (
-              <>
-                <a
-                  href={safeHref(credit.linkHref)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-describedby={newTabHintId}
-                >
-                  {credit.linkLabel}
-                </a>
-                <span id={newTabHintId} className="sr-only">Opens in a new tab</span>
-              </>
-            ) : null}
-            {credit.suffix}
-          </span>
-          <button type="button" className="public-back-to-top" onClick={backToTop}>
-            <RollingLabel>Back to top</RollingLabel>
-          </button>
+      <div className="public-footer-bottom">
+        <div className="public-footer-notes">
+          {creditText && (
+            <span className="public-footer-credit">
+              {credit.prefix}
+              {credit.linkLabel ? (
+                <FooterLink
+                  item={{ label: credit.linkLabel, href: credit.linkHref }}
+                  className="public-footer-credit-link"
+                />
+              ) : null}
+              {credit.suffix}
+            </span>
+          )}
+          {footer.closingLine && <p className="public-footer-closing">{footer.closingLine}</p>}
+          {footer.disclaimer && <p className="public-footer-disclaimer">{footer.disclaimer}</p>}
         </div>
-      )}
-      {!creditText && (
-        <div className="public-footer-bottom">
-          <button type="button" className="public-back-to-top" onClick={backToTop}>
-            <RollingLabel>Back to top</RollingLabel>
-          </button>
-        </div>
-      )}
+        <button type="button" className="public-back-to-top" onClick={backToTop}>
+          <RollingLabel>Back to top</RollingLabel>
+        </button>
+      </div>
     </footer>
   );
 }

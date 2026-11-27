@@ -7,10 +7,18 @@ import ChartCard from "../components/ChartCard";
 import Loading from "../components/Loading";
 import { isGuardian, isLearner } from "../utilities/roles";
 import { useTheme } from "../context/ThemeContext";
+import { useSiteContent } from "../context/SiteContentContext";
 
 export default function PortalHome() {
   const { user } = useAuth();
   const { colors } = useTheme();
+  const { content } = useSiteContent();
+  const messages = content.messages || {};
+  const reportsIntro = messages.pageIntroductions?.reports
+    || "Explore the available records and reports to understand activity and progress.";
+  const reportLoading = messages.loading?.[5] || "Preparing your report...";
+  const somethingWrong = messages.errors?.somethingWrong
+    || "We could not complete that action. Try again, or contact support if the problem continues. Include the reference number shown on this page.";
   const { data: learners, loading } = useList("/reports/my-learners/");
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
@@ -19,11 +27,11 @@ export default function PortalHome() {
     if (loading || !learners.length || report) return;
     api.get(`/reports/learner/${learners[0].id}/`)
       .then(setReport)
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(err.message || somethingWrong));
   }, [loading, learners, report]);
 
   if (!isLearner(user) && !isGuardian(user)) return <Navigate to="/admin" replace />;
-  if (loading) return <Loading />;
+  if (loading) return <Loading label={reportLoading} />;
 
   const guardian = isGuardian(user);
   const attendanceData = Object.entries(report?.attendance || {}).map(([status, value]) => ({
@@ -46,15 +54,11 @@ export default function PortalHome() {
         <div>
           <div className="overline">{guardian ? "Family" : "Your learning"}</div>
           <h1>Habari, {user.first_name || user.username}</h1>
-          <p className="muted" style={{ marginTop: "0.2rem" }}>
-            {guardian
-              ? "A clear view of your child's attendance and progress."
-              : "Pick up where you left off and see how you are doing."}
-          </p>
+          <p className="muted" style={{ marginTop: "0.2rem" }}>{reportsIntro}</p>
         </div>
       </div>
 
-      {error && <div className="notice error">{error}</div>}
+      {error && <div className="notice error" role="alert">{error}</div>}
 
       {!learners.length ? (
         <div className="panel panel-pad" style={{ textAlign: "center", padding: "2rem" }}>

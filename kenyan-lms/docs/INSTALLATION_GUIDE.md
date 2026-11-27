@@ -44,8 +44,10 @@ Set `DB_PASSWORD` to your local password. `.env` is Git-ignored — never commit
 it. Local secrets are owner-managed; no real credential belongs in source control.
 Dumps under `backups/` are also Git-ignored because they contain hashes/PII.
 
-This installation is a **normal web app**. There is no service worker, PWA,
-offline queue or native wrapper to install or configure.
+This installation is a **normal web app**. There is no service worker, PWA or
+native wrapper to install or configure. The optional low-bandwidth read cache
+and write queue is enabled only by server-side settings; see
+`OFFLINE_MODE_REVERSAL.md`.
 
 ## 3. Backend
 

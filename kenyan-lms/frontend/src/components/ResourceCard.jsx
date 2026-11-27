@@ -13,7 +13,9 @@ export default function ResourceCard({ resource, onSelect }) {
   const [busy, setBusy] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
   const thumbnail = resource.thumbnail_url && !thumbFailed ? resource.thumbnail_url : "";
-  const viewLabel = `View ${resource.title || "resource"} details`;
+  const resourceName = resource.title || "resource";
+  const viewLabel = `View resource: ${resourceName}`;
+  const busyLabel = `Preparing resource: ${resourceName}`;
 
   async function view() {
     setBusy(true);
@@ -57,11 +59,11 @@ export default function ResourceCard({ resource, onSelect }) {
           type="button"
           className="secondary small"
           onClick={view}
-          aria-label={viewLabel}
+          aria-label={busy ? busyLabel : viewLabel}
           aria-busy={busy}
           disabled={busy}
         >
-          <RollingLabel>{busy ? "Preparing…" : "View resource"}</RollingLabel>
+          <RollingLabel>{busy ? "Preparing resource" : "View resource"}</RollingLabel>
         </button>
       </div>
     </article>
