@@ -14,6 +14,8 @@ router.register("outcomes", views.LearningOutcomeViewSet, basename="learningoutc
 router.register("competencies", views.CompetencyViewSet, basename="competency")
 router.register("rubrics", views.RubricViewSet, basename="rubric")
 router.register("rubric-levels", views.RubricLevelViewSet, basename="rubriclevel")
+router.register("rubric-criteria", views.RubricCriterionViewSet, basename="rubriccriterion")
+router.register("feedback-comments", views.FeedbackCommentViewSet, basename="feedbackcomment")
 router.register("evidence", views.CompetencyEvidenceViewSet, basename="competencyevidence")
 
 urlpatterns = [path("", include(router.urls))]

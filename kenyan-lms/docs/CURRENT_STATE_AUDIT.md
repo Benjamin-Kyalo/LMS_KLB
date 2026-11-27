@@ -15,7 +15,9 @@ precache, Capacitor config and `frontend/android` / `frontend/ios` were removed.
 Failed mutations now show an error and remain unsaved; uploads need a live
 connection. The homepage hero now has an accessible canvas particle headline
 with a real `<h1>`. Authentication is session-cookie based with CSRF and
-`/api/auth/me/` identity reads. See `README.md` and `SECURITY_AUDIT.md`.
+`/api/auth/me/` identity reads. A separate 26 November 2026 narrow,
+env-driven low-bandwidth mode is off by default; see `OFFLINE_MODE_REVERSAL.md`.
+See `README.md` and `SECURITY_AUDIT.md`.
 
 **Role-model supersession notice:** the audit-time role descriptions below are
 retained as dated history. Current built-ins are `SUPER_ADMIN` (global

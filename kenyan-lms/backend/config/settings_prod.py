@@ -81,7 +81,7 @@ SECURITY_HEADERS = {
 DATA_UPLOAD_MAX_MEMORY_SIZE = env.int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=5 * 1024 * 1024)
 FILE_UPLOAD_MAX_MEMORY_SIZE = env.int("FILE_UPLOAD_MAX_MEMORY_SIZE", default=5 * 1024 * 1024)
 
-EMAIL_SUBJECT_PREFIX = "[KLB LMS] "
+EMAIL_SUBJECT_PREFIX = "[KLB Elimu] "
 
 # The inherited MAILERS entry may be the console backend when the developer's
 # .env has DEBUG=True. Production must always send real email.

@@ -3,7 +3,7 @@ import hashlib
 import math
 
 from django.conf import settings
-from django.contrib.sessions.backends.base import SessionBase
+from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.models import Session
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
@@ -132,13 +132,18 @@ def hash_reset_token(token):
 def invalidate_user_sessions(user, keep_session_key=None):
     """Sign out other browser sessions and revoke legacy API tokens."""
     Token.objects.filter(user=user).delete()
+    store = SessionStore()
     for session in Session.objects.filter(expire_date__gt=timezone.now()):
         if keep_session_key and session.session_key == keep_session_key:
             continue
         try:
-            data = SessionBase.decode(session.session_data)
+            # Django 6.x made decode() an instance method, so use a store
+            # instance rather than calling the class directly.
+            data = store.decode(session.session_data)
         except Exception:
-            session.delete()
+            # A session signed with an older key cannot be attributed to this
+            # user. Deleting it would sign out someone else (and can break the
+            # current request with SessionInterrupted), so leave it alone.
             continue
         if str(data.get("_auth_user_id") or "") == str(user.pk):
             session.delete()

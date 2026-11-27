@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
+import { LowBandwidthProvider } from "./context/LowBandwidthContext";
 const ErrorBoundary = lazy(() => import("./components/ErrorBoundary"));
 const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
 const RoleHome = lazy(() => import("./components/RoleHome"));
@@ -34,6 +35,7 @@ const GuardianLinks = lazy(() => import("./pages/GuardianLinks"));
 const Courses = lazy(() => import("./pages/Courses"));
 const Assignments = lazy(() => import("./pages/Assignments"));
 const Submissions = lazy(() => import("./pages/Submissions"));
+const Rubrics = lazy(() => import("./pages/Rubrics"));
 const Quizzes = lazy(() => import("./pages/Quizzes"));
 const Modules = lazy(() => import("./pages/Modules"));
 const Lessons = lazy(() => import("./pages/Lessons"));
@@ -52,6 +54,7 @@ const Reports = lazy(() => import("./pages/Reports"));
 const PortalHome = lazy(() => import("./pages/PortalHome"));
 const PortalCourses = lazy(() => import("./pages/PortalCourses"));
 const PortalAssignments = lazy(() => import("./pages/PortalAssignments"));
+const PortalSubmissions = lazy(() => import("./pages/PortalSubmissions"));
 const PortalQuizzes = lazy(() => import("./pages/PortalQuizzes"));
 const PortalCommunications = lazy(() => import("./pages/PortalCommunications"));
 const PortalResources = lazy(() => import("./pages/PortalResources"));
@@ -64,14 +67,17 @@ const ApprovalRequests = lazy(() => import("./pages/ApprovalRequests"));
 const KemisExports = lazy(() => import("./pages/KemisExports"));
 const TutorWorkspace = lazy(() => import("./pages/TutorWorkspace"));
 const AnalyticsOverview = lazy(() => import("./pages/AnalyticsOverview"));
+const MasteryBadges = lazy(() => import("./pages/MasteryBadges"));
 const NotificationCentre = lazy(() => import("./pages/NotificationCentre"));
 const EarlyWarning = lazy(() => import("./pages/EarlyWarning"));
 const FeeLedger = lazy(() => import("./pages/FeeLedger"));
 const DataQuality = lazy(() => import("./pages/DataQuality"));
 const AuditHistory = lazy(() => import("./pages/AuditHistory"));
+const LowBandwidth = lazy(() => import("./pages/LowBandwidth"));
 const AppearanceManager = lazy(() => import("./pages/AppearanceManager"));
 const PortalFees = lazy(() => import("./pages/PortalFees"));
 const PortalRemediation = lazy(() => import("./pages/PortalRemediation"));
+const PortalMastery = lazy(() => import("./pages/PortalMastery"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 import { CAPABILITIES, ROLE_GROUPS } from "./utilities/roles";
 
@@ -123,6 +129,7 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
+          <LowBandwidthProvider>
           <BrowserRouter>
             <a className="skip-link" href="#main-content">Skip to main content</a>
             <RouteFrame>
@@ -170,6 +177,7 @@ export default function App() {
                 <Route path="modules" element={<Modules />} />
                 <Route path="lessons" element={<Lessons />} />
                 <Route path="assignments" element={<Assignments />} />
+                <Route path="rubrics" element={<Guard roles={[...ROLE_GROUPS.STAFF, "CUSTOM"]}><Rubrics /></Guard>} />
                 <Route path="submissions" element={<Submissions />} />
                 <Route path="quizzes" element={<Quizzes />} />
                 <Route path="questions" element={<Questions />} />
@@ -204,10 +212,12 @@ export default function App() {
 
                 <Route path="tutor" element={<Guard roles={ROLE_GROUPS.STAFF} capability={CAPABILITIES.TUTOR_USE}><TutorWorkspace /></Guard>} />
                 <Route path="analytics" element={<Guard roles={ROLE_GROUPS.STAFF} capability={CAPABILITIES.REPORTS_VIEW}><AnalyticsOverview /></Guard>} />
+                <Route path="mastery" element={<Guard roles={ROLE_GROUPS.STAFF} capability={CAPABILITIES.REPORTS_VIEW}><MasteryBadges /></Guard>} />
                 <Route path="early-warning" element={<Guard roles={ROLE_GROUPS.STAFF} capability={CAPABILITIES.REPORTS_VIEW}><EarlyWarning /></Guard>} />
                 <Route path="fees/ledger" element={<Guard roles={ROLE_GROUPS.STAFF} capability={CAPABILITIES.FEES_MANAGE}><FeeLedger /></Guard>} />
                 <Route path="data-quality" element={<Guard roles={ROLE_GROUPS.ADMIN} capability={CAPABILITIES.ADMIN_ACCESS}><DataQuality /></Guard>} />
                 <Route path="audit" element={<Guard roles={ROLE_GROUPS.ADMIN} capability={CAPABILITIES.ADMIN_ACCESS}><AuditHistory /></Guard>} />
+                <Route path="offline" element={<Guard roles={ROLE_GROUPS.STAFF}><LowBandwidth /></Guard>} />
                 <Route path="analytics/rules" element={<Guard roles={ROLE_GROUPS.ADMIN} capability={CAPABILITIES.REPORTS_VIEW}><ManagedResourcePage title="Remediation rules" overline="Analytics" endpoint="/analytics/rules/" access="admin" columns={[{ key: "name", label: "Rule" }, { key: "mastery_below", label: "Mastery below" }, { key: "min_attempts", label: "Min attempts" }, { key: "action", label: "Action" }, { key: "is_active", label: "Active", render: (r) => r.is_active ? "Yes" : "No" }]} fields={[{ name: "name", label: "Name", required: true }, { name: "mastery_below", label: "Mastery below (0–1)", type: "number", required: true }, { name: "min_attempts", label: "Minimum attempts", type: "number" }, { name: "action", label: "Action", type: "select", options: [{ value: "PRACTICE", label: "Practice" }, { value: "RESOURCE", label: "Resource" }, { value: "COURSE", label: "Course" }, { value: "TEACHER_REVIEW", label: "Teacher review" }], required: true }, { name: "notes", label: "Notes", type: "textarea", full: true }, { name: "is_active", label: "Active", type: "checkbox" }]} emptyHint="Rules turn low mastery evidence into follow-up tasks." /></Guard>} />
                 <Route path="analytics/tasks" element={<Guard roles={ROLE_GROUPS.STAFF} capability={CAPABILITIES.REPORTS_VIEW}><ManagedResourcePage title="Remediation tasks" overline="Analytics" endpoint="/analytics/tasks/" access="staff" columns={[{ key: "learner_name", label: "Learner" }, { key: "rule_name", label: "Rule" }, { key: "status", label: "Status" }, { key: "due_date", label: "Due" }]} fields={[{ name: "learner", label: "Learner", type: "select", optionsEndpoint: "/learners/", labelKey: "learner_name", required: true }, { name: "status", label: "Status", type: "select", options: [{ value: "OPEN", label: "Open" }, { value: "ASSIGNED", label: "Assigned" }, { value: "COMPLETED", label: "Completed" }, { value: "DISMISSED", label: "Dismissed" }] }, { name: "due_date", label: "Due date", type: "date" }]} emptyHint="Tasks are created by the evaluator, or can be added manually." /></Guard>} />
                 <Route path="analytics/snapshots" element={<Guard roles={ROLE_GROUPS.ADMIN} capability={CAPABILITIES.REPORTS_VIEW}><ManagedResourcePage title="Analytics snapshots" overline="Analytics" endpoint="/analytics/snapshots/" access="admin" columns={[{ key: "reference", label: "Reference" }, { key: "dataset", label: "Dataset" }, { key: "period", label: "Period" }, { key: "generated_at", label: "Generated at" }]} fields={[]} emptyHint="Refresh a snapshot from the analytics overview." /></Guard>} />
@@ -221,14 +231,17 @@ export default function App() {
                 <Route path="resources" element={<PortalResources />} />
                 <Route path="documents" element={<PortalDocuments />} />
                 <Route path="assignments" element={<Guard roles={["LEARNER"]}><PortalAssignments /></Guard>} />
+                <Route path="submissions" element={<Guard roles={ROLE_GROUPS.PORTAL}><PortalSubmissions /></Guard>} />
                 <Route path="quizzes" element={<Guard roles={["LEARNER"]}><PortalQuizzes /></Guard>} />
                 <Route path="reports" element={<Reports />} />
                 <Route path="fees" element={<PortalFees />} />
                 <Route path="tutor" element={<TutorWorkspace portal />} />
                 <Route path="remediation" element={<Guard roles={["LEARNER"]}><PortalRemediation /></Guard>} />
+                <Route path="mastery" element={<Guard roles={["LEARNER"]}><PortalMastery /></Guard>} />
                 <Route path="communications" element={<PortalCommunications />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="notifications" element={<Guard><NotificationCentre /></Guard>} />
+                <Route path="offline" element={<LowBandwidth />} />
               </Route>
 
               {/* Redirect old page addresses instead of breaking bookmarks. */}
@@ -249,7 +262,7 @@ export default function App() {
               <Route path="classes" element={<Legacy adminTo="/admin/classes" />} />
               <Route path="courses" element={<Legacy adminTo="/admin/courses" portalTo="/portal/courses" />} />
               <Route path="assignments" element={<Legacy adminTo="/admin/assignments" portalTo="/portal/assignments" />} />
-              <Route path="submissions" element={<Legacy adminTo="/admin/submissions" />} />
+              <Route path="submissions" element={<Legacy adminTo="/admin/submissions" portalTo="/portal/submissions" />} />
               <Route path="quizzes" element={<Legacy adminTo="/admin/quizzes" portalTo="/portal/quizzes" />} />
               <Route path="modules" element={<Legacy adminTo="/admin/modules" />} />
               <Route path="lessons" element={<Legacy adminTo="/admin/lessons" />} />
@@ -271,6 +284,7 @@ export default function App() {
               </Suspense>
             </RouteFrame>
           </BrowserRouter>
+          </LowBandwidthProvider>
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>

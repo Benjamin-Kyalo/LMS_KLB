@@ -87,8 +87,9 @@ class LearnerGuardianViewSet(AdminWriteMixin, InstitutionScopedQuerysetMixin, vi
         link = serializer.save()
         notify_user(
             link.guardian.user,
-            "A learner was linked to your account",
-            f"{link.learner.user.full_name} is now linked to your guardian portal.",
+            "New child linked to your account",
+            f"{link.learner.user.full_name} is now linked to your account. You can "
+            "view the school information shared for this learner.",
             "GENERAL",
             "/portal",
         )

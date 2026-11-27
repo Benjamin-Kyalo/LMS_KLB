@@ -245,7 +245,9 @@ class UserViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelViewSet):
         user.set_password(temporary_password)
         user.must_change_password = True
         user.save(update_fields=["password", "must_change_password"])
-        invalidate_user_sessions(user)
+        # Keep the administrator's own session alive while ending every session
+        # that belongs to the account being reset.
+        invalidate_user_sessions(user, keep_session_key=request.session.session_key)
         log_audit(
             request.user, "password_reset", "User", user.pk,
             {"username": user.username}, institution=user.institution, request=request,

@@ -5,14 +5,21 @@ portal at `/portal/...`. See `docs/ADMIN_ACCESS.md` for safe sign-in, password
 reset commands and what to do if you are locked out. No passwords are recorded
 in these documents.
 
-**Current direction:** normal web app only. The offline mutation queue,
-sync/conflict UI, service worker, PWA manifest and native wrapper were removed.
-Failed saves show an error and remain unsaved; uploads require a live
-connection. Authentication uses HttpOnly session cookies with `X-CSRFToken`,
-and identity/roles are re-read from `/api/auth/me/`. Content, assessment,
-course, learner, fee and attendance reads are scoped server-side. The frontend
-uses `/api` through the Vite proxy and the backend allows credentialed CORS from
-configured origins. See `SECURITY_AUDIT.md`.
+**Current direction:** normal web app, not a PWA or native app. The broad
+offline mutation queue, service worker, PWA manifest and native wrapper were
+removed. Failed saves show an error and remain unsaved; uploads require a live
+connection. A narrow env-driven mode may be enabled for public read caching and
+allowlisted theming writes with visible conflicts; see
+`OFFLINE_MODE_REVERSAL.md`. Authentication uses HttpOnly session cookies with
+`X-CSRFToken`, and identity/roles are re-read from `/api/auth/me/`. Content,
+assessment, course, learner, fee and attendance reads are scoped server-side.
+The frontend uses `/api` through the Vite proxy and the backend allows
+credentialed CORS from configured origins. See `SECURITY_AUDIT.md`.
+
+Rubric grading, publication and derived mastery badges are documented in
+`RUBRICS_MASTERY.md`. OneRoster clients and the governed tutor are read-only
+integration surfaces documented in `INTEROPERABILITY_AI.md`; they require
+server-side environment configuration and do not change normal staff roles.
 
 ## Roles and what they can do
 
@@ -148,6 +155,23 @@ Academic years, terms, classes and subjects are all configurable. Terms are
 not hardcoded to three — private and TVET institutions can use a different
 structure. Set `is_current` on the active year and term.
 
+## Rubric marking and feedback release
+
+Staff with `courses.manage`, `assessments.manage` or built-in teacher/admin access use
+`/admin/rubrics` to build school templates: name the rubric, add percentage achievement bands, add
+scored criteria and save reusable feedback phrases. Global templates are platform-owned and cannot be
+changed by a school. `/admin/assignments` optionally links an assignment to a rubric and sets whether
+resubmission is allowed and how many attempts a learner gets.
+
+`/admin/submissions` opens a marking grid when the assignment has a rubric. Scores are checked against
+each criterion's maximum and the server totals them; it then resolves the achievement band from the
+final percentage and snapshots criterion marks per attempt. Later rubric edits do not rewrite past
+grades. Saving a grade leaves feedback private; **Publish feedback** releases it and notifies the
+learner plus verified guardians with academic access. Private staff notes are never shown outside
+staff views. `/portal/submissions` lets learners read published feedback and send another attempt
+while attempts remain. Every build, grade, publication and resubmission is audit-logged. See
+`RUBRICS_MASTERY.md`.
+
 ## Content licensing
 
 `content_contentaccess` grants an institution access to a title. Only titles
@@ -162,7 +186,7 @@ cards stay retired and cannot be restored from cached overrides.
 
 ## Cross-system tools
 
-The **Insights & quality** sidebar group holds four staff tools. Notification
+The **Insights & quality** sidebar group holds five staff tools. Notification
 inbox links appear in **Overview** for staff and in the learner/guardian portal
 navigation.
 
@@ -187,6 +211,15 @@ points and the suggested action. **Recalculate warnings** creates one
 intervention task per medium/high learner who does not already have an open
 task; staff can assign it to themselves, complete it or dismiss it. Dismissing
 never deletes the evidence.
+
+### Mastery badges
+
+`/admin/mastery` shows derived badge displays alongside the mastery evidence
+already recorded by staff. Scores are averaged per learner and competency using
+the shared 0–1 bands; achieving and extending are earned, while beginning and
+developing show progress. Staff cannot create, edit or award a badge here: the
+screen is read-only and never creates a notification or audit entry. Learners
+see their own badges at `/portal/mastery`; guardians do not have a badge view.
 
 ### Fee ledger and receipts
 

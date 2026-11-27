@@ -10,7 +10,9 @@ uploads require a live connection. If a user still sees old cached wording or a
 stale bundle, the cause is an installed **old** service worker from before the
 removal. That is a deployment cleanup, not app code: serve a one-release
 kill-switch `/sw.js` with no-cache and an unregister/self-delete response, or
-have the user clear site data (see `PRODUCTION_CONFIGURATION.md`).
+have the user clear site data (see `PRODUCTION_CONFIGURATION.md`). If low-bandwidth
+mode is enabled, check its allowlists and conflict screen before blaming the
+network; see `OFFLINE_MODE_REVERSAL.md`.
 
 ## PostgreSQL connection fails
 

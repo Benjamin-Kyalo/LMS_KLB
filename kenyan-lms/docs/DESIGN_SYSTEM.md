@@ -5,7 +5,9 @@ queued-change notices and the dedicated sync page) was removed. The visual
 system below describes the current palette and interaction conventions; earlier
 palette states are recorded historically. The homepage hero uses an accessible
 canvas particle headline with a real `<h1>` and reduced-motion support. See
-`README.md` and `SECURITY_AUDIT.md`.
+`README.md` and `SECURITY_AUDIT.md`. The optional low-bandwidth screen uses the
+same status colours and does not reintroduce PWA UI; see
+`OFFLINE_MODE_REVERSAL.md`.
 
 ## Runtime palette model
 
@@ -13,7 +15,9 @@ The palette is no longer a set of literals duplicated across CSS and JavaScript.
 The Django `apps.theming` catalogue owns the palettes and the single active
 selection. The frontend fetches `/api/theming/active/` through `ThemeProvider` and
 injects `--ramp-900` … `--ramp-100` CSS custom properties onto `:root`. There is
-no offline cache; a failed theme fetch falls back to the local ramp. Brand and
+no theme cache by default; a failed theme fetch falls back to the local ramp.
+If low-bandwidth mode is enabled, only the allowlisted public theme read may be
+cached. Brand and
 action tokens in `frontend/src/styles/tokens.css` alias those ramp variables, so
 a palette change reaches the public site, staff admin, learner/guardian portal,
 charts and browser theme colour without component edits. Status colours are
@@ -140,21 +144,30 @@ unmount. Keep the real heading when editing copy.
 - `button.info` and links use `--link`; the default button stays `--primary`.
 - Recharts series come from `useTheme().colors.chart` and attendance/score
   colours from the same derived theme object. No chart hardcodes a hex value.
-- Public pages use a hero → photographed workspace cards → progress/insights →
-  interactive role selector rhythm. The former facts strip was removed. Selecting a role reveals
-  that role's rights and content; only the selected role's workspace link is
-  shown. Links are intentionally sparse: one generic registration path, one
-  generic sign-in path and section anchors only in the topbar. Header, footer and
-  section wording come from the managed site content document, with local
+- Public pages use an announcement → quick-link ribbon → hero → trust strip →
+  photographed workspace cards → everyday routines → access table → three-step
+  guide with a readiness checklist → progress/insights → accessibility notes →
+  library spotlight → interactive role selector → support callout → native
+  question list → richer footer rhythm. The former facts strip was removed.
+  Selecting a role reveals that role's rights and content; only the selected
+  role's workspace link is shown. The shared header is sticky on desktop and
+  becomes a labelled **Menu** disclosure on narrow screens; Escape and link
+  selection close it, and a signed-in visitor sees a workspace link in place of
+  a second sign-in action. Keyboard users can bypass it with a visible-on-focus
+  skip link, and a thin reading-position bar marks progress without trapping
+  focus. The announcement is dismissible for the current view. Header, footer
+  and section wording come from the managed site content document, with local
   defaults in `frontend/src/config/publicSite.js`. Administrators edit it at
   `/admin/appearance` (Words tab; `/admin/site-content` remains an alias);
-  components do not hardcode public copy. Admin and portal
-  pages reuse the same strong section heads, coloured top rules on cards, clear
-  active-navigation fills and compact data tables. This is an
-  information-hierarchy pattern only; the KLB palette and copy are retained.
-  Locally hosted photographs and the original KLB SVG are credited in
-  `docs/ASSET_CREDITS.md`; no external branding is used. The homepage and sign-in
-  story share one administrator-managed photograph.
+  components do not hardcode public copy. The footer uses the same safe-link
+  rule and keeps registration, sign-in and administration links out of public
+  pages. Admin and portal pages reuse the same strong section heads, coloured
+  top rules on cards, clear active-navigation fills and compact data tables.
+  This is an information-hierarchy pattern only; the KLB palette and copy are
+  retained. Locally hosted photographs and the original KLB SVG are credited in
+  `docs/ASSET_CREDITS.md`; no external branding is used. The hero, workspace,
+  insight and spotlight photographs are administrator-managed slots; the
+  homepage and sign-in story share one administrator-managed photograph.
 - Clicks, cards and route changes use short easing transitions. They stay under
   200ms, avoid layout shifts and are disabled under `prefers-reduced-motion`.
 
@@ -176,4 +189,7 @@ Every text/background pair used in the UI must reach at least 4.5:1; prefer AAA
 where practical. Ramp steps 600, 500, 400 and 300 are decorative only and must
 never be used for small text. The palette manager enforces the dark-shade rule
 and shows live contrast feedback. Lighthouse scored the public homepage **1.00**
-for accessibility, Best Practices and SEO after the palette system was applied.
+for accessibility, Best Practices and SEO after the palette system was applied. A
+re-audit after the second enhancement set also scored **1.00** for all three;
+the support callout's small heading needed a light ramp colour on its dark canvas,
+which is now applied in both the shipped design and per-section overrides.

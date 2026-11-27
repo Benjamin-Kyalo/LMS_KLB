@@ -85,7 +85,7 @@ by the migration. The capability rules are recorded in the next section.
 
 ### Rate limiting and abuse controls
 
-- Scoped DRF throttles cover login, registration, password reset, tutor questions, and KEMIS export generation.
+- Scoped DRF throttles cover login, registration, password reset, tutor questions, KEMIS export generation, OneRoster reads (per client id) and unsupported-protocol probes.
 - Rates are configured through `DEFAULT_THROTTLE_RATES` and can be tuned through environment variables.
 - A shared Django cache is required in multi-worker deployments; the local default is per-process only.
 - Health-check database errors return a generic `Database unavailable` response while details go to logs.
@@ -124,7 +124,9 @@ by the migration. The capability rules are recorded in the next section.
 - Python and Node dependency audits are clean at the versions recorded above.
 - Offline queue code is removed: IndexedDB queue, sync pages/banners, service worker, PWA manifest, workbox precache, React PWA plugin, Capacitor packages/scripts, and `frontend/android` / `frontend/ios`.
 - Retired offline wording in saved site-content overrides is replaced on read and write, the old `sync` navigation item is dropped, and admin/resource labels now say “Downloadable” rather than “Offline”.
-- Failed mutations now surface an error and remain unsaved. Uploads require a live network connection. This is a deliberate product change from earlier offline-support documentation.
+- By default failed mutations now surface an error and remain unsaved. Uploads require a live network connection. This was a deliberate product change from earlier offline-support documentation.
+- A later, separately documented low-bandwidth mode is off by default. When enabled, it caches only public allowlisted reads and queues only allowlisted theming `PATCH`/`DELETE` writes in namespaced `localStorage`. It refuses credential/person-like keys and token-like values, sends `If-Match` with 409 conflicts, and adds no service worker or PWA shell. See `OFFLINE_MODE_REVERSAL.md`.
+- Read-only OneRoster clients use env-only secrets, institution pinning, per-client scopes, HS256 assertions and throttling; the tutor adds safe policy metadata and redacted `tutor.*` audit rows. Unsupported LTI/OIDC/JWKS/OAuth routes return a generic 403. No CSP relaxation was made. See `INTEROPERABILITY_AI.md`.
 - Existing installs may still have an old service worker. Deployment must include a one-release kill-switch: serve `/sw.js` with no-cache and an unregister/self-delete response, or require users to clear site data.
 
 ## Residual deployment tasks

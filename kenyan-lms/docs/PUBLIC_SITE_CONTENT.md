@@ -4,7 +4,12 @@ Public wording and appearance are data, not source edits. A single editable
 document stores the header, footer, homepage sections, managed photo addresses,
 role cards, library book and resource headings, sign in and registration copy,
 the signed-in brand and portal menu labels, and safe per-section style controls.
-The former quick-facts strip was removed.
+The homepage includes a dismissal-friendly announcement, an on-page quick-link
+strip, a hero, a short trust strip, three workspace cards, an everyday routines
+guide, a plain-language access table, a preparation checklist beside the
+three-step guide, a progress panel, an accessibility commitment, a library
+spotlight, the role selector, a support callout, a small question list and a
+back-to-top control. The former quick-facts strip was removed.
 
 ## Admin editor
 
@@ -70,14 +75,15 @@ editor, so a wording save cannot silently replace a photograph.
 | School day | `workspaces.cards[1].image` | Second homepage workspace card |
 | Digital publishing | `workspaces.cards[2].image` | Third homepage workspace card |
 | Progress insight | `insights.imageSrc` | Homepage progress panel |
+| Library spotlight | `spotlight.imageSrc` | Homepage library spotlight |
 | Sign-in story | `auth.login.storyImageSrc` | Sign-in story panel |
 | Registration story | `auth.register.storyImageSrc` | Registration and invitation pages |
 | Portal tutor | `portal.tutorImageSrc` | Learner and guardian tutor workspace |
 
 The supplied photos are the defaults for the homepage hero, first and second
 workspace cards, progress panel, sign-in story, registration story and portal
-tutor. The third workspace card keeps its catalogue image until an
-administrator uploads a replacement.
+tutor. The third workspace card and the library spotlight use locally hosted
+catalogue and stock images until an administrator uploads replacements.
 
 A production deployment must serve `MEDIA_URL` from the same origin or through a
 configured CDN; Django only serves uploaded media automatically in debug mode.
@@ -95,13 +101,23 @@ not change the homepage hero or the global palette. No raw CSS is accepted.
 |---|---|
 | Public header | Brand, menu and sign in bar |
 | Public footer | Closing strip on public pages |
+| Homepage announcement | Short notice and action under the header |
+| Quick links | On-page link ribbon under the announcement |
 | Homepage hero | First panel and its buttons |
+| Homepage trust strip | Three short value points under the hero |
 | Workspace introduction | Heading above the workspace cards |
 | Learning workspace | First workspace card only |
 | School day | Second workspace card only |
 | Digital publishing | Third workspace card only |
+| Daily routines | Three everyday routine cards |
+| Access guide | Who-sees-what table |
+| Getting started | Three-step guide and readiness checklist |
 | Progress insight | Homepage progress points and photo |
+| Usability commitment | Keyboard, motion and connection notes |
+| Library spotlight | Library invitation and photo on the homepage |
 | Where do you fit? | Role selector and preview |
+| Support callout | Help invitation before the questions |
+| Common questions | Expandable question list near the end of the homepage |
 | Library | Public book and resource library |
 | Sign-in story | Story panel beside the sign in form |
 | Registration story | Registration story panel |
@@ -121,6 +137,31 @@ The public role selector has three previews: learners, guardians and teachers.
 The old Content managers preview is retired. It is removed from the frontend
 defaults, the backend defaults, saved site data and PATCH payloads, so stale
 data cannot bring it back.
+
+## Homepage navigation and footer
+
+The public header is shared by the homepage, library, sign-in, registration and
+invitation pages. It is sticky on desktop and collapses into a labelled **Menu**
+button on narrow screens. The button keeps a visible label, reports its state
+with `aria-expanded`, closes on link selection or Escape, and never hides the
+sign-in link from keyboard or screen-reader users. Signed-in visitors keep the
+same session and see a workspace link instead of a second sign-in action.
+
+The footer has an introduction, contact lines and two small link columns. A
+labelled **Back to top** button returns to the homepage start and honours a
+reduced-motion preference. It uses the same safe-link check as the header. Link
+columns stay on site paths or full HTTPS addresses; they do not expose
+administration links or repeat the sign-in and registration actions. If a
+deployment clears the photo credit wording, the empty credit link is not
+rendered.
+
+A keyboard user can reach the main content directly with the **Skip to homepage
+content** link. A thin reading-position indicator sits above the sticky header.
+Both are presentational helpers: neither traps focus nor changes the site
+session. The announcement ribbon can be dismissed for the current page view and
+its action uses the managed safe-link rule. Quick links, the support callout and
+the readiness checklist are ordinary editable text, not extra navigation
+permissions.
 
 ## Library wording and artwork
 
@@ -159,6 +200,13 @@ frontend can render it directly.
 
 Defaults live in `frontend/src/config/publicSite.js` and
 `backend/apps/theming/site_content.py`. They are intentionally the same values.
+Migration `theming.0007_refresh_public_homepage` installs the redesigned hero,
+navigation, trust strip, guide, spotlight, questions and footer fields into an
+existing saved document. Migration `theming.0008_add_public_homepage_extras`
+adds the announcement, quick links, routines, access guide, accessibility notes,
+support callout and readiness checklist, and adds the new "Who sees what" footer
+link. Both migrations only replace known old values or fill missing fields, so
+administrator photos, credits and other custom wording are kept.
 The frontend merges, in order:
 
 1. built-in defaults

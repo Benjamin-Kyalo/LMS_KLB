@@ -3,8 +3,8 @@
 ## Photography
 
 The site uses eleven locally hosted photographs: seven supplied by the project
-owner and four illustrative stock photos downloaded from Unsplash. Eight are
-active defaults and three are retained assets. The stock photos are not pictures
+owner and four illustrative stock photos downloaded from Unsplash. Nine are
+active defaults and two are retained assets. The stock photos are not pictures
 of Kenyan Literature Bureau staff, schools or learners. Attribution is not
 required by the [Unsplash License](https://unsplash.com/license), but the source
 image URLs are kept here for traceability.
@@ -19,7 +19,7 @@ image URLs are kept here for traceability.
 | `frontend/public/images/register-learn.jpg` | Registration story | Supplied by project owner, 25 November 2026 |
 | `frontend/public/images/tutor-brain.jpg` | Learner/parent tutor workspace | Supplied by project owner, 25 November 2026 |
 | `frontend/public/images/digital-library.jpg` | Digital-publishing workspace card | `https://images.unsplash.com/photo-1507842217343-583bb7270b66` |
-| `frontend/public/images/hero-students.jpg` | Retained asset; no longer active | `https://images.unsplash.com/photo-1523240795612-9a054b0db644` |
+| `frontend/public/images/hero-students.jpg` | Homepage library spotlight | `https://images.unsplash.com/photo-1523240795612-9a054b0db644` |
 | `frontend/public/images/family-progress.jpg` | Retained asset; no longer active | `https://images.unsplash.com/photo-1758687126375-e2c1683219e9` |
 | `frontend/public/images/teachers-lesson.jpg` | Retained asset; no longer active | `https://images.unsplash.com/photo-1509062522246-3755977927d7` |
 
@@ -29,7 +29,9 @@ Photos**; uploading a file publishes it immediately. The images are served from
 depend on a third-party CDN at runtime. The stock images are ordinary JPEG
 files; the supplied hero photograph is a PNG. The two small reference images
 `skill 2.jpg` and `image.png` were not used because they do not meet the
-managed-photo dimensions.
+managed-photo dimensions. The second homepage enhancement set added no new
+photographs: the announcement, quick links, routines, access guide, usability
+notes, support callout and back-to-top control are text or CSS only.
 
 ## Library artwork
 

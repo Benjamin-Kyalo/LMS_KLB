@@ -1,5 +1,10 @@
 // Single place for every HTTP call to the Django backend.
 // Reads and mutations go straight to the network; failed requests throw.
+// Narrow low-bandwidth caching/queueing is opt-in through server config.
+
+import {
+  enqueueWrite, getClientConfig, isCacheable, readCached, writeCached,
+} from "./lowBandwidth";
 
 const BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -81,6 +86,22 @@ function apiMessage(data, fallback) {
   return fallback;
 }
 
+// A Django error page is HTML, not an API message. Never show that markup in a
+// dialog; give the person a short, professional explanation instead.
+function readableNonJsonMessage(text, status) {
+  const trimmed = (text || "").trim();
+  if (!trimmed) return "";
+  if (/<[a-z!\/][^>]*>/i.test(trimmed)) {
+    if (status >= 500) {
+      return "The server could not complete this request. It has been logged. Please try again.";
+    }
+    if (status === 404) return "The requested item could not be found.";
+    if (status === 403) return "You do not have permission to perform this action.";
+    return "The request could not be completed. Please try again.";
+  }
+  return trimmed.length > 400 ? `${trimmed.slice(0, 397)}…` : trimmed;
+}
+
 // Low-level send. Throws ApiError for HTTP failures and TypeError for network
 // failures.
 async function send(path, { method = "GET", body, headers = {} } = {}) {
@@ -101,7 +122,8 @@ async function send(path, { method = "GET", body, headers = {} } = {}) {
   let data = null;
   const text = await response.text();
   if (text) {
-    try { data = JSON.parse(text); } catch { data = { detail: text }; }
+    try { data = JSON.parse(text); }
+    catch { data = { detail: readableNonJsonMessage(text, response.status) }; }
   }
 
   const message = apiMessage(data, response.statusText);
@@ -115,11 +137,85 @@ export async function request(path, options = {}) {
   return send(path, options);
 }
 
+function mutationHeaders(options) {
+  const headers = { ...(options.headers || {}) };
+  if (options.ifMatch) headers["If-Match"] = options.ifMatch;
+  return headers;
+}
+
+// Queue only when the failure is a connection failure and the server has
+// explicitly enabled this path. Online validation errors stay unsaved.
+function queueFailedMutation(method, path, body, options, originalError) {
+  const offline = getClientConfig()?.offline;
+  const connectionFailure = !originalError?.status
+    || (typeof navigator !== "undefined" && navigator.onLine === false);
+  if (!offline?.enabled || !offline.outbox?.enabled || !connectionFailure) {
+    throw originalError;
+  }
+  let item;
+  try {
+    item = enqueueWrite({
+      method, path, body, ifMatch: options.ifMatch || "",
+    });
+  } catch {
+    throw new ApiError(
+      "The change could not be saved and could not be queued safely.",
+      originalError.status || 400,
+      { code: "queue_rejected" },
+    );
+  }
+  if (!item) throw originalError;
+  const queued = new ApiError(
+    "No connection. This change is queued on this device and needs a retry.",
+    0,
+    { code: "queued", id: item.id },
+  );
+  queued.queued = true;
+  throw queued;
+}
+
 export const api = {
-  get: (path) => request(path),
+  get: async (path) => {
+    const cacheable = isCacheable(path);
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    if (cacheable) {
+      const cached = readCached(path);
+      if (offline) {
+        if (cached) return cached.data;
+        throw new ApiError("You are offline and this page has not been cached.", 0);
+      }
+    }
+    try {
+      const data = await request(path);
+      if (cacheable) writeCached(path, data);
+      return data;
+    } catch (error) {
+      if (cacheable) {
+        const cached = readCached(path);
+        if (cached) return cached.data;
+      }
+      throw error;
+    }
+  },
   post: (path, body) => request(path, { method: "POST", body }),
-  patch: (path, body) => request(path, { method: "PATCH", body }),
-  del: (path) => request(path, { method: "DELETE" }),
+  patch: async (path, body, options = {}) => {
+    try {
+      return await request(path, {
+        method: "PATCH", body, headers: mutationHeaders(options),
+      });
+    } catch (error) {
+      return queueFailedMutation("PATCH", path, body, options, error);
+    }
+  },
+  del: async (path, options = {}) => {
+    try {
+      return await request(path, {
+        method: "DELETE", headers: mutationHeaders(options),
+      });
+    } catch (error) {
+      return queueFailedMutation("DELETE", path, undefined, options, error);
+    }
+  },
   upload: async (path, formData, method = "PATCH") => {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       throw new Error("Uploads need a network connection. Try again.");
@@ -136,7 +232,8 @@ export const api = {
       let data = null;
       const text = await response.text();
       if (text) {
-        try { data = JSON.parse(text); } catch { data = { detail: text }; }
+        try { data = JSON.parse(text); }
+        catch { data = { detail: readableNonJsonMessage(text, response.status) }; }
       }
       throw new ApiError(apiMessage(data, response.statusText), response.status, data);
     }

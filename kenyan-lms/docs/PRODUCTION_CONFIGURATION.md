@@ -1,8 +1,10 @@
 # Production configuration
 
 **Current direction:** this is a **normal web app only**. There is no service
-worker, PWA manifest, workbox precache, offline queue, Capacitor wrapper or
-native build to deploy. The product is **not production-ready**: the checks
+worker, PWA manifest, workbox precache, broad offline queue, Capacitor wrapper or
+native build to deploy. A narrow, env-driven low-bandwidth cache/outbox may be
+enabled for an already-loaded page; it adds no deployed artefact. See
+`OFFLINE_MODE_REVERSAL.md`. The product is **not production-ready**: the checks
 below prepare a deployment but do not replace runtime verification.
 
 The default settings module (`config.settings`) is safe for local development.
@@ -54,6 +56,36 @@ for the real origin. Authentication is Django session-cookie based: the session
 cookie is HttpOnly, the CSRF cookie is readable and echoed by the frontend as
 `X-CSRFToken`, and identity/roles are re-read from `/api/auth/me/`. No
 `klb_token` or `klb_user` is stored in `localStorage`.
+
+### Optional low-bandwidth and integration settings
+
+All optional feature switches are server-side. Leave these unset to keep the
+defaults (low-bandwidth mode disabled, no external OneRoster clients, local
+tutor provider):
+
+```dotenv
+OFFLINE_MODE_ENABLED=False
+OFFLINE_READ_CACHE_ENABLED=True
+OFFLINE_OUTBOX_ENABLED=True
+OFFLINE_CONFIG_VERSION=1
+OFFLINE_CACHE_TTL_SECONDS=3600
+OFFLINE_MAX_CACHED_READS=25
+OFFLINE_OUTBOX_MAX_ITEMS=20
+OFFLINE_CACHE_PATHS=/api/theming/site-content/,/api/theming/active/,/api/content/public/books/,/api/content/public/resources/,/api/content/facets/
+OFFLINE_OUTBOX_PATHS=/api/theming/site-content/,/api/theming/palettes/
+ONEROSTER_THROTTLE_RATE=600/hour
+INTEGRATION_UNSUPPORTED_THROTTLE_RATE=120/hour
+KLB_ONEROSTER_CLIENTS=
+KLB_ONEROSTER_AUDIENCE=klb-lms-oneroster
+KLB_ONEROSTER_TOKEN_TTL_SECONDS=300
+KLB_ONEROSTER_MAX_PAGE_SIZE=100
+```
+
+`KLB_ONEROSTER_CLIENTS` is server-side JSON containing each client's secret,
+institution id and scopes; see `INTEROPERABILITY_AI.md`. Never expose client
+secrets, tutor keys or any of these values with a `VITE_` prefix. Caching and
+outbox storage are limited to public allowlists and contain no credentials or
+personal data; see `OFFLINE_MODE_REVERSAL.md`.
 
 ## 2. Check before starting
 

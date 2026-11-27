@@ -12,6 +12,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.concurrency import ConflictAwareMixin, conflict_response
 from apps.core.models import AuditLog
 from apps.core.permissions import IsInstitutionAdmin, IsPlatformAdmin
 from apps.theming.catalogue import DEFAULT_ACTIVE_SLUG
@@ -85,6 +86,15 @@ class SiteContentView(APIView):
     @transaction.atomic
     def patch(self, request):
         record = _site_content_object()
+        expected = request.headers.get("If-Match")
+        if expected:
+            actual = record.updated_at.isoformat()
+            if expected.strip().strip('"') != actual:
+                return conflict_response("This record changed since you loaded it.", {
+                    "id": record.pk,
+                    "updated_at": actual,
+                    "data": public_site_content(record.content),
+                })
         payload = request.data.get("content", request.data)
         # A PATCH may contain only the sections being changed. Merge onto the
         # saved document first so omitted wording and styles keep their values.
@@ -117,6 +127,7 @@ SITE_IMAGE_SLOTS = {
     "workspace-school": ("workspaces", "cards", 1, "image"),
     "workspace-publishing": ("workspaces", "cards", 2, "image"),
     "insights": ("insights", "imageSrc"),
+    "spotlight": ("spotlight", "imageSrc"),
     "login": ("auth", "login", "storyImageSrc"),
     "register": ("auth", "register", "storyImageSrc"),
     "tutor": ("portal", "tutorImageSrc"),
@@ -310,7 +321,7 @@ class SiteHeroImageView(SiteImageUploadBase):
         return self.publish(request, "hero", "site_content.hero_image_uploaded")
 
 
-class ThemePaletteViewSet(viewsets.ModelViewSet):
+class ThemePaletteViewSet(ConflictAwareMixin, viewsets.ModelViewSet):
     """Global palette catalogue. Platform and institution admins may change it."""
 
     queryset = ThemePalette.objects.all()

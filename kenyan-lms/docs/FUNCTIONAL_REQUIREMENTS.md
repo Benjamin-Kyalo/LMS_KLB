@@ -18,7 +18,9 @@ mutations surface an error and remain unsaved; uploads require a live
 connection. Authentication is Django session-cookie based with a readable CSRF
 cookie echoed as `X-CSRFToken` and identity/roles always re-read from
 `/api/auth/me/`. Security hardening and the remaining deployment checks are in
-`SECURITY_AUDIT.md`.
+`SECURITY_AUDIT.md`. A narrow low-bandwidth reversal was documented later:
+public read caching and allowlisted theming writes are off by default and never
+use a service worker; see `OFFLINE_MODE_REVERSAL.md`.
 
 ## A. Public website
 

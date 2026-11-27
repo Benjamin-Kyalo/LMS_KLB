@@ -83,6 +83,12 @@ class Assignment(InstitutionScopedModel):
     instructions = models.TextField(blank=True)
     due_date = models.DateTimeField(null=True, blank=True)
     max_score = models.DecimalField(max_digits=6, decimal_places=2, default=100)
+    rubric = models.ForeignKey(
+        "curriculum.Rubric", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="assignments",
+    )
+    allow_resubmission = models.BooleanField(default=False)
+    max_attempts = models.PositiveSmallIntegerField(default=1)
     created_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True)
     is_published = models.BooleanField(default=False)
 
@@ -104,9 +110,67 @@ class Submission(InstitutionScopedModel):
     feedback = models.TextField(blank=True)
     graded_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="graded_submissions")
     graded_at = models.DateTimeField(null=True, blank=True)
+    rubric_level = models.ForeignKey(
+        "curriculum.RubricLevel", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="submissions",
+    )
+    rubric_level_name = models.CharField(max_length=100, blank=True)
+    rubric_max_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    private_notes = models.TextField(blank=True)
+    feedback_published_at = models.DateTimeField(null=True, blank=True)
+    current_attempt = models.PositiveSmallIntegerField(default=1)
 
     class Meta:
         ordering = ["-submitted_at"]
         constraints = [
             models.UniqueConstraint(fields=["assignment", "learner"], name="unique_submission_per_assignment")
         ]
+
+
+class SubmissionAttempt(InstitutionScopedModel):
+    """An immutable snapshot of one submission attempt and its returned grade."""
+
+    submission = models.ForeignKey(Submission, on_delete=models.CASCADE, related_name="attempts")
+    attempt_number = models.PositiveSmallIntegerField()
+    text_answer = models.TextField(blank=True)
+    attachment = models.FileField(upload_to="submission-attempts/", null=True, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    feedback = models.TextField(blank=True)
+    graded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["submission", "attempt_number"]
+        constraints = [
+            models.UniqueConstraint(fields=["submission", "attempt_number"], name="unique_submission_attempt_number")
+        ]
+
+    def __str__(self):
+        return f"{self.submission_id} - attempt {self.attempt_number}"
+
+
+class SubmissionCriterionScore(InstitutionScopedModel):
+    """A criterion-level mark with a snapshot of the criterion definition."""
+
+    submission = models.ForeignKey(Submission, on_delete=models.CASCADE, related_name="criterion_scores")
+    criterion = models.ForeignKey(
+        "curriculum.RubricCriterion", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="scores",
+    )
+    attempt_number = models.PositiveSmallIntegerField(default=1)
+    criterion_name = models.CharField(max_length=150)
+    max_score = models.DecimalField(max_digits=6, decimal_places=2)
+    score = models.DecimalField(max_digits=6, decimal_places=2)
+    comment = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["submission", "attempt_number", "criterion"],
+                name="unique_criterion_score_per_attempt",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.criterion_name}: {self.score}/{self.max_score}"

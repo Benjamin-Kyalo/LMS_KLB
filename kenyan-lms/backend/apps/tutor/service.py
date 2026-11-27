@@ -99,6 +99,44 @@ _FALLBACK_SUGGESTIONS = [
     "Ask your teacher for guidance.",
 ]
 
+# Governed-AI policy metadata. It is safe to return to clients and to write to
+# audit details: it contains no question, answer, credential or environment
+# value, only stable rule identifiers.
+POLICY_VERSION = "2026-11-26.1"
+POLICY_DATA_SOURCES = (
+    "Learning outcomes",
+    "Competencies",
+    "Published learning resources",
+    "Textbooks",
+    "Published institution courses",
+)
+POLICY_EXCLUDED_RECORDS = (
+    "Learner profiles",
+    "Assessment marks and submissions",
+    "Fee and payment records",
+    "Messages and guardian links",
+)
+
+
+def policy_metadata() -> dict:
+    """Describe the tutor's grounded-answer rules without exposing config."""
+    provider = (os.environ.get("KLB_TUTOR_PROVIDER") or "local").strip().lower()
+    url = (os.environ.get("KLB_TUTOR_API_URL") or "").strip()
+    key = (os.environ.get("KLB_TUTOR_API_KEY") or "").strip()
+    return {
+        "policy_version": POLICY_VERSION,
+        "grounded_only": True,
+        "provider_name": provider if provider in {"local", "http"} else "local",
+        "external_provider_configured": (
+            provider == "http" and bool(url and key) and _validated_endpoint(url) is not None
+        ),
+        "data_sources": list(POLICY_DATA_SOURCES),
+        "excluded_records": list(POLICY_EXCLUDED_RECORDS),
+        "remote_answers_must_be_verbatim": True,
+        "max_question_length": MAX_QUESTION_LENGTH,
+        "no_personal_data_sent": True,
+    }
+
 
 def _strip_controls(value: Any) -> str:
     """Remove C0/C1 control characters while keeping normal line breaks."""
@@ -158,6 +196,7 @@ def _fallback() -> dict:
         "sources": [],
         "suggestions": list(_FALLBACK_SUGGESTIONS),
         "grounded": False,
+        "policy": policy_metadata(),
     }
 
 
@@ -307,6 +346,7 @@ def answer_question(question: Any, institution: Any) -> dict:
         "sources": sources,
         "suggestions": _suggestions(matches),
         "grounded": True,
+        "policy": policy_metadata(),
     }
 
 

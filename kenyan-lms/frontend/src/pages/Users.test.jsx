@@ -102,7 +102,7 @@ describe("Users custom role assignment", () => {
     expect(within(confirmDialog).getByText(/signs the person out of every device/)).toBeTruthy();
     expect(within(confirmDialog).getByText(/Office manager/)).toBeTruthy();
 
-    fireEvent.click(within(confirmDialog).getByRole("button", { name: /Generate temporary password/ }), { detail: 0 });
+    fireEvent.click(within(confirmDialog).getByRole("button", { name: /Generate temporary password/ }), { detail: 1 });
 
     await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(
       "/auth/users/5/reset_password/", {},
@@ -120,7 +120,7 @@ describe("Users custom role assignment", () => {
     render(<Users />);
 
     fireEvent.click(screen.getByRole("button", { name: "Reset password for Amina Yusuf" }));
-    fireEvent.click(screen.getByRole("button", { name: /Generate temporary password/ }), { detail: 0 });
+    fireEvent.click(screen.getByRole("button", { name: /Generate temporary password/ }), { detail: 1 });
     await waitFor(() => expect(screen.getByText("CopyMe123!")).toBeTruthy());
 
     fireEvent.click(screen.getByRole("button", { name: "Copy password" }));
@@ -136,7 +136,7 @@ describe("Users custom role assignment", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/unable to sign in until the account is reactivated/)).toBeTruthy();
 
-    fireEvent.click(within(dialog).getByRole("button", { name: /Deactivate account/ }), { detail: 0 });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Deactivate account/ }), { detail: 1 });
 
     await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(
       "/auth/users/5/set_active/", { is_active: false },
@@ -144,14 +144,14 @@ describe("Users custom role assignment", () => {
     expect(mocks.reload).toHaveBeenCalled();
   });
 
-  it("uses a hold-confirmed deletion dialog", async () => {
+  it("confirms deletion in a dialog on a normal click", async () => {
     render(<Users />);
 
     fireEvent.click(screen.getByRole("button", { name: "Delete Amina Yusuf" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/reserved for duplicate or mistaken accounts/)).toBeTruthy();
 
-    fireEvent.click(within(dialog).getByRole("button", { name: /Delete account/ }), { detail: 0 });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Delete account/ }), { detail: 1 });
 
     await waitFor(() => expect(mocks.del).toHaveBeenCalledWith("/auth/users/5/"));
     expect(mocks.reload).toHaveBeenCalled();

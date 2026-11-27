@@ -27,6 +27,7 @@ urlpatterns = [
     path("api/approval/", include("apps.approval.urls")),
     path("api/kemis/", include("apps.kemis.urls")),
     path("api/tutor/", include("apps.tutor.urls")),
+    path("api/integration/", include("apps.integration.urls")),
     path("api/analytics/", include("apps.analytics.urls")),
     path("api/theming/", include("apps.theming.urls")),
 ]

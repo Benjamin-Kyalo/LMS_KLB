@@ -17,10 +17,13 @@ of inactivity (`SESSION_COOKIE_AGE=3600`, overridable to `1800` for 30 minutes);
 authenticated requests refresh that window in line with
 `SESSION_SAVE_EVERY_REQUEST`.
 
-This is a **normal web app**: there is no offline queue, service worker, PWA
-manifest or native wrapper. Failed mutations return an error and remain
-unsaved; they are not queued or replayed. Uploads require a live network
-connection. Historical references below to offline replay are superseded.
+This is a **normal web app**: there is no service worker, PWA manifest or
+native wrapper. By default failed mutations return an error and remain unsaved.
+When `OFFLINE_MODE_ENABLED=True`, a narrow low-bandwidth mode permits cached
+public reads and allowlisted theming `PATCH`/`DELETE` writes on an already-loaded
+page; queued writes use `If-Match` and show 409 conflicts. Uploads still require
+a live network connection. Historical references to the old broad offline queue
+are superseded. See `OFFLINE_MODE_REVERSAL.md`.
 
 The frontend keeps all HTTP calls in `frontend/src/services/api.js`.
 
@@ -58,6 +61,7 @@ See `REFERENCE_NUMBERING.md`.
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/api/health/` | API and database status |
+| GET | `/api/core/client-config/` | Public low-bandwidth booleans, path allowlists and limits (`Cache-Control: public, max-age=300`) |
 | POST | `/api/auth/login/` | Username + password → session cookie and user (CSRF cookie set) |
 | POST | `/api/auth/register/` | Public self-service signup (learner, guardian or provisional teacher only) |
 | POST | `/api/auth/password/reset/` | Email a reset link (console in dev) |
@@ -101,8 +105,8 @@ Teacher approval references use the `TAP` prefix. Link requests move through
 states and lets staff decide pending requests. An institution `ADMIN` may
 decide approvals or link requests; custom roles may do so only when the relevant
 people capability is picked and enforced by the backend. All decisions are audit
-logged. These mutations require a live connection: there is no offline queue or
-replay path.
+logged. These mutations require a live connection; the narrow low-bandwidth
+allowlist covers theming writes only, not people or guardian-link changes.
 
 ## Roles and capabilities
 
@@ -221,10 +225,13 @@ active sessions and legacy tokens. See `SECURITY_AUDIT.md`.
 | GET, POST | `/api/courses/` | Courses |
 | GET, POST | `/api/courses/modules/` | Modules |
 | GET, POST | `/api/courses/lessons/` | Lessons |
-| GET, POST | `/api/courses/assignments/` | Assignments |
+| GET, POST | `/api/courses/assignments/` | Assignments; `rubric`, `allow_resubmission` and `max_attempts` select the marking grid |
 | POST | `/api/courses/progress/mark-complete/` | Idempotent progress update |
-| GET, POST | `/api/courses/submissions/` | Submissions |
-| POST | `/api/courses/submissions/{id}/grade/` | Grade a submission |
+| GET, POST | `/api/courses/submissions/` | Submissions; staff see all in-scope rows, learners see their own, permitted guardians see linked learners |
+| POST | `/api/courses/submissions/{id}/grade/` | Grade a submission with a direct score |
+| POST | `/api/courses/submissions/{id}/grade-rubric/` | Score every selected criterion; the server totals marks and resolves the percentage band |
+| POST | `/api/courses/submissions/{id}/publish-feedback/` | Publish grade and feedback to the learner and permitted guardians |
+| POST | `/api/courses/submissions/{id}/resubmit/` | Learner-only new attempt; keeps the earlier answer and grade in history |
 | GET, POST | `/api/assessments/questions/` | Question bank |
 | GET, POST | `/api/assessments/quizzes/` | Quizzes |
 | GET, POST | `/api/assessments/attempts/` | Quiz attempts |
@@ -243,7 +250,10 @@ active sessions and legacy tokens. See `SECURITY_AUDIT.md`.
 | GET, POST | `/api/curriculum/sub-strands/` | Sub-strands |
 | GET, POST | `/api/curriculum/outcomes/` | Learning outcomes |
 | GET, POST | `/api/curriculum/competencies/` | Competencies |
-| GET, POST | `/api/curriculum/rubrics/` | Rubrics |
+| GET, POST | `/api/curriculum/rubrics/` | Rubrics with nested achievement bands and criteria |
+| GET, POST | `/api/curriculum/rubric-levels/` | Percentage achievement bands (staff write; global templates platform-only) |
+| GET, POST | `/api/curriculum/rubric-criteria/` | Scored criteria used by the marking grid |
+| GET, POST | `/api/curriculum/feedback-comments/` | Reusable feedback phrase bank |
 | GET, POST | `/api/curriculum/evidence/` | Competency evidence |
 | GET, POST | `/api/content/textbooks/` | Textbook catalogue |
 | POST | `/api/content/textbooks/{id}/publish/` | Publish a title |
@@ -254,6 +264,22 @@ active sessions and legacy tokens. See `SECURITY_AUDIT.md`.
 | GET | `/api/content/exercises/` | Chapter exercises |
 | GET, POST | `/api/content/exercise-attempts/` | Exercise attempts |
 | GET, POST | `/api/content/access/` | Licence grants |
+
+### Rubric marking rules
+
+`POST /api/courses/submissions/{id}/grade-rubric/` accepts
+`{"criteria": [{"criterion": id, "score": "4.00", "comment": "..."}], "overall_feedback": "...",
+"private_notes": "..."}`. The server rejects criteria outside the assignment's rubric, duplicate
+criteria, scores above a criterion's maximum, and totals above the assignment maximum. Each attempt's
+criterion scores are snapshotted with the criterion name and limit, so later rubric edits cannot alter
+an existing grade. The final percentage is mapped to a `RubricLevel` band; bands are expressed as
+percentages from `0` to `100`, not raw rubric points.
+
+Grades and written feedback are private until `publish-feedback/` is called. That action notifies the
+learner and verified guardians with `can_view_academics`; `private_notes` never leaves staff views.
+`resubmit/` accepts `text_answer`, an `attachment`, or both, and is restricted to the learner who owns
+the submission while attempts remain. Rubric build and grading actions write `rubric.*` and
+`submission.*` audit entries; see `RUBRICS_MASTERY.md`.
 
 ### Resource discovery (Phase 2)
 
@@ -333,6 +359,19 @@ fees 1 point. Levels are `HIGH` at 6+, `MEDIUM` at 3–5, `LOW` at 1–2 and `NO
 at zero. The report response includes a `rules` object whose descriptions are
 safe to show to staff and families.
 
+### Mastery badges
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/analytics/mastery/` | Derived badge displays for the caller's institution (staff only) |
+| GET | `/api/analytics/my-mastery/` | The signed-in learner's own derived badges |
+
+Staff may filter the school report with `learner`, `competency` and
+`mastery_level`. Badge bands use the shared 0–1 mastery scores: `BEGINNING`
+0.25, `DEVELOPING` 0.50, `ACHIEVING` 0.75 and `EXTENDING` 1.00. Only the top two
+bands are marked earned. These are read-only calculations from
+`CompetencyEvidence`; no award or badge record is created.
+
 ### Fee ledger and receipts
 
 | Method | Endpoint | Purpose |
@@ -362,6 +401,31 @@ audited; no record is deleted. `GET /api/core/audit/` accepts `action`,
 `entity_type`, `entity_id`, `user`, `search` and `ordering`. Platform
 administrators may pass `institution=<id>` to the data-quality scan; other
 administrators are silently scoped to their own school.
+
+## Interoperability and governed AI
+
+These endpoints use a separate, narrowly configured auth surface. Ordinary
+session cookies are not accepted by the OneRoster views, and no bearer token is
+issued by `/api/auth/login/`.
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/integration/oneroster/v1p1/courses/` | HS256 assertion with `courses.read` | Published courses in the pinned institution |
+| GET | `/api/integration/oneroster/v1p1/classes/` | HS256 assertion with `classes.read` | Published courses shaped as classes |
+| GET | `/api/integration/oneroster/v1p1/users/` | HS256 assertion with `users.read` | Active learners and teachers in the pinned institution |
+| GET | `/api/integration/oneroster/v1p1/enrollments/` | HS256 assertion with `enrollments.read` | Derived teacher/learner memberships |
+| GET | `/api/integration/oneroster/v1p1/orgs/` | HS256 assertion with `orgs.read` | The pinned institution |
+| GET, POST | `/api/integration/lti/launch/`, `/api/integration/oidc/`, `/api/integration/jwks/`, `/api/integration/oauth/token/` | Public, throttled | Generic 403: deliberately unsupported |
+| GET | `/api/tutor/conversations/health/` | Authenticated | Provider and safe `policy` metadata |
+
+Clients are configured only through `KLB_ONEROSTER_CLIENTS`; assertions are
+short-lived HS256 JWTs checked with stdlib HMAC. Wrong algorithms, expired or
+over-long assertions, unknown clients and wrong audiences return a generic 401.
+Successful reads write `integration.oneroster.read` audit rows without secrets
+or personal payloads. Tutor ask responses include `policy`, and each ask writes
+institution-scoped `tutor.answer.requested` and `tutor.answer.generated` audit
+rows whose details exclude the question, answer and any secret. See
+`INTEROPERABILITY_AI.md`.
 
 ## School profile and logo upload
 
@@ -440,10 +504,11 @@ the live response over the local defaults in
 `frontend/src/config/publicSite.js`. Administrators manage colours, photos,
 wording and section styles from the single `/admin/appearance` page.
 `/admin/theme` and `/admin/site-content` remain aliases that open the matching
-tab. There is no
-offline content cache: if the API is unreachable, the page shows an error or the
-built-in defaults, and a failed save remains unsaved. See
-`docs/PUBLIC_SITE_CONTENT.md`. The retired public-site `content` / “Content
+tab. By default there is no offline content cache: if the API is unreachable, the
+page shows an error or the built-in defaults, and a failed save remains unsaved.
+If low-bandwidth mode is explicitly enabled, only the public allowlisted reads
+and theming writes in `OFFLINE_MODE_REVERSAL.md` may use device storage; retired
+cards never return through a cached response. See `docs/PUBLIC_SITE_CONTENT.md`. The retired public-site `content` / “Content
 managers” cards stay retired; a cached override cannot bring them back. Only
 the learner, guardian and teacher role cards are supported.
 
@@ -454,6 +519,9 @@ the learner, guardian and teacher role cards are supported.
 - Validation errors return HTTP 400 with a professional field-prefixed message
   such as `email: This field may not be blank.`; the frontend shows the message
   and never renders raw JSON.
+- Opt-in theming writes may send `If-Match` with the loaded `updated_at`. A
+  stale value returns HTTP 409 with `code`, `message` and a safe `server` copy
+  for deliberate review; the frontend never silently overwrites it.
 - Cross-institution detail requests return 404, not 403.
 - Content, assessment, course, learner, fee and attendance reads are scoped
   server-side; ordinary users receive reduced field sets.

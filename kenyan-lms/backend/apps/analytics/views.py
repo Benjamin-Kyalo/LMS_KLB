@@ -11,6 +11,7 @@ from rest_framework.response import Response
 
 from apps.analytics.engine import (
     build_cohorts,
+    build_mastery_badges,
     dashboard_metrics,
     evaluate_remediation as evaluate_rules,
     refresh_snapshot as build_snapshot,
@@ -97,6 +98,25 @@ def dismiss_my_remediation_task(request, pk):
     task.resolved_at = timezone.now()
     task.save(update_fields=["status", "resolved_at", "updated_at"])
     return Response(RemediationTaskSerializer(task, context={"request": request}).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def mastery_badges(request):
+    """Derived badge displays from competency evidence; staff only and read-only."""
+    institution = _scope_staff_institution(request.user)
+    try:
+        return Response(build_mastery_badges(institution, request.query_params.dict()))
+    except ValueError as exc:
+        raise ValidationError({"mastery_level": str(exc)}) from exc
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_mastery_badges(request):
+    """The signed-in learner's derived badges; never another learner's data."""
+    learner = _own_learner(request.user)
+    return Response(build_mastery_badges(learner.institution, {"learner": learner.pk}))
 
 
 @api_view(["GET"])

@@ -1,6 +1,7 @@
 """Health check used by both humans and monitoring tools."""
 import logging
 
+from django.conf import settings
 from django.db import connection
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -36,12 +37,45 @@ def health_check(request):
     return Response(
         {
             "status": "ok" if database_ok else "error",
-            "service": "KLB Digital Learning Ecosystem",
+            "service": "KLB Elimu",
             "database": "connected" if database_ok else "unavailable",
             "error": error,
         },
         status=200 if database_ok else 503,
     )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def client_config(request):
+    """Public browser switches for low-bandwidth mode.
+
+    Only booleans, path allowlists and limits are returned. No environment
+    secret, session value, CSRF token or learner record is exposed here.
+    """
+    response = Response({
+        "version": settings.OFFLINE_CONFIG_VERSION,
+        "offline": {
+            "enabled": settings.OFFLINE_MODE_ENABLED,
+            "service_worker": False,
+            "native_app": False,
+            "credentials_stored": False,
+            "read_cache": {
+                "enabled": settings.OFFLINE_MODE_ENABLED and settings.OFFLINE_READ_CACHE_ENABLED,
+                "paths": settings.OFFLINE_CACHE_PATHS,
+                "max_age_seconds": settings.OFFLINE_CACHE_TTL_SECONDS,
+                "max_items": settings.OFFLINE_MAX_CACHED_READS,
+            },
+            "outbox": {
+                "enabled": settings.OFFLINE_MODE_ENABLED and settings.OFFLINE_OUTBOX_ENABLED,
+                "methods": ["PATCH", "DELETE"],
+                "paths": settings.OFFLINE_OUTBOX_PATHS,
+                "max_items": settings.OFFLINE_OUTBOX_MAX_ITEMS,
+            },
+        },
+    })
+    response["Cache-Control"] = "public, max-age=300"
+    return response
 
 
 class AuditLogViewSet(ReadOnlyModelViewSet):

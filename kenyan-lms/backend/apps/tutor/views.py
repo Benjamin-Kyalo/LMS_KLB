@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.audit import log_audit
 from apps.core.throttling import TutorThrottle
 from apps.core.viewsets import InstitutionScopedQuerysetMixin
 from apps.tutor.models import TutorConversation, TutorMessage
@@ -19,7 +20,7 @@ from apps.tutor.serializers import (
     TutorConversationSerializer,
     TutorMessageSerializer,
 )
-from apps.tutor.service import clean_question, get_provider
+from apps.tutor.service import clean_question, get_provider, policy_metadata
 
 
 class CanUseTutor(BasePermission):
@@ -84,7 +85,24 @@ class TutorConversationViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelVie
 
         # Ask the provider before writing anything, so a failed or timed-out
         # answer cannot leave an orphan question the client will retry.
-        result = get_provider().answer(question, conversation.institution)
+        provider = get_provider()
+        # Record the governed request before calling any provider, including
+        # when the provider fails. Only metadata is stored, never the question.
+        log_audit(
+            request.user,
+            "tutor.answer.requested",
+            "TutorConversation",
+            conversation.pk,
+            {
+                "conversation_reference": conversation.reference,
+                "provider": provider.name,
+                "policy_version": policy_metadata()["policy_version"],
+                "question_length": len(question),
+            },
+            institution=conversation.institution,
+            request=request,
+        )
+        result = provider.answer(question, conversation.institution)
         with transaction.atomic():
             TutorMessage.objects.create(
                 institution=conversation.institution,
@@ -102,6 +120,22 @@ class TutorConversationViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelVie
                 suggestions=result["suggestions"],
                 created_by=request.user,
             )
+        # Audit the governed action, never the question or answer text. The
+        # policy version and grounding result are enough to review later.
+        log_audit(
+            request.user,
+            "tutor.answer.generated",
+            "TutorConversation",
+            conversation.pk,
+            {
+                "conversation_reference": conversation.reference,
+                "provider": provider.name,
+                "grounded": bool(result.get("grounded")),
+                "policy_version": (result.get("policy") or {}).get("policy_version", ""),
+            },
+            institution=conversation.institution,
+            request=request,
+        )
         return Response(
             TutorMessageSerializer(tutor_message).data,
             status=status.HTTP_201_CREATED,
@@ -110,7 +144,11 @@ class TutorConversationViewSet(InstitutionScopedQuerysetMixin, viewsets.ModelVie
     @action(detail=False, methods=["get"])
     def health(self, request):
         """Report the provider name without exposing any configuration value."""
-        return Response({"provider": get_provider().name, "grounded_only": True})
+        return Response({
+            "provider": get_provider().name,
+            "grounded_only": True,
+            "policy": policy_metadata(),
+        })
 
 
 class TutorMessageViewSet(InstitutionScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):

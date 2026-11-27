@@ -55,6 +55,7 @@ LOCAL_APPS = [
     "apps.approval",
     "apps.kemis",
     "apps.tutor",
+    "apps.integration",
     "apps.analytics",
     "apps.theming",
 ]
@@ -154,6 +155,39 @@ if CACHE_URL:
 RESET_REQUEST_MAX = env.int("RESET_REQUEST_MAX", default=5)
 RESET_REQUEST_WINDOW_SECONDS = env.int("RESET_REQUEST_WINDOW_SECONDS", default=60 * 60)
 
+# Low-bandwidth web mode. This is an env-driven reversal of the 24 Nov 2026
+# offline removal for narrow, non-PII reads and small optional writes only.
+# It never installs a service worker and never stores credentials or CSRF.
+OFFLINE_MODE_ENABLED = env.bool("OFFLINE_MODE_ENABLED", default=False)
+OFFLINE_READ_CACHE_ENABLED = env.bool("OFFLINE_READ_CACHE_ENABLED", default=True)
+OFFLINE_OUTBOX_ENABLED = env.bool("OFFLINE_OUTBOX_ENABLED", default=True)
+OFFLINE_CONFIG_VERSION = env("OFFLINE_CONFIG_VERSION", default="1")
+OFFLINE_CACHE_TTL_SECONDS = env.int("OFFLINE_CACHE_TTL_SECONDS", default=3600)
+OFFLINE_MAX_CACHED_READS = env.int("OFFLINE_MAX_CACHED_READS", default=25)
+OFFLINE_OUTBOX_MAX_ITEMS = env.int("OFFLINE_OUTBOX_MAX_ITEMS", default=20)
+# Only public, non-personal reads are cacheable by default. Adding an
+# authenticated or family-linked path here would expose saved data on the
+# device and must not be done without a separate privacy review.
+OFFLINE_CACHE_PATHS = env.list(
+    "OFFLINE_CACHE_PATHS",
+    default=[
+        "/api/theming/site-content/",
+        "/api/theming/active/",
+        "/api/content/public/books/",
+        "/api/content/public/resources/",
+        "/api/content/facets/",
+    ],
+)
+# Writes queued on a device must be equally narrow. The client additionally
+# refuses any body containing credential- or person-like fields.
+OFFLINE_OUTBOX_PATHS = env.list(
+    "OFFLINE_OUTBOX_PATHS",
+    default=[
+        "/api/theming/site-content/",
+        "/api/theming/palettes/",
+    ],
+)
+
 LANGUAGE_CODE = "en-ke"
 TIME_ZONE = "Africa/Nairobi"
 USE_I18N = True
@@ -193,7 +227,18 @@ DEFAULT_THROTTLE_RATES = {
     "auth_reset": env("RESET_THROTTLE_RATE", default="20/hour"),
     "tutor_ask": env("TUTOR_THROTTLE_RATE", default="120/hour"),
     "export_generate": env("EXPORT_THROTTLE_RATE", default="60/hour"),
+    "oneroster_read": env("ONEROSTER_THROTTLE_RATE", default="600/hour"),
+    "integration_unsupported": env(
+        "INTEGRATION_UNSUPPORTED_THROTTLE_RATE", default="120/hour"
+    ),
 }
+
+# Read-only OneRoster groundwork. Clients, secrets and institution pins live
+# only in the server environment. Nothing here is exposed to the browser.
+ONEROSTER_CLIENTS_JSON = env("KLB_ONEROSTER_CLIENTS", default="")
+ONEROSTER_AUDIENCE = env("KLB_ONEROSTER_AUDIENCE", default="klb-lms-oneroster")
+ONEROSTER_TOKEN_TTL_SECONDS = env.int("KLB_ONEROSTER_TOKEN_TTL_SECONDS", default=300)
+ONEROSTER_MAX_PAGE_SIZE = env.int("KLB_ONEROSTER_MAX_PAGE_SIZE", default=100)
 
 # Production overrides this through config/settings_prod.py. Keeping an empty
 # default means local development is not blocked by an enforce-only policy.
@@ -221,7 +266,7 @@ SMTP_PASSWORD = env("SMTP_PASSWORD", default="")
 SMTP_USE_TLS = env.bool("SMTP_USE_TLS", default=True)
 SMTP_USE_SSL = env.bool("SMTP_USE_SSL", default=False)
 SMTP_TIMEOUT = env.int("SMTP_TIMEOUT", default=20)
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="KLB LMS <no-reply@klb.local>")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="KLB Elimu <no-reply@klb.local>")
 
 if DEBUG:
     MAILERS = {

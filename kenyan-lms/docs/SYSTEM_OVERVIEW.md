@@ -6,7 +6,8 @@ native wrapper. `npm run build` emits only `index.html`, hashed CSS/JS assets,
 `robots.txt`, SVG marks and local images. Failed mutations show an error and
 remain unsaved; uploads require a live connection. Earlier descriptions of
 queued writes, sync banners and cached pages were accurate historically but are
-superseded. See `README.md` and `SECURITY_AUDIT.md`.
+superseded. A narrow low-bandwidth reversal is off by default; see
+`OFFLINE_MODE_REVERSAL.md`. See also `README.md` and `SECURITY_AUDIT.md`.
 
 ## Two UI sides
 

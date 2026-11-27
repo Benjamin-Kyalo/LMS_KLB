@@ -24,7 +24,7 @@ from apps.analytics.models import AnalyticsSnapshot, RemediationRule, Remediatio
 from apps.assessments.models import ExamResult, QuizAttempt
 from apps.attendance.models import AttendanceRecord
 from apps.core.constants import AttendanceStatus, MasteryLevel
-from apps.curriculum.models import CompetencyEvidence
+from apps.curriculum.models import Competency, CompetencyEvidence
 from apps.learners.models import Learner
 from apps.reports.analytics import attendance_status_series, exam_series
 
@@ -37,6 +37,15 @@ MASTERY_SCORES = {
     MasteryLevel.EXTENDING: Decimal("1.00"),
 }
 CLOSED_STATUSES = {RemediationTask.COMPLETED, RemediationTask.DISMISSED}
+# Badge displays are derived, never awarded by this code. Only the two highest
+# bands count as earned; lower bands show progress toward a badge.
+BADGE_LEVEL_ORDER = (
+    MasteryLevel.BEGINNING,
+    MasteryLevel.DEVELOPING,
+    MasteryLevel.ACHIEVING,
+    MasteryLevel.EXTENDING,
+)
+EARNED_BADGE_LEVELS = {MasteryLevel.ACHIEVING, MasteryLevel.EXTENDING}
 
 
 def _decimal(value):
@@ -111,6 +120,124 @@ def _learner_evidence_stats(institution, competency_id=None, learner_ids=None):
         if score is not None:
             bucket["scores"].append(score)
     return stats
+
+
+def _badge_level(score):
+    """Resolve an average 0-1 mastery score to its highest achieved band."""
+    if score is None:
+        return None
+    for level in reversed(BADGE_LEVEL_ORDER):
+        if score >= MASTERY_SCORES[level]:
+            return level
+    return None
+
+
+def build_mastery_badges(institution, filters=None):
+    """Derive badge displays from competency evidence; write nothing.
+
+    Evidence is grouped by learner and competency and scored with the same
+    0-1 mapping used by analytics. Badges are a transparent display of those
+    records, not an awarded credential: this function never creates a row,
+    notification or audit entry, and rubric grades are never converted into
+    competency evidence here.
+    """
+    filters = filters or {}
+    queryset = CompetencyEvidence.objects.filter(
+        institution=institution, competency__isnull=False
+    ).select_related("competency", "learner", "learner__user")
+
+    learner_id = _positive_id(filters.get("learner"))
+    competency_id = _positive_id(filters.get("competency"))
+    mastery_level = str(filters.get("mastery_level") or "").strip().upper()
+    if mastery_level and mastery_level not in MASTERY_SCORES:
+        raise ValueError("Choose a valid mastery level.")
+    if learner_id:
+        queryset = queryset.filter(learner_id=learner_id)
+    if competency_id:
+        queryset = queryset.filter(competency_id=competency_id)
+
+    buckets = defaultdict(lambda: {"scores": [], "ids": [], "count": 0, "recent": None})
+    learner_ids = set()
+    competency_ids = set()
+    for item in queryset:
+        key = (item.learner_id, item.competency_id)
+        bucket = buckets[key]
+        bucket["count"] += 1
+        learner_ids.add(item.learner_id)
+        competency_ids.add(item.competency_id)
+        if len(bucket["ids"]) < 20:
+            bucket["ids"].append(item.pk)
+        if bucket["recent"] is None or item.recorded_at > bucket["recent"]:
+            bucket["recent"] = item.recorded_at
+        score = _mastery_from_evidence(item)
+        if score is not None:
+            bucket["scores"].append(score)
+
+    learners = {
+        row.pk: row for row in Learner.objects.filter(pk__in=learner_ids).select_related("user")
+    }
+    competencies = {
+        row.pk: row for row in Competency.objects.filter(pk__in=competency_ids)
+    }
+
+    badges = []
+    for (row_learner_id, row_competency_id), bucket in buckets.items():
+        score = _average(bucket["scores"])
+        level = _badge_level(score)
+        if level is None or (mastery_level and level != mastery_level):
+            continue
+        learner = learners.get(row_learner_id)
+        competency = competencies.get(row_competency_id)
+        user = getattr(learner, "user", None)
+        name = getattr(user, "full_name", None) or (
+            user.get_full_name() if user else ""
+        ) or str(user or "Learner")
+        badges.append({
+            "learner_id": row_learner_id,
+            "learner_name": name,
+            "admission_number": getattr(learner, "admission_number", ""),
+            "competency_id": row_competency_id,
+            "competency_name": getattr(competency, "name", "Competency"),
+            "mastery_level": level,
+            "mastery_score": round(float(score), 4),
+            "score_percent": _number(score * HUNDRED),
+            "evidence_count": bucket["count"],
+            "evidence_ids": bucket["ids"],
+            "recent_evidence_at": bucket["recent"].isoformat() if bucket["recent"] else None,
+            "earned": level in EARNED_BADGE_LEVELS,
+        })
+
+    badges.sort(key=lambda row: (
+        str(row["learner_name"]).lower(), str(row["competency_name"]).lower(),
+        row["learner_id"], row["competency_id"],
+    ))
+    by_level = {level: 0 for level in BADGE_LEVEL_ORDER}
+    for badge in badges:
+        by_level[badge["mastery_level"]] += 1
+
+    return {
+        "scope": {"institution_id": institution.pk, "institution": institution.name},
+        "rules": {
+            "source": "CompetencyEvidence",
+            "mastery_scores": {level: str(score) for level, score in MASTERY_SCORES.items()},
+            "badge_bands": [
+                {
+                    "code": level,
+                    "min_score": str(MASTERY_SCORES[level]),
+                    "earned": level in EARNED_BADGE_LEVELS,
+                }
+                for level in BADGE_LEVEL_ORDER
+            ],
+            "note": "Badges are derived displays, not awarded credentials.",
+        },
+        "summary": {
+            "learners": len({badge["learner_id"] for badge in badges}),
+            "badges": len(badges),
+            "earned_badges": sum(1 for badge in badges if badge["earned"]),
+            "by_level": by_level,
+        },
+        "badges": badges,
+    }
 
 
 def _learner_result_stats(institution, learner_ids=None, subject_id=None, term_id=None):

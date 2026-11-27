@@ -18,7 +18,8 @@ service worker, PWA manifest/workbox precache, Capacitor config and
 error and remain unsaved; uploads require a live connection. Authentication is
 session-cookie based with CSRF and `/api/auth/me/` identity reads. Deployment
 and runtime verification are still outstanding; see `README.md` and
-`SECURITY_AUDIT.md`.
+`SECURITY_AUDIT.md`. The later low-bandwidth mode is a separate, env-driven
+reversal; see `OFFLINE_MODE_REVERSAL.md`.
 
 | # | Originally requested | Implemented here | Status |
 |---|---|---|---|

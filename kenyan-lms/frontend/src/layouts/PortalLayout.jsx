@@ -84,13 +84,16 @@ export default function PortalLayout() {
         <PortalNav to="/portal/resources" onNavigate={closeMenu}>{navLabel("resources", "Resources")}</PortalNav>
         <PortalNav to="/portal/documents" onNavigate={closeMenu}>{navLabel("documents", "Documents")}</PortalNav>
         {isLearner(user) && <PortalNav to="/portal/assignments" onNavigate={closeMenu}>{navLabel("assignments", "Assignments")}</PortalNav>}
+        <PortalNav to="/portal/submissions" onNavigate={closeMenu}>{navLabel("submissions", "My submissions")}</PortalNav>
         {isLearner(user) && <PortalNav to="/portal/quizzes" onNavigate={closeMenu}>{navLabel("quizzes", "Quizzes")}</PortalNav>}
         <PortalNav to="/portal/reports" onNavigate={closeMenu}>{navLabel("reports", "Progress report")}</PortalNav>
         {isLearner(user) && <PortalNav to="/portal/remediation" onNavigate={closeMenu}>{navLabel("remediation", "My support tasks")}</PortalNav>}
+        {isLearner(user) && <PortalNav to="/portal/mastery" onNavigate={closeMenu}>{navLabel("mastery", "My mastery badges")}</PortalNav>}
         <PortalNav to="/portal/fees" onNavigate={closeMenu}>{navLabel("fees", "Fees")}</PortalNav>
         <PortalNav to="/portal/tutor" onNavigate={closeMenu}>{navLabel("tutor", "Ask the tutor")}</PortalNav>
         <PortalNav to="/portal/communications" onNavigate={closeMenu}>{navLabel("communications", "Messages")}</PortalNav>
         <PortalNav to="/portal/notifications" onNavigate={closeMenu}>Notifications</PortalNav>
+        <PortalNav to="/portal/offline" onNavigate={closeMenu}>Low-bandwidth status</PortalNav>
         <PortalNav to="/portal/profile" onNavigate={closeMenu}>{navLabel("profile", "My profile")}</PortalNav>
         {user?.onboarding?.is_complete === false && (
           <PortalNav to="/onboarding" onNavigate={closeMenu}>Complete setup</PortalNav>

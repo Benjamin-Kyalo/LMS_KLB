@@ -46,7 +46,8 @@ administrator can reset it with `python manage.py changepassword <username>`
   licensed to use. Open one to see its chapters, exercises and resources.
 - **Resources** (`/portal/resources`) lists audio, video, PDF and links.
 - **Assignments** (`/portal/assignments`) and **Quizzes** (`/portal/quizzes`)
-  show work set by teachers.
+  show work set by teachers. **My submissions** (`/portal/submissions`) shows
+  published feedback and, where allowed, a resubmit action.
 - **Progress report** (`/portal/reports`) shows attendance and exam results.
 - **Messages** (`/portal/communications`) shows announcements and direct
   messages from the school.
@@ -65,7 +66,10 @@ a logo yet, the default KLB mark is shown.
 - **Courses** — `/admin/courses`: create courses, then add modules and lessons
   from `/admin/modules` and `/admin/lessons`.
 - **Assignments / Quizzes** — `/admin/assignments`, `/admin/quizzes` and
-  `/admin/questions`: create work and questions, mark submissions.
+  `/admin/questions`: create work and questions.
+- **Rubrics & feedback** — `/admin/rubrics`: build bands, scored criteria and a
+  reusable comment bank. **Submissions** — `/admin/submissions`: mark work with
+  a rubric or direct score, then publish feedback.
 - **Attendance** — `/admin/attendance`: record daily attendance.
 - **Messages** — `/admin/communications`: announcements and direct messages.
 - **Reports** — `/admin/reports`: attendance and performance charts.

@@ -1,5 +1,67 @@
 # Testing checklist
 
+## Second homepage enhancement set, 27 November 2026
+
+| Check | Command / method | Result |
+|---|---|---|
+| Homepage regression | `npm test -- --run src/pages/Home.test.jsx` | **7 tests passed**; covers the skip link, reading indicator, dismissible announcement, quick links, readiness checklist, routines, access table, usability notes, support callout and back-to-top behaviour |
+| Final frontend suite | `npm test -- --run --maxWorkers=2` | **51 files / 175 tests passed**. The default fully parallel run hit a few 5s timeouts while the backend suite was competing for CPU; the two-worker rerun passed cleanly |
+| Production build | `npm run build` | Passed; no service worker, PWA manifest or workbox files |
+| Dependency audit | `npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Backend theming checks | `$env:DB_NAME="lms_extra_homepage_check"; python manage.py test apps.theming --verbosity 1 --noinput` | **22 tests OK**; new copy, safe-link validation and section styles covered |
+| Migration and system checks | `python manage.py migrate theming`, `python manage.py check`, `python manage.py makemigrations --check --dry-run` | `theming.0008_add_public_homepage_extras` applied; system check clean; `No changes detected` |
+| Live browser audit | Accessibility snapshot and console on `http://127.0.0.1:5173/` | Announcement, quick links, routines, access table, checklist, usability notes, support callout, skip link, reading indicator and back-to-top all render; 0 unnamed links and 0 console errors |
+| Lighthouse | In-app Chromium on `/` | Accessibility **1**, Best Practices **1**, SEO **1**, 0 failures after the support heading contrast fix |
+| Whitespace check | `git diff --check` | No whitespace errors; only the existing CRLF normalization warnings |
+
+The second set adds no images, dependencies, animation libraries, service
+workers, raw CSS fields or retired cards. All edits remain uncommitted.
+
+## Public homepage revamp, 27 November 2026
+
+| Check | Command / method | Result |
+|---|---|---|
+| Homepage and managed-content regression | `npm test -- --run src/pages/Home.test.jsx src/config/publicSite.test.js src/pages/SiteContentManager.test.jsx src/pages/AppearanceManager.test.jsx` | **21 tests passed**; covers the new guided sections, labelled menu disclosure, Escape close, safe internal/external links, retired-card rejection and Appearance editing |
+| Final frontend suite | `npm test -- --run` | **51 files / 174 tests passed** |
+| Production build | `npm run build` | Passed; no service worker, PWA manifest or workbox files |
+| Dependency audit | `npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Backend theming checks | `python manage.py test apps.theming.tests.test_theming` | Passed; public defaults and managed photo slots remain valid |
+| Final full backend suite | `$env:DB_NAME="lms_homepage_check"; python manage.py test --verbosity 1 --noinput` | **283 tests OK** in `808.100s`; system check clean |
+| Migration check | `python manage.py migrate theming`, then `python manage.py check` and `python manage.py makemigrations --check --dry-run` | `theming.0007_refresh_public_homepage` applied; system check clean; `No changes detected` |
+| Live browser audit | Accessibility snapshot, console errors and Lighthouse on `http://127.0.0.1:5173/` | New hero, trust strip, guide, spotlight, role selector and questions render from the managed document; no unnamed links and no blocking console errors; Lighthouse accessibility, best practices and SEO all scored **1** |
+| Whitespace check | `git diff --check` | Clean apart from existing CRLF normalization warnings |
+
+The managed migration replaces only known old header, hero and caption values
+and fills missing fields; administrator photos, credits and other custom wording
+are preserved. No new dependency, animation library, service worker, raw CSS
+field or retired card was introduced.
+
+## Feature round — rubrics, mastery, low bandwidth, interop and governed AI, 26 November 2026
+
+| Check | Command / method | Result |
+|---|---|---|
+| Rubric backend | Focused rubric Django tests | **10 tests OK** |
+| Frontend suite before the last three features | `npm test -- --run` | **47 files / 161 tests passed** |
+| Final frontend suite | `npm test -- --run` | **51 files / 172 tests passed** |
+| Full backend suite after rubrics | `DB_NAME=lms_full_check python manage.py test --verbosity 1` | **268 tests OK** in `9733.255s`; historical feature checkpoint |
+| Full backend suite before the homepage revamp | `DB_NAME=lms_final_check2 python manage.py test --verbosity 1` | **283 tests OK** in `1043.618s`; includes rubrics, mastery, low bandwidth, OneRoster and governed AI; system check clean |
+| Frontend production build | `npm run build` | Passed; `dist` has no service worker, manifest or workbox files; existing chunk-size warning remains |
+| Dependency audit | `npm audit --audit-level=moderate` | **0 vulnerabilities** |
+| Mastery backend | `python manage.py test apps.analytics.tests.test_mastery` | **4 tests OK**; bands, staff/learner scoping, filters and derived-only behaviour covered |
+| Mastery frontend | `npm test -- --run src/pages/MasteryBadges.test.jsx` | **3 tests OK**; staff and learner screens render derived badges without award rows |
+| Low-bandwidth frontend | `npm test -- --run src/services/lowBandwidth.test.js src/services/api.test.js src/pages/LowBandwidth.test.jsx src/pages/MasteryBadges.test.jsx` | **16 tests OK** after path normalisation and cell-role fixes |
+| Low-bandwidth backend | `python manage.py test apps.core.tests.test_low_bandwidth apps.theming` | **25 tests OK**; public config, allowlists, sensitive-body rejection and stale-write 409s covered |
+| Tutor, OneRoster and low-bandwidth backend | `$env:DB_NAME="lms_focus_check"; python manage.py test apps.tutor apps.integration apps.core.tests.test_low_bandwidth` | **23 tests OK**; policy payload, `tutor.answer.requested`/`generated` audit redaction, HS256 assertions, scope/institution pinning, explicit protocol rejection and conflict checks covered |
+| Governed tutor frontend | `npm test -- --run src/pages/TutorWorkspace.test.jsx` | **1 test OK**; policy version and plain-language data exclusions render |
+| Django check | `python manage.py check` | No issues |
+| Migration drift | `python manage.py makemigrations --check --dry-run` | `No changes detected` |
+| Whitespace check | `git diff --check` | Clean (only existing CRLF normalization warnings) |
+
+No browser-level offline replay, physical-device test, assisted-technology
+review, live SIS exchange or external AI call was performed. The
+low-bandwidth mode is off by default; see `OFFLINE_MODE_REVERSAL.md`. Client
+secrets and integration credentials were never printed.
+
 ## Current verification — library and appearance round, 25 November 2026
 
 | Check | Command / method | Result |
@@ -79,7 +141,8 @@ At that historical point the PWA write queue and dedicated sync page still
 existed; only the always-visible, empty “Offline changes / 0 pending /
 0 conflicts” block had been removed from the shells. **Both the queue and sync
 page were removed later.** Today a failed mutation shows an error and remains
-unsaved.
+unsaved by default; the separate narrow, env-driven mode documented in
+`OFFLINE_MODE_REVERSAL.md` is not that old queue.
 
 ## Historical — Phase 1 + Phase 2 closeout — 24 November 2026
 
@@ -297,6 +360,22 @@ separately; the recorded result numbers above are unchanged.
 - **Two sides** — `RoleHome` and `ProtectedRoute` unit tests cover role-based
   redirects and guards for `/admin` and `/portal`.
 - **Production config** — `check --deploy` with `config.settings_prod`.
+
+## Rubric round — 26 November 2026 (actually executed)
+
+- Backend focused suites `apps.courses.tests.test_rubrics` and
+  `apps.curriculum.tests.test_rubrics`: **10 tests passed**. Coverage includes
+  criterion validation, institution and rubric-set checks, direct-score grading,
+  publication notifications, guardian academic permission, resubmission limits,
+  audit institution scoping, percentage-band validation and the feedback bank.
+- Frontend full suite (`npm test`): **47 files, 161 tests passed**, including new
+  rubric builder, teacher grading/publication and learner/guardian submission
+  tests.
+- `npm run build`: passed; rubric pages remain lazy-loaded chunks and no new
+  runtime dependency was added.
+- `python manage.py check`: no issues.
+- `python manage.py makemigrations --check --dry-run`: no changes detected.
+- `git diff --check`: no whitespace errors; CRLF conversion warnings only.
 
 ## Current limitations (honest, web-only product)
 

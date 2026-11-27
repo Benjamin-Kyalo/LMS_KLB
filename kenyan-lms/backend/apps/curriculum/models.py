@@ -141,6 +141,46 @@ class RubricLevel(TimeStampedModel):
         return f"{self.rubric.name} - {self.name}"
 
 
+class RubricCriterion(TimeStampedModel):
+    """One scored row in a rubric; criterion maxima define the marking grid."""
+
+    rubric = models.ForeignKey(Rubric, on_delete=models.CASCADE, related_name="criteria")
+    name = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    max_score = models.DecimalField(max_digits=6, decimal_places=2, default=10)
+    sequence = models.PositiveSmallIntegerField(default=1)
+
+    class Meta:
+        ordering = ["rubric", "sequence", "name"]
+        constraints = [
+            models.UniqueConstraint(fields=["rubric", "name"], name="unique_criterion_name_per_rubric")
+        ]
+
+    def __str__(self):
+        return f"{self.rubric.name} - {self.name}"
+
+
+class FeedbackComment(TimeStampedModel):
+    """A reusable comment-bank entry for fast, consistent written feedback."""
+
+    institution = models.ForeignKey(
+        "institutions.Institution", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="feedback_comments",
+    )
+    category = models.CharField(max_length=50, blank=True)
+    text = models.TextField()
+    created_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="feedback_comments",
+    )
+
+    class Meta:
+        ordering = ["category", "text"]
+
+    def __str__(self):
+        return self.text[:80]
+
+
 class CompetencyEvidence(InstitutionScopedModel):
     """Records observed evidence of a learner's progress toward an outcome."""
 

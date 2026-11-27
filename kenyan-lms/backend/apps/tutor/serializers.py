@@ -4,7 +4,9 @@ from rest_framework import serializers
 
 from apps.tutor.models import TutorConversation, TutorMessage
 from apps.tutor.scoping import validate_learner_choice
-from apps.tutor.service import MAX_QUESTION_LENGTH, clean_question, format_source
+from apps.tutor.service import (
+    MAX_QUESTION_LENGTH, clean_question, format_source, policy_metadata,
+)
 
 
 class TutorConversationSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
@@ -47,13 +49,14 @@ class TutorMessageSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     source_labels = serializers.SerializerMethodField()
     conversation_title = serializers.CharField(source="conversation.title", read_only=True)
     grounded = serializers.SerializerMethodField()
+    policy = serializers.SerializerMethodField()
 
     class Meta:
         model = TutorMessage
         fields = [
             "id", "reference", "institution", "conversation", "conversation_title",
             "role", "body", "answer", "sources", "source_labels", "suggestions", "grounded",
-            "created_by", "created_at", "updated_at",
+            "policy", "created_by", "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "reference", "institution", "created_by", "created_at", "updated_at",
@@ -67,6 +70,9 @@ class TutorMessageSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
 
     def get_grounded(self, obj):
         return bool(obj.sources)
+
+    def get_policy(self, obj):
+        return policy_metadata()
 
 
 class AskQuestionSerializer(serializers.Serializer):

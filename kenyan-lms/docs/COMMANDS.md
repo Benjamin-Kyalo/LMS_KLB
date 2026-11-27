@@ -82,13 +82,26 @@ Focused tests used during the latest work:
 ```powershell
 .\.venv\Scripts\python.exe -m pytest apps/institutions/tests/test_institutions.py apps/accounts/tests/test_auth.py
 .\.venv\Scripts\python.exe -m pytest apps/core/tests/test_reference_codes.py
+$env:DB_NAME="lms_feature_check"; .\.venv\Scripts\python.exe manage.py test apps.tutor apps.integration apps.core.tests.test_low_bandwidth
+.\.venv\Scripts\python.exe manage.py test apps.analytics.tests.test_mastery
 ```
+
+The third command covers governed-AI policy/audit, env-only OneRoster assertions
+and low-bandwidth stale-write checks. Optional switches are read from `.env`:
+`OFFLINE_MODE_ENABLED`, `OFFLINE_READ_CACHE_ENABLED`,
+`OFFLINE_OUTBOX_ENABLED`, `OFFLINE_CONFIG_VERSION`,
+`OFFLINE_CACHE_TTL_SECONDS`, `OFFLINE_MAX_CACHED_READS`,
+`OFFLINE_OUTBOX_MAX_ITEMS`, `OFFLINE_CACHE_PATHS`, `OFFLINE_OUTBOX_PATHS`,
+`KLB_ONEROSTER_CLIENTS`, `KLB_ONEROSTER_AUDIENCE`,
+`KLB_ONEROSTER_TOKEN_TTL_SECONDS` and `KLB_ONEROSTER_MAX_PAGE_SIZE`. See
+`.env.example`, `OFFLINE_MODE_REVERSAL.md` and `INTEROPERABILITY_AI.md`.
 
 The latest recorded results are in `docs/TESTING_CHECKLIST.md`. After the
 web-only/security work, the focused backend auth/account/core/tutor/KEMIS/
 security suite is passing (**71 tests**) and the full backend suite passes
 (**221 tests**). Older full-suite results such as **100 passed** and
-**95 passed** are historical.
+**95 passed** are historical; the later feature-round totals are in the
+checklist.
 
 ## 5. Backend: accounts
 
@@ -178,10 +191,12 @@ npm audit --audit-level=moderate
 
 `npm run build` writes `frontend/dist` for the normal web app only. The output
 is `index.html`, hashed CSS/JS assets, `robots.txt`, SVG marks and local images
-— no service worker, manifest or workbox files. A Vite message about one chunk
-larger than 500 kB is a warning, not a failure. The latest frontend checks
-recorded **101 tests across 32 files** and `npm audit --audit-level=moderate`
-with **0 vulnerabilities**.
+— no service worker, manifest or workbox files. Optional low-bandwidth cache and
+outbox behaviour is application code in already-loaded pages, not a build
+artefact. A Vite message about one chunk larger than 500 kB is a warning, not a
+failure. Newer feature-round test totals supersede the **101 tests across 32
+files** recorded in the earlier library/appearance round; see
+`TESTING_CHECKLIST.md`.
 
 If users installed the old service worker before removal, deployment (not the
 app build) must include a one-release kill-switch: serve `/sw.js` with no-cache

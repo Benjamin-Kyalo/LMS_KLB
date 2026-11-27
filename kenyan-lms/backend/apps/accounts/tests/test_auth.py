@@ -3,10 +3,11 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.sessions.models import Session
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 
 from apps.accounts.models import OnboardingProfile
 from apps.core.constants import Roles
@@ -374,3 +375,46 @@ class PasswordResetAdminTests(APITestCase):
         self.client.force_authenticate(user=learner)
         response = self.client.post(reverse("user-reset-password", args=[self.target.id]))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_reset_keeps_the_administrators_session_and_ends_the_targets(self):
+        self.client.post(reverse("login"), {
+            "username": self.admin.username, "password": "StrongPass123!",
+        })
+        admin_key = self.client.session.session_key
+        self.assertIsNotNone(admin_key)
+
+        target_client = APIClient()
+        target_login = target_client.post(reverse("login"), {
+            "username": self.target.username, "password": "StrongPass123!",
+        })
+        self.assertEqual(target_login.status_code, status.HTTP_200_OK, target_login.data)
+        target_key = target_client.session.session_key
+        self.assertIsNotNone(target_key)
+        self.assertNotEqual(target_key, admin_key)
+        self.assertTrue(Session.objects.filter(session_key=target_key).exists())
+        self.assertEqual(
+            str(target_client.session.get("_auth_user_id")), str(self.target.pk)
+        )
+        self.assertEqual(
+            str(Session.objects.get(session_key=target_key).get_decoded().get("_auth_user_id")),
+            str(self.target.pk),
+        )
+
+        response = self.client.post(reverse("user-reset-password", args=[self.target.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(Session.objects.filter(session_key=admin_key).exists())
+        self.assertEqual(self.client.get(reverse("me")).status_code, status.HTTP_200_OK)
+        self.assertFalse(Session.objects.filter(session_key=target_key).exists())
+        self.assertEqual(target_client.get(reverse("me")).status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_a_session_that_cannot_be_decoded_is_left_untouched(self):
+        undecodable = Session.objects.create(
+            session_key="undecodable" + "x" * 29,
+            session_data="not-a-signed-session",
+            expire_date=timezone.now() + timedelta(days=1),
+        )
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(reverse("user-reset-password", args=[self.target.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(Session.objects.filter(pk=undecodable.pk).exists())

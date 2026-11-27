@@ -23,6 +23,7 @@ export default function TutorWorkspace({ portal = false }) {
   const sectionStyle = useSectionStyle("tutor");
   const conversations = useList("/tutor/conversations/");
   const health = useResource("/tutor/conversations/health/");
+  const policy = health.data?.policy;
   const [activeId, setActiveId] = useState(null);
   const [newTitle, setNewTitle] = useState("");
   const [question, setQuestion] = useState("");
@@ -83,6 +84,15 @@ export default function TutorWorkspace({ portal = false }) {
         By default it runs locally and makes no external calls. If it cannot find a record, it
         says so instead of guessing.
         {health.data?.provider && <> Active provider: <strong>{asText(health.data.provider)}</strong>.</>}
+        {policy && (
+          <div className="muted" style={{ marginTop: "0.5rem" }}>
+            Policy v{asText(policy.policy_version)}: sources are limited to stored curriculum
+            and resource records. Learner, assessment, fee and message records are never sent.
+            {policy.external_provider_configured
+              ? " Remote answers are accepted only when they are verbatim excerpts of the local answer."
+              : " No external AI provider is configured."}
+          </div>
+        )}
       </div>
 
       <div className="two-column">
@@ -147,6 +157,11 @@ export default function TutorWorkspace({ portal = false }) {
                     {Array.isArray(message.suggestions) && message.suggestions.length > 0 && (
                       <div className="muted" style={{ marginTop: "0.25rem" }}>
                         Next: {message.suggestions.map(asText).join(" · ")}
+                      </div>
+                    )}
+                    {message.policy?.policy_version && (
+                      <div className="muted" style={{ marginTop: "0.25rem" }}>
+                        Answer policy v{asText(message.policy.policy_version)}
                       </div>
                     )}
                   </div>

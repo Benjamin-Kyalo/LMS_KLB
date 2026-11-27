@@ -8,7 +8,9 @@ same date added the public book shelf and editable book/resource wording at
 `/library`, removed the retired Content managers role preview, and removed the
 idle offline status block from the staff and portal shells. **Superseded:**
 the PWA write queue and dedicated sync page that remained at that point were
-later removed when the product direction changed to a normal web app only.
+later removed when the product direction changed to a normal web app only. A
+separate narrow, non-PWA low-bandwidth mode was added later and is documented in
+`OFFLINE_MODE_REVERSAL.md`.
 Phases 3 onward remain future work and are not claimed as complete; current
 test totals are in `docs/TESTING_CHECKLIST.md`.
 

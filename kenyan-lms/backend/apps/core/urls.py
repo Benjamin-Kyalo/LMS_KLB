@@ -8,6 +8,7 @@ router = DefaultRouter()
 router.register("audit", views.AuditLogViewSet, basename="auditlog")
 
 urlpatterns = [
+    path("client-config/", views.client_config, name="core-client-config"),
     path("data-quality/", views.data_quality, name="core-data-quality"),
     path("data-quality/fix/", views.data_quality_fix, name="core-data-quality-fix"),
     path("", include(router.urls)),

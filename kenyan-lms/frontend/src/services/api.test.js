@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, listAll, setCsrfToken } from "./api";
+import { clearCache, listOutbox, setClientConfig } from "./lowBandwidth";
 
 describe("listAll pagination", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -101,6 +102,73 @@ describe("API error messages", () => {
         status: 400,
         message: "image: Use a photo at least 640×360 pixels.",
       });
+  });
+
+  it("replaces a Django HTML error page with a short professional message", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      text: async () => "<!DOCTYPE html><html><body>SessionInterrupted</body></html>",
+    })));
+
+    await expect(api.post("/auth/users/99/reset_password/", {}))
+      .rejects.toMatchObject({
+        status: 500,
+        message: "The server could not complete this request. It has been logged. Please try again.",
+      });
+  });
+});
+
+describe("optimistic concurrency and low-bandwidth queue", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setCsrfToken("");
+    setClientConfig(null);
+    clearCache();
+  });
+
+  it("sends If-Match on PATCH and DELETE without storing it as a secret", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true, status: 200, statusText: "OK", text: async () => "{}",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    setCsrfToken("csrf-123");
+
+    await api.patch("/theming/palettes/1/", { name: "New" }, { ifMatch: "2026-11-26T10:00:00+00:00" });
+    await api.del("/theming/palettes/1/", { ifMatch: "2026-11-26T10:00:00+00:00" });
+
+    expect(fetchMock.mock.calls[0][1].headers["If-Match"]).toBe("2026-11-26T10:00:00+00:00");
+    expect(fetchMock.mock.calls[1][1].headers["If-Match"]).toBe("2026-11-26T10:00:00+00:00");
+    expect(fetchMock.mock.calls[0][1].headers["X-CSRFToken"]).toBe("csrf-123");
+  });
+
+  it("queues an allowlisted offline PATCH and reports it visibly", async () => {
+    const values = new Map();
+    vi.stubGlobal("localStorage", {
+      getItem: (key) => (values.has(key) ? values.get(key) : null),
+      setItem: (key, value) => values.set(key, String(value)),
+      removeItem: (key) => values.delete(key),
+      clear: () => values.clear(),
+    });
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, value: false });
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("network"); }));
+    setClientConfig({
+      version: "test",
+      offline: {
+        enabled: true,
+        read_cache: { enabled: false, paths: [], max_age_seconds: 1, max_items: 1 },
+        outbox: {
+          enabled: true, methods: ["PATCH", "DELETE"],
+          paths: ["/api/theming/site-content/"], max_items: 5,
+        },
+      },
+    });
+
+    await expect(api.patch("/theming/site-content/", { content: { app: { adminBrand: "School" } } }))
+      .rejects.toMatchObject({ status: 0, message: /queued on this device/i, queued: true });
+    expect(listOutbox()).toHaveLength(1);
+    expect(JSON.stringify([...values.values()])).not.toContain("csrftoken");
   });
 });
 

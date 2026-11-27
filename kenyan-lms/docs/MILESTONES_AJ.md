@@ -15,7 +15,9 @@ This is the consolidated report for the whole delivered application, with emphas
 > error and remain unsaved; uploads require a live connection. Authentication
 > is session-cookie based with CSRF and `/api/auth/me/` identity reads. The
 > numbers below are historical results, not current test totals; see
-> `README.md`, `TESTING_CHECKLIST.md` and `SECURITY_AUDIT.md`. Role names below
+> `README.md`, `TESTING_CHECKLIST.md` and `SECURITY_AUDIT.md`. A separate
+> narrow, env-driven low-bandwidth reversal was added later; see
+> `OFFLINE_MODE_REVERSAL.md`. Role names below
 > are also historical: `PLATFORM_ADMIN`, `INSTITUTION_ADMIN`, `SCHOOL_ADMIN` and
 > `CONTENT_MANAGER` are retired and mapped to `ADMIN`, while `SUPER_ADMIN` is
 > unchanged. Current custom roles carry picked capabilities and enter `/admin`

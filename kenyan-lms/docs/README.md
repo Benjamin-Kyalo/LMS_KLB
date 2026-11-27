@@ -18,19 +18,25 @@ the code that actually exists; unimplemented ideas are labelled as such.
 See `docs/USER_GUIDE.md` for the day-to-day view and `docs/ADMIN_ACCESS.md`
 for safe access and permissions.
 
-## Current product direction — normal web app only
+## Current product direction — normal web app with narrow low-bandwidth mode
 
-The product direction changed on 24 November 2026: this is a **normal web app**,
-with no offline, PWA or native support. Earlier documents in this folder retain
-historical context, but every offline/PWA/Capacitor claim below is superseded:
+The product direction changed on 24 November 2026: this remains a **normal web
+app**, with no PWA or native support. On 26 November 2026 a narrow, env-driven
+low-bandwidth mode was added as a documented reversal of the removed write
+queue. Earlier documents retain historical context, but every broad
+offline/PWA/Capacitor claim below is superseded:
 
-- Removed: the IndexedDB mutation queue, sync/conflict pages and banners,
-  service worker, PWA manifest, workbox precache, Capacitor configuration and
-  the `frontend/android` / `frontend/ios` directories. `npm run build` now
-  produces only `index.html`, hashed CSS/JS assets, `robots.txt`, SVG marks and
-  local images.
-- Failed mutations now show an error and remain unsaved. There is no local
-  queue and no automatic replay. Uploads require a live connection.
+- Still removed: service worker, PWA manifest, workbox precache, Capacitor
+  configuration and the `frontend/android` / `frontend/ios` directories.
+  `npm run build` produces only `index.html`, hashed CSS/JS assets,
+  `robots.txt`, SVG marks and local images.
+- By default failed mutations show an error and remain unsaved; uploads require
+  a live connection. When `OFFLINE_MODE_ENABLED=True`, an already-loaded page
+  may cache a small allowlist of public reads and queue only allowlisted
+  `PATCH`/`DELETE` theming writes in `localStorage`. Queued writes carry
+  `If-Match`; stale writes surface a 409 conflict instead of overwriting. No
+  credentials, CSRF tokens, cookies or person-like fields are stored. See
+  `OFFLINE_MODE_REVERSAL.md`.
 - **Manual deployment step (not app code):** users who installed the old
   service worker must receive a one-release kill-switch — serve `/sw.js` with
   no-cache and an unregister/self-delete response, or clear site data.
@@ -77,6 +83,15 @@ historical context, but every offline/PWA/Capacitor claim below is superseded:
   plus custom options); user payloads use `{ "role": "CUSTOM", "custom_role":
   <id> }` and responses include `custom_role`, `custom_role_name` and
   `capabilities`. See `USER_ROLES_JOURNEYS.md`.
+- Rubric grading validates criterion scores on the server, keeps per-attempt
+  snapshots, maps totals to achievement bands and publishes feedback to learners
+  and permitted guardians. Mastery badges are derived read-only from existing
+  competency evidence; no award table is created. See `RUBRICS_MASTERY.md`.
+- Interoperability groundwork provides env-only, institution-pinned HS256
+  clients and read-only OneRoster-shaped GETs. LTI 1.3, OIDC, JWKS, RS256 and
+  OAuth token endpoints are explicitly rejected; no CSP relaxation is made.
+  The curriculum tutor returns safe governance metadata and writes `tutor.*`
+  audit entries without question or answer text. See `INTEROPERABILITY_AI.md`.
 - Local `.env` remains Git-ignored and owner-managed. `backups/` is Git-ignored because dumps
   contain password hashes and PII. **No secret is in source control.**
 
@@ -114,7 +129,7 @@ and 390 px. Current verification figures are in `TESTING_CHECKLIST.md`.
 | `REFERENCE_NUMBERING.md` | Automatic admission, staff and other business codes | Written |
 | `INSTALLATION_GUIDE.md` | Step-by-step setup on Windows | Written |
 | `COMMANDS.md` | Complete PowerShell command list with working directories | Written |
-| `PRODUCTION_CONFIGURATION.md` | Production settings (fail-closed), TLS, CORS, mail and old service-worker kill-switch | Written |
+| `PRODUCTION_CONFIGURATION.md` | Production settings (fail-closed), TLS, CORS, mail, optional low-bandwidth/interop env keys and old service-worker kill-switch | Updated |
 | `DATABASE_GUIDE.md` | Tables, relationships, migrations, backups | Written |
 | `FILE_STRUCTURE_GUIDE.md` | Folder structure and important files | Written |
 | `USER_GUIDE.md` | How each role uses the system | Updated for `/admin` and `/portal` |
@@ -124,6 +139,9 @@ and 390 px. Current verification figures are in `TESTING_CHECKLIST.md`.
 | `TROUBLESHOOTING.md` | Common errors and fixes | Written |
 | `BACKUP_AND_RESTORE.md` | Safe backup and recovery | Written |
 | `API_DOCUMENTATION.md` | Endpoints, roles/capabilities, custom-role CRUD, onboarding/verification, resource discovery, school profile and frontend usage | Updated for the simplified role model |
+| `RUBRICS_MASTERY.md` | Rubric builder, criterion marking, publication, resubmission and mastery evidence | New |
+| `OFFLINE_MODE_REVERSAL.md` | Documented narrow reversal of the 24 Nov removal: public cache, allowlisted writes, conflicts and exclusions | New; off by default |
+| `INTEROPERABILITY_AI.md` | Env-only HS256 OneRoster groundwork, rejected protocols and governed tutor policy | New |
 | `SECURITY_AUDIT.md` | Hardening record, verification performed and outstanding deployment tasks | Written; not a production sign-off |
 | `TESTING_CHECKLIST.md` | Tests actually run and pending tests | Updated |
 | `HANDOVER_REPORT.md` | Status, verification and known limitations | Updated |
@@ -142,7 +160,7 @@ and 390 px. Current verification figures are in `TESTING_CHECKLIST.md`.
 - Want the honest completion status? Use `PROGRESS_AUDIT.md`,
   `CURRENT_STATE_AUDIT.md`, `HANDOVER_REPORT.md` and `TESTING_CHECKLIST.md`. Older delivery docs use an
   earlier phase numbering where 0–6 are mostly implemented, 7 was a PWA/mobile
-  foundation, 8 is partial and 9 is incomplete. **Phase 7 offline/native work
+  foundation, 8 is partial and 9 is incomplete. **Phase 7 PWA/native work
   was subsequently removed**; do not mix those labels with the new product
   phases in `DEVELOPMENT_ROADMAP.md`.
 - Historical docs may name `PLATFORM_ADMIN`, `INSTITUTION_ADMIN`,

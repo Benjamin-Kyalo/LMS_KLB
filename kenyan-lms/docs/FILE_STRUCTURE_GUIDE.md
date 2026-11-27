@@ -3,7 +3,9 @@
 **Current direction:** normal web app only. The PWA manifest, service worker,
 Capacitor config and `frontend/android` / `frontend/ios` directories no longer
 exist. `frontend/dist` contains only `index.html`, hashed CSS/JS assets,
-`robots.txt`, SVG marks and local images.
+`robots.txt`, SVG marks and local images. The low-bandwidth client modules are
+normal React/service files; they are not a PWA shell or build artefact. See
+`OFFLINE_MODE_REVERSAL.md`.
 
 ```text
 kenyan-lms/

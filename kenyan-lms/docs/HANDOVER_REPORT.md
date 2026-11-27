@@ -16,8 +16,11 @@ service worker, PWA manifest, workbox precache, Capacitor configuration and the
 `frontend/android` / `frontend/ios` directories. `npm run build` produces only
 `index.html`, hashed CSS/JS assets, `robots.txt`, SVG marks and local images.
 
-- Failed mutations now surface an error and remain unsaved. There is no local
-  queue and no automatic replay. Uploads require a live connection.
+- By default failed mutations surface an error and remain unsaved, with no local
+  queue or automatic replay; uploads require a live connection. A separate,
+  env-driven low-bandwidth mode added on 26 November 2026 is off by default and
+  caches only public allowlisted reads and allowlisted theming writes. It is not
+  a PWA/native feature; see `OFFLINE_MODE_REVERSAL.md`.
 - **Manual deployment step (not app code):** users who installed the old
   service worker need a one-release kill-switch — serve `/sw.js` with no-cache
   and an unregister/self-delete response, or have them clear site data.
@@ -272,9 +275,11 @@ Production configuration and the old service-worker kill-switch:
 
 ## 6. Known limitations (must be disclosed)
 
-1. **No offline or native support.** Failed writes show an error and stay
-   unsaved; uploads need a live connection. Users of the old service worker
-   need the manual deployment kill-switch or a site-data clear.
+1. **No general offline or native support.** By default failed writes show an
+   error and stay unsaved; uploads need a live connection. The optional narrow
+   low-bandwidth cache/outbox is documented in `OFFLINE_MODE_REVERSAL.md`.
+   Users of the old service worker need the manual deployment kill-switch or a
+   site-data clear.
 2. **No production deployment or final runtime verification.** Production
    settings exist and have passed `check --deploy` with placeholders, but no
    public server, load test, monitoring or third-party security review has been

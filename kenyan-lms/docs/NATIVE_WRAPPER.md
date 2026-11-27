@@ -2,7 +2,8 @@
 
 **Superseded — 24 November 2026.** The product direction changed: this is a
 **normal web app only**. There is no Capacitor wrapper, no native app and no
-offline/PWA support.
+PWA support. A later narrow low-bandwidth cache/outbox is documented in
+`OFFLINE_MODE_REVERSAL.md`; it is not native or PWA support.
 
 The former Capacitor configuration, `mobile:*`/`cap:*` scripts, dependencies,
 service worker/PWA plugin and the `frontend/android` / `frontend/ios` project

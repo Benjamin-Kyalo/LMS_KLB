@@ -1,9 +1,15 @@
 """Course serializers."""
+from decimal import Decimal
+
 from apps.core.serializers import InstitutionCodeMixin
 from rest_framework import serializers
 
 from apps.core.permissions import is_staff_user as core_is_staff_user, same_institution
-from apps.courses.models import Assignment, Course, Lesson, LessonProgress, Module, Submission
+from apps.curriculum.models import RubricCriterion
+from apps.courses.models import (
+    Assignment, Course, Lesson, LessonProgress, Module, Submission,
+    SubmissionAttempt, SubmissionCriterionScore,
+)
 from apps.learners.models import Learner
 
 
@@ -112,22 +118,77 @@ class LessonProgressSerializer(InstitutionCodeMixin, serializers.ModelSerializer
 
 
 class AssignmentSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
+    rubric_name = serializers.CharField(source="rubric.name", read_only=True)
+
     class Meta:
         model = Assignment
         fields = "__all__"
         read_only_fields = ["institution", "created_by"]
+
+    def validate_max_attempts(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Allow at least one attempt.")
+        return value
+
+    def validate_rubric(self, value):
+        request = self.context.get("request")
+        if value and request:
+            user = request.user
+            if value.institution_id is not None and not same_institution(user, value.institution_id):
+                raise serializers.ValidationError("That rubric belongs to another institution.")
+        return value
+
+
+class SubmissionAttemptSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
+    class Meta:
+        model = SubmissionAttempt
+        fields = "__all__"
+        read_only_fields = [
+            "institution", "submission", "attempt_number", "submitted_at",
+            "score", "feedback", "graded_at",
+        ]
+
+
+class SubmissionCriterionScoreSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
+    class Meta:
+        model = SubmissionCriterionScore
+        fields = "__all__"
+        read_only_fields = [
+            "institution", "submission", "attempt_number", "criterion_name",
+            "max_score", "score", "comment",
+        ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        user = getattr(self.context.get("request"), "user", None)
+        if user and not is_staff_user(user) and not instance.submission.feedback_published_at:
+            data.pop("score", None)
+            data.pop("comment", None)
+        return data
 
 
 class SubmissionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
     learner_name = serializers.CharField(source="learner.user.full_name", read_only=True)
     admission_number = serializers.CharField(source="learner.admission_number", read_only=True)
     assignment_title = serializers.CharField(source="assignment.title", read_only=True)
+    attempts = SubmissionAttemptSerializer(many=True, read_only=True)
+    criterion_scores = serializers.SerializerMethodField()
+    rubric = serializers.PrimaryKeyRelatedField(source="assignment.rubric", read_only=True)
+    rubric_name = serializers.CharField(source="assignment.rubric.name", read_only=True)
+    achievement_level = serializers.CharField(source="rubric_level.name", read_only=True)
+    assignment_max_score = serializers.DecimalField(
+        source="assignment.max_score", read_only=True, max_digits=6, decimal_places=2,
+    )
+    allow_resubmission = serializers.BooleanField(source="assignment.allow_resubmission", read_only=True)
+    max_attempts = serializers.IntegerField(source="assignment.max_attempts", read_only=True)
 
     class Meta:
         model = Submission
         fields = "__all__"
         read_only_fields = [
             "institution", "submitted_at", "score", "feedback", "graded_by", "graded_at",
+            "rubric_level", "rubric_level_name", "rubric_max_score", "private_notes",
+            "feedback_published_at", "current_attempt",
         ]
         # Non-staff learner is derived server-side; staff must supply one.
         extra_kwargs = {
@@ -159,6 +220,28 @@ class SubmissionSerializer(InstitutionCodeMixin, serializers.ModelSerializer):
             _check_own_learner(request.user, value)
         return value
 
+    def get_criterion_scores(self, obj):
+        rows = obj.criterion_scores.filter(
+            attempt_number=obj.current_attempt
+        ).select_related("criterion")
+        return SubmissionCriterionScoreSerializer(
+            rows, many=True, context=self.context
+        ).data
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        user = getattr(self.context.get("request"), "user", None)
+        if user and not is_staff_user(user):
+            data.pop("private_notes", None)
+            if not instance.feedback_published_at:
+                for key in (
+                    "score", "feedback", "graded_by", "graded_at",
+                    "rubric_level", "rubric_level_name", "rubric_max_score", "rubric_name",
+                    "achievement_level",
+                ):
+                    data.pop(key, None)
+        return data
+
 
 class GradeSubmissionSerializer(serializers.Serializer):
     """Validated payload for the staff-only grade action."""
@@ -174,6 +257,82 @@ class GradeSubmissionSerializer(serializers.Serializer):
                 f"Score cannot exceed the assignment maximum of {max_score}."
             )
         return value
+
+
+class RubricCriterionMarkSerializer(serializers.Serializer):
+    """One row of the staff marking grid; the criterion is validated server-side."""
+
+    criterion = serializers.PrimaryKeyRelatedField(queryset=RubricCriterion.objects.all())
+    score = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=0)
+    comment = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class GradeWithRubricSerializer(serializers.Serializer):
+    """Strict payload for criterion-based grading."""
+
+    criteria = RubricCriterionMarkSerializer(many=True)
+    overall_feedback = serializers.CharField(required=False, allow_blank=True, default="")
+    private_notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate_criteria(self, value):
+        if not value:
+            raise serializers.ValidationError("Score at least one criterion.")
+        submission = self.context["submission"]
+        rubric = submission.assignment.rubric
+        if rubric is None:
+            raise serializers.ValidationError("This assignment does not use a rubric.")
+        ids = [row["criterion"].pk for row in value]
+        if len(ids) != len(set(ids)):
+            raise serializers.ValidationError("A criterion may only be scored once.")
+        allowed = set(rubric.criteria.values_list("pk", flat=True))
+        for row in value:
+            criterion = row["criterion"]
+            if criterion.pk not in allowed:
+                raise serializers.ValidationError(
+                    f"'{criterion.name}' is not part of this assignment's rubric."
+                )
+            institution_id = criterion.rubric.institution_id
+            if institution_id is not None and not same_institution(
+                self.context.get("request").user if self.context.get("request") else None,
+                institution_id,
+            ):
+                raise serializers.ValidationError("That criterion belongs to another institution.")
+            if row["score"] > criterion.max_score:
+                raise serializers.ValidationError(
+                    f"'{criterion.name}' cannot exceed {criterion.max_score}."
+                )
+        return value
+
+    def validate(self, attrs):
+        submission = self.context["submission"]
+        total = sum((row["score"] for row in attrs["criteria"]), Decimal("0"))
+        max_score = submission.assignment.max_score
+        if total > max_score:
+            raise serializers.ValidationError({
+                "criteria": f"The total cannot exceed the assignment maximum of {max_score}."
+            })
+        attrs["total_score"] = total
+        return attrs
+
+
+class ResubmitSerializer(serializers.Serializer):
+    """A new attempt must contain answer text or an uploaded file."""
+
+    text_answer = serializers.CharField(required=False, allow_blank=True, default="")
+    attachment = serializers.FileField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        if not (attrs.get("text_answer") or "").strip() and not attrs.get("attachment"):
+            raise serializers.ValidationError({
+                "text_answer": "Add an answer or attach a file before resubmitting."
+            })
+        submission = self.context["submission"]
+        assignment = submission.assignment
+        if not assignment.allow_resubmission:
+            raise serializers.ValidationError("This assignment does not allow resubmission.")
+        if submission.current_attempt >= assignment.max_attempts:
+            raise serializers.ValidationError("No attempts remain for this assignment.")
+        return attrs
 
 
 class MarkLessonCompleteSerializer(serializers.Serializer):

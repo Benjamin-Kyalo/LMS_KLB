@@ -5,14 +5,21 @@ source of truth for purpose and scope. Feature work should reference it before
 code is written.
 
 **Direction change (24 November 2026, supersedes earlier offline goals):** the
-product is a **normal web app only**. Offline/PWA/native behaviour is no longer
-a goal. The IndexedDB mutation queue, sync/conflict pages and banners, service
-worker, PWA manifest, workbox precache, Capacitor config and the
-`frontend/android` / `frontend/ios` directories were removed. Failed mutations
-now surface an error and remain unsaved; uploads need a live connection. A
-manual deployment kill-switch for previously installed service workers is
-documented in `PRODUCTION_CONFIGURATION.md`. See `README.md` and
-`SECURITY_AUDIT.md` for the current security posture and verification limits.
+product is a **normal web app**, not a PWA or native app. The broad IndexedDB
+mutation queue, sync/conflict pages and banners, service worker, PWA manifest,
+workbox precache, Capacitor config and the `frontend/android` /
+`frontend/ios` directories were removed. Failed mutations surface an error and
+remain unsaved; uploads need a live connection. A manual deployment kill-switch
+for previously installed service workers is documented in
+`PRODUCTION_CONFIGURATION.md`.
+
+**Documented narrow reversal (26 November 2026):** an env-driven low-bandwidth
+mode now supports a small public read cache and allowlisted theming `PATCH` /
+`DELETE` writes on an already-loaded page. It is off by default, stores no
+credentials or person-like fields, uses `If-Match` with 409 conflicts, and adds
+no service worker, PWA shell or native wrapper. See `OFFLINE_MODE_REVERSAL.md`.
+See `README.md` and `SECURITY_AUDIT.md` for the current security posture and
+verification limits.
 
 ## What we are building
 
@@ -64,7 +71,7 @@ The system should replace that fragmentation with:
 | O3 | Role clarity | Each of the four user categories sees only the dashboard, records and actions relevant to them |
 | O4 | Admin configurability | Content, pages, media, navigation, announcements, branding and key settings are changed in the admin panel, not in source |
 | O5 | Usable everywhere | Desktop, tablet and mobile layouts are responsive, readable and reachable on low bandwidth |
-| O6 | Honest, reliable web behaviour (offline objective superseded) | Failed edits show an error and remain unsaved; the user can retry with a live connection. No local queue, automatic replay or offline claim |
+| O6 | Honest, reliable web behaviour (broad offline objective superseded) | Failed edits show an error and remain unsaved by default; the user can retry with a live connection. If explicitly enabled, only allowlisted non-personal reads and theming writes are cached/queued, with visible conflicts |
 | O7 | Security and accountability | Permissions are enforced on the backend, writes are audited, and public registration cannot create admin accounts |
 | O8 | Maintainability | Features live in modular apps with shared components and documented contracts; no feature requires duplicating another |
 
@@ -86,7 +93,8 @@ The system should replace that fragmentation with:
 - Teacher: assigned classes and learners, resources, assignments, assessments, communication and profile.
 - Guardian: linked learners, progress, reports, announcements and communication.
 - Clear error states when a write or upload fails; the change stays unsaved
-  until the user retries (no offline queue or sync status).
+  until the user retries. Where low-bandwidth mode is explicitly enabled, only
+  allowlisted theming writes show a queue/conflict status.
 
 ### Administration
 
@@ -128,7 +136,7 @@ Before implementing anything, answer:
 5. What permission governs read and write access?
 6. Is it configurable in the admin panel where non-technical change is expected?
 7. Does it remain usable on mobile, and does it fail honestly when the
-   connection drops (no local save or replay)?
+   connection drops? Any local save or replay must stay within the narrow, env-driven, non-personal allowlist.
 8. Can it be tested without inventing passwords or demo data?
 
 A feature that cannot answer these questions is not ready for implementation.
@@ -165,11 +173,13 @@ A feature that cannot answer these questions is not ready for implementation.
   minimum role-specific additions documented in `USER_ROLES_JOURNEYS.md`.
 - **Implementation authorisation:** the foundation and Phase 1 were approved on
   24 November 2026. Work proceeds one module at a time with tests.
-- **Web-only product direction:** offline/PWA/native work was explicitly
-  removed later on 24 November 2026. Authentication is session-cookie based
-  and roles are re-read from `/api/auth/me/`. Security hardening is recorded
-  in `SECURITY_AUDIT.md`; **production readiness is not claimed** until
-  deployment/runtime verification is complete.
+- **Web-only product direction:** broad offline/PWA/native work was explicitly
+  removed later on 24 November 2026. The later narrow, env-driven low-bandwidth
+  mode is a separately documented reversal, not a return to PWA/native.
+  Authentication is session-cookie based and roles are re-read from
+  `/api/auth/me/`. Security hardening is recorded in `SECURITY_AUDIT.md`;
+  **production readiness is not claimed** until deployment/runtime verification
+  is complete.
 
 ## Implementation checks — not blockers
 

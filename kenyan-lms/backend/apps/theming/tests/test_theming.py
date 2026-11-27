@@ -535,3 +535,57 @@ class ThemeManagementTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
         self.assertIn("hero.imageSrc", response.data["content"])
+
+    def test_public_homepage_extras_are_managed_and_validated(self):
+        url = reverse("site-content")
+        first = self.client.get(url)
+        self.assertEqual(first.status_code, status.HTTP_200_OK, first.data)
+        self.assertEqual(first.data["announcement"]["actionHref"], "/#journey")
+        self.assertEqual(len(first.data["quickLinks"]["links"]), 6)
+        self.assertEqual(first.data["routines"]["items"][1]["key"], "record")
+        self.assertEqual(first.data["access"]["columns"], ["Role", "Sees", "Can do"])
+        self.assertEqual(len(first.data["accessibility"]["items"]), 3)
+        self.assertEqual(first.data["support"]["secondaryHref"], "/#access")
+        self.assertEqual(len(first.data["journey"]["checklist"]), 3)
+        for section in (
+            "announcement", "quick-links", "routines", "access",
+            "accessibility", "support",
+        ):
+            self.assertIn(section, first.data["styles"])
+
+        self.client.force_authenticate(user=self.platform)
+        content = deepcopy(DEFAULT_SITE_CONTENT)
+        content["announcement"]["text"] = "Term starts on Monday"
+        content["support"]["primaryHref"] = "https://example.test/help"
+        content["styles"]["support"] = {
+            "background": "#123456",
+            "text": "#FFFFFF",
+            "customCss": "body{display:none}",
+        }
+        saved = self.client.patch(url, {"content": content}, format="json")
+        self.assertEqual(saved.status_code, status.HTTP_200_OK, saved.data)
+        self.assertEqual(saved.data["announcement"]["text"], "Term starts on Monday")
+        self.assertEqual(saved.data["support"]["primaryHref"], "https://example.test/help")
+        self.assertEqual(saved.data["styles"]["support"]["text"], "#FFFFFF")
+        self.assertNotIn("customCss", str(saved.data["styles"]["support"]))
+
+        self.client.logout()
+        public = self.client.get(url)
+        self.assertEqual(public.data["announcement"]["text"], "Term starts on Monday")
+
+        self.client.force_authenticate(user=self.platform)
+        for path, value in (
+            ("announcement.actionHref", "javascript:alert(1)"),
+            ("support.secondaryHref", "data:text/html,x"),
+            ("quickLinks.links.0.href", "//elsewhere.test/page"),
+        ):
+            content = deepcopy(DEFAULT_SITE_CONTENT)
+            section, field = path.split(".", 1)
+            target = content[section]
+            if field.startswith("links."):
+                target = target["links"][0]
+                field = "href"
+            target[field] = value
+            rejected = self.client.patch(url, {"content": content}, format="json")
+            self.assertEqual(rejected.status_code, status.HTTP_400_BAD_REQUEST, rejected.data)
+            self.assertIn(path, str(rejected.data))

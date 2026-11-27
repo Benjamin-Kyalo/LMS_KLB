@@ -5,8 +5,11 @@ and what to do when access goes wrong. It does **not** contain any passwords.
 Passwords are set locally, at the keyboard, and never written into a document,
 a script or a chat message.
 
-**Current direction:** normal web app only. There is no offline queue, service
-worker, PWA or native app; failed saves show an error and remain unsaved.
+**Current direction:** normal web app, not a PWA or native app. By default there
+is no offline queue and failed saves show an error and remain unsaved. An
+optional, env-driven low-bandwidth mode can cache a small public read allowlist
+and queue allowlisted theming writes; it stores no credentials or personal
+fields. See `OFFLINE_MODE_REVERSAL.md`.
 Sign-in uses an HttpOnly Django session cookie with a readable CSRF cookie
 echoed as `X-CSRFToken`. Identity and roles are re-read from
 `/api/auth/me/`; no `klb_token` or `klb_user` lives in `localStorage`.

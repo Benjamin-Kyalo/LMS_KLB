@@ -10,6 +10,7 @@ from rest_framework.test import APIClient, APITestCase
 
 from apps.content.models import Chapter, ContentResource, DigitalTextbook, Publisher
 from apps.core.constants import Roles
+from apps.core.models import AuditLog
 from apps.courses.models import Course
 from apps.guardians.models import Guardian
 from apps.curriculum.models import (
@@ -136,12 +137,40 @@ class TutorTests(APITestCase):
         self.assertIn(OUTCOME_TEXT, response.data["answer"])
         self.assertIn("Learning outcome", response.data["source_labels"][0])
         self.assertNotIn("http", response.data["answer"].lower())
+        self.assertTrue(response.data["policy"]["grounded_only"])
+        self.assertTrue(response.data["policy"]["policy_version"])
+        self.assertIn("Assessment marks and submissions", response.data["policy"]["excluded_records"])
 
         question_message = self.conversation.messages.get(role=TutorMessage.Role.USER)
         answer_message = self.conversation.messages.get(role=TutorMessage.Role.TUTOR)
         self.assertEqual(question_message.body, "Explain whole numbers up to 10,000")
         self.assertEqual(answer_message.body, response.data["answer"])
         self.assertEqual(answer_message.institution_id, self.school.pk)
+
+    def test_ask_audit_contains_policy_but_not_question_or_answer(self):
+        self.client.force_authenticate(user=self.admin)
+        question = "Explain whole numbers up to 10,000"
+        response = self.client.post(
+            reverse("tutorconversation-ask", args=[self.conversation.pk]),
+            {"question": question},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+        requested = AuditLog.objects.get(action="tutor.answer.requested")
+        audit = AuditLog.objects.get(action="tutor.answer.generated")
+        for entry in (requested, audit):
+            with self.subTest(action=entry.action):
+                self.assertEqual(entry.user_id, self.admin.pk)
+                self.assertEqual(entry.institution_id, self.school.pk)
+                self.assertEqual(entry.entity_type, "TutorConversation")
+                self.assertEqual(entry.details["provider"], "local")
+                self.assertTrue(entry.details["policy_version"])
+                blob = str(entry.details)
+                self.assertNotIn(question, blob)
+                self.assertNotIn(response.data["answer"], blob)
+        self.assertEqual(requested.details["question_length"], len(question))
+        self.assertTrue(audit.details["grounded"])
 
     def test_unrelated_question_returns_fallback_without_network(self):
         self.client.force_authenticate(user=self.admin)
@@ -233,6 +262,8 @@ class TutorTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertEqual(response.data["provider"], "http")
         self.assertTrue(response.data["grounded_only"])
+        self.assertTrue(response.data["policy"]["grounded_only"])
+        self.assertTrue(response.data["policy"]["policy_version"])
         self.assertNotIn(dummy_key, str(response.data))
         self.assertNotIn(dummy_url, str(response.data))
 

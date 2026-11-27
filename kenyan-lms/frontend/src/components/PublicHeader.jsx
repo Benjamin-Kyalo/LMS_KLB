@@ -1,5 +1,6 @@
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link } from "react-router-dom";
+import { Menu, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSiteContent } from "../context/SiteContentContext";
 import { useSectionStyle } from "../styles/sectionStyles";
@@ -20,7 +21,7 @@ function safeHref(value) {
   return "/";
 }
 
-function HeaderLink({ item }) {
+function HeaderLink({ item, className = "", onNavigate }) {
   const href = safeHref(item?.href);
   const newTabHintId = useId();
   if (/^https:\/\//i.test(href)) {
@@ -28,9 +29,11 @@ function HeaderLink({ item }) {
       <>
         <a
           href={href}
+          className={className}
           target="_blank"
           rel="noopener noreferrer"
           aria-describedby={newTabHintId}
+          onClick={onNavigate}
         >
           {item?.label}
         </a>
@@ -38,7 +41,11 @@ function HeaderLink({ item }) {
       </>
     );
   }
-  return <Link to={href}>{item?.label}</Link>;
+  return (
+    <Link to={href} className={className} onClick={onNavigate}>
+      {item?.label}
+    </Link>
+  );
 }
 
 export default function PublicHeader({
@@ -49,30 +56,77 @@ export default function PublicHeader({
   const header = content.header;
   const items = links || header.links || [];
   const sectionStyle = useSectionStyle("header");
+  const navId = useId();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const hasNav = items.length > 0 || showSignIn;
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen]);
+
+  const closeMenu = () => setMenuOpen(false);
 
   return (
     <header className="public-topbar view-enter section-styled" style={sectionStyle}>
-      <Link to="/" className="public-brand">
-        <span className="public-mark">{header.brand.mark}</span>
-        <span>
-          <strong>{header.brand.name}</strong>
-          <small>{header.brand.subtitle}</small>
-        </span>
-      </Link>
-      <nav aria-label={ariaLabel}>
-        {items.map((item, index) => (
-          <HeaderLink key={`${item?.href}-${index}`} item={item} />
-        ))}
-        {showSignIn && (
-          user ? (
-            <Link to={homeFor(user)} className="button-link">
-              {user.full_name || user.username} dashboard
-            </Link>
-          ) : (
-            <HeaderLink item={{ label: header.signInLabel, href: header.signInHref }} />
-          )
+      <div className="public-topbar-inner">
+        <Link to="/" className="public-brand" onClick={closeMenu}>
+          <span className="public-mark">{header.brand.mark}</span>
+          <span>
+            <strong>{header.brand.name}</strong>
+            <small>{header.brand.subtitle}</small>
+          </span>
+        </Link>
+        {hasNav && (
+          <>
+            <button
+              type="button"
+              className="public-nav-toggle"
+              aria-expanded={menuOpen}
+              aria-controls={navId}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {menuOpen ? <X size={18} strokeWidth={2} aria-hidden="true" /> : <Menu size={18} strokeWidth={2} aria-hidden="true" />}
+              <span>{menuOpen ? "Close menu" : "Menu"}</span>
+            </button>
+            <nav
+              id={navId}
+              className={`public-nav${menuOpen ? " is-open" : ""}`}
+              aria-label={ariaLabel}
+            >
+              {items.map((item, index) => (
+                <HeaderLink
+                  key={`${item?.href}-${index}`}
+                  item={item}
+                  className="public-nav-link"
+                  onNavigate={closeMenu}
+                />
+              ))}
+              {showSignIn && (
+                user ? (
+                  <Link
+                    to={homeFor(user)}
+                    className="button-link public-nav-cta"
+                    onClick={closeMenu}
+                  >
+                    {user.full_name || user.username} dashboard
+                  </Link>
+                ) : (
+                  <HeaderLink
+                    item={{ label: header.signInLabel, href: header.signInHref }}
+                    className="button-link public-nav-cta"
+                    onNavigate={closeMenu}
+                  />
+                )
+              )}
+            </nav>
+          </>
         )}
-      </nav>
+      </div>
     </header>
   );
 }

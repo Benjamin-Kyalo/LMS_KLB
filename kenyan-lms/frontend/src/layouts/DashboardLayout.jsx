@@ -107,6 +107,7 @@ export default function DashboardLayout() {
         { to: "/admin/modules", label: "Modules", show: staff || allows(CAPABILITIES.COURSES_MANAGE) },
         { to: "/admin/lessons", label: "Lessons", show: staff || allows(CAPABILITIES.COURSES_MANAGE) },
         { to: "/admin/assignments", label: "Assignments", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
+        { to: "/admin/rubrics", label: "Rubrics & feedback", show: teaching || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
         { to: "/admin/submissions", label: "Submissions", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
         { to: "/admin/quizzes", label: "Quizzes", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
         { to: "/admin/questions", label: "Question bank", show: staff || allows(CAPABILITIES.ASSESSMENTS_MANAGE) },
@@ -140,6 +141,7 @@ export default function DashboardLayout() {
       id: "insights",
       label: "Insights & quality",
       items: [
+        { to: "/admin/mastery", label: "Mastery badges", show: staff || allows(CAPABILITIES.REPORTS_VIEW) },
         { to: "/admin/early-warning", label: "Early warning", show: staff || allows(CAPABILITIES.REPORTS_VIEW) },
         { to: "/admin/fees/ledger", label: "Fee ledger & receipts", show: staff || allows(CAPABILITIES.FEES_MANAGE) },
         { to: "/admin/data-quality", label: "Data quality", show: admin || allows(CAPABILITIES.ADMIN_ACCESS) },
@@ -158,6 +160,7 @@ export default function DashboardLayout() {
         { to: "/admin/school", label: "School profile", show: admin || allows(CAPABILITIES.ACADEMICS_MANAGE) },
         { to: "/admin/institutions", label: "Institutions", show: superAdmin },
         { to: "/admin/appearance", label: "Appearance", show: admin || allows(CAPABILITIES.APPEARANCE_MANAGE) },
+        { to: "/admin/offline", label: "Low-bandwidth status", show: staff || customAdmin },
         { to: "/admin/profile", label: "Profile" },
         { to: "/onboarding", label: "First-time setup", show: staff },
       ],

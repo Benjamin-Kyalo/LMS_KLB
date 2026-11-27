@@ -9,7 +9,10 @@ workbox precache, Capacitor wrapper or `frontend/android` / `frontend/ios`.
 The architecture below reflects that removal. References to queued writes or
 cached/offline paths are historical. Failed mutations surface an error and stay
 unsaved; uploads require a live connection. The old service worker is handled
-by a manual deployment kill-switch (see `PRODUCTION_CONFIGURATION.md`).
+by a manual deployment kill-switch (see `PRODUCTION_CONFIGURATION.md`). A later
+narrow, env-driven low-bandwidth module adds public read caching and allowlisted
+theming writes without reviving PWA/native layers; see
+`OFFLINE_MODE_REVERSAL.md`.
 
 ## Architectural principles
 

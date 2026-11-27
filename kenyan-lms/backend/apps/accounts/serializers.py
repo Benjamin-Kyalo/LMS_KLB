@@ -380,7 +380,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
             path = f"/reset-password/{uid}/{token}/"
             link = f"{base}{path}" if base else path
             user.email_user(
-                subject="Reset your KLB LMS password",
+                subject="Reset your KLB Elimu password",
                 message=f"Use this link to reset your password:\n\n"
                         f"{link}\n\n"
                         f"If you did not request this, ignore this message.",

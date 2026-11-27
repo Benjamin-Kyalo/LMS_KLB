@@ -10,7 +10,8 @@ show an error and remain unsaved, and uploads require a live connection.
 Authentication uses Django session cookies; identity/roles are re-read from
 `/api/auth/me/`. The frontend calls `/api` through the Vite proxy and the
 backend allows credentialed CORS from configured origins. See `README.md` and
-`SECURITY_AUDIT.md`.
+`SECURITY_AUDIT.md`. The optional low-bandwidth mode does not change roles;
+see `OFFLINE_MODE_REVERSAL.md`.
 
 ## Role taxonomy
 
@@ -98,6 +99,9 @@ name means a custom role gets that area only when the capability is selected;
 | Academic structure | F | F | `academics.manage` | R assigned | R own | R linked |
 | Learning resources | F | F | `content.manage` | M assigned | R allowed | R linked |
 | Assignments/assessments | F | F | `assessments.manage` | M assigned | R/submit own | R linked |
+| Rubrics, bands and feedback bank | F | F | `assessments.manage` | M school templates | — | — |
+| Published submission feedback | F | F | `assessments.manage` | M assigned | R own, resubmit when allowed | R linked with academic permission |
+| Mastery badge displays | F | F | `reports.view` | R school report | R own badges only | — |
 | Attendance/progress | F | F | `attendance.manage`, `reports.view` | M assigned | R own | R linked |
 | Messages/announcements | F | F | `communications.manage` | M assigned | R targeted | R targeted |
 | Reports | F | F within institution | `reports.view` | R assigned | R own | R linked |
@@ -238,6 +242,7 @@ page's **Forgot your password?** link and the `/reset-password` route.
 |---|---|---|
 | Notification centre | `/admin/notifications`, `/portal/notifications` | Every signed-in user; only their own alerts and preferences |
 | Early warning | `/admin/early-warning` | Staff with `reports.view`; backend enforces the same capability |
+| Mastery badges | `/admin/mastery`, `/portal/mastery` | Staff see scoped derived displays; learners see only their own; no guardian access |
 | Fee ledger and receipts | `/admin/fees/ledger` | Staff with `fees.manage`; no family or learner access |
 | Data quality | `/admin/data-quality` | Administrators with `admin.access`; read-only for non-admins is not offered |
 | Audit history | `/admin/audit` | Administrators with `admin.access`; platform admins see all schools |

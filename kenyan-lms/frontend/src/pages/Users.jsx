@@ -8,7 +8,7 @@ import DataTable from "../components/DataTable";
 import Modal from "../components/Modal";
 import FormField from "../components/FormField";
 import RollingLabel from "../components/RollingLabel";
-import HoldToConfirmButton from "../components/HoldToConfirmButton";
+import { DialogLead, DialogSection } from "../components/DialogParts";
 import { TablePagination, TableToolbar } from "../components/TableTools";
 import useTableControls from "../hooks/useTableControls";
 import { canGrantRole, customRoleId, isSuperAdmin, roleLabel } from "../utilities/roles";
@@ -49,20 +49,6 @@ function initials(name) {
     .toUpperCase() || "?";
 }
 
-function DialogLead({ icon: Icon, kicker, tone = "info", children }) {
-  return (
-    <div className="dialog-lead">
-      <span className={`dialog-lead-icon ${tone}`} aria-hidden="true">
-        <Icon size={20} />
-      </span>
-      <div>
-        {kicker && <div className="dialog-kicker">{kicker}</div>}
-        <p>{children}</p>
-      </div>
-    </div>
-  );
-}
-
 function AccountSummary({ row, role }) {
   const name = personName(row);
   return (
@@ -76,16 +62,6 @@ function AccountSummary({ row, role }) {
         {row.is_active ? "Active" : "Inactive"}
       </span>
     </div>
-  );
-}
-
-function DialogSection({ title, hint, children }) {
-  return (
-    <section className="dialog-section">
-      <h3>{title}</h3>
-      {hint && <p className="muted">{hint}</p>}
-      {children}
-    </section>
   );
 }
 
@@ -457,13 +433,15 @@ export default function Users() {
           <div className="dialog-actions">
             <button type="button" className="ghost" onClick={() => setStatusTarget(null)}><RollingLabel>Cancel</RollingLabel></button>
             {statusTarget.is_active ? (
-              <HoldToConfirmButton
+              <button
+                type="button"
                 className="danger"
                 disabled={statusBusy}
-                onConfirm={applyStatus}
+                aria-busy={statusBusy || undefined}
+                onClick={applyStatus}
               >
                 {statusBusy ? "Deactivating…" : "Deactivate account"}
-              </HoldToConfirmButton>
+              </button>
             ) : (
               <button type="button" disabled={statusBusy} aria-busy={statusBusy || undefined} onClick={applyStatus}>
                 {statusBusy ? "Reactivating…" : <RollingLabel>Reactivate account</RollingLabel>}
@@ -496,9 +474,14 @@ export default function Users() {
           </DialogSection>
           <div className="dialog-actions">
             <button type="button" className="ghost" onClick={() => setResetTarget(null)}><RollingLabel>Cancel</RollingLabel></button>
-            <HoldToConfirmButton disabled={resetBusy} onConfirm={confirmReset}>
+            <button
+              type="button"
+              disabled={resetBusy}
+              aria-busy={resetBusy || undefined}
+              onClick={confirmReset}
+            >
               {resetBusy ? "Generating…" : "Generate temporary password"}
-            </HoldToConfirmButton>
+            </button>
           </div>
         </Modal>
       )}
@@ -522,9 +505,15 @@ export default function Users() {
           </DialogSection>
           <div className="dialog-actions">
             <button type="button" className="ghost" onClick={() => setDeleteTarget(null)}><RollingLabel>Cancel</RollingLabel></button>
-            <HoldToConfirmButton className="danger" disabled={deleteBusy} onConfirm={() => remove(deleteTarget)}>
+            <button
+              type="button"
+              className="danger"
+              disabled={deleteBusy}
+              aria-busy={deleteBusy || undefined}
+              onClick={() => remove(deleteTarget)}
+            >
               {deleteBusy ? "Deleting…" : "Delete account"}
-            </HoldToConfirmButton>
+            </button>
           </div>
         </Modal>
       )}
